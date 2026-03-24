@@ -1,70 +1,87 @@
-# Miscellaneous
-*.class
-*.log
-*.pyc
-*.swp
+# -----------------------------
+# OS / Editor / Tooling
+# -----------------------------
 .DS_Store
+.history
+.svn/
 .atom/
 .build/
 .buildlog/
-.history
-.svn/
 .swiftpm/
 migrate_working_dir/
 .github/
 
-# IntelliJ related
+*.swp
 *.iml
 *.ipr
 *.iws
 .idea/
 
-# The .vscode folder contains launch configuration and tasks you configure in
-# VS Code which you may wish to be included in version control, so this line
-# is commented out by default.
-#.vscode/
+# Keep VS Code settings versioned unless you want to ignore them.
+# .vscode/
 
-# Flutter/Dart/Pub related
-**/doc/api/
-**/ios/Flutter/.last_build_id
+
+# -----------------------------
+# Logs and binaries
+# -----------------------------
+*.log
+*.class
+
+
+# -----------------------------
+# Flutter / Dart
+# -----------------------------
 .dart_tool/
 .flutter-plugins-dependencies
-.pub-cache/
 .pub/
-/build/
-/coverage/
-/Documentation
+.pub-cache/
 
-# Symbolication related
+build/
+coverage/
+
+**/doc/api/
+**/ios/Flutter/.last_build_id
+
+# Symbolication / obfuscation artifacts
 app.*.symbols
-
-# Obfuscation related
 app.*.map.json
 
-# Android Studio will place build artifacts here
-/android/app/debug
-/android/app/profile
-/android/app/release
+
+# -----------------------------
+# Android build outputs
+# -----------------------------
+android/app/debug/
+android/app/profile/
+android/app/release/
 
 
-# Custom / Project Files
-secrets.txt
-content.pdf
-implementation_plan.md
-task.md
+# -----------------------------
+# Python / backend
+# -----------------------------
+*.pyc
+__pycache__/
+server/__pycache__/
 
-# Environment Variables (contains API keys)
+
+# -----------------------------
+# Environment and secrets
+# -----------------------------
 .env
 env/
 server/.env
 new_server/.env
+secrets.txt
 
-# Python / Server related
-__pycache__/
-server/__pycache__/
+
+# -----------------------------
+# Project-specific exclusions
+# -----------------------------
+
+content.pdf
+implementation_plan.md
+task.md
 server/new_server.py
 server_old/
 Stitch_UI
 stitch
-
 .soft_delete/
