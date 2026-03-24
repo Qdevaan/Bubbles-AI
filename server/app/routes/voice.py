@@ -1,0 +1,261 @@
+"""
+Voice routes — voice command parsing & speaker enrollment.
+Records audit logs for voice commands and enrollments.
+"""
+
+import asyncio
+import json
+import os
+import tempfile
+from datetime import datetime
+
+from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
+
+from app.config import settings
+from app.models.requests import VoiceCommandRequest, TokenRequest
+from app.services import graph_svc, vector_svc, brain_svc, session_svc, audit_svc
+from app.utils.rate_limit import limiter
+from app.utils.text_sanitizer import sanitize_input
+from livekit import api
+
+router = APIRouter()
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# POST /getToken  (LiveKit JWT)
+# ══════════════════════════════════════════════════════════════════════════════
+
+@router.post("/getToken")
+@limiter.limit("15/minute")
+async def get_token(request: Request, req: TokenRequest):
+    """Generate a LiveKit JWT token for a user to join a room."""
+    token = api.AccessToken(settings.LIVEKIT_API_KEY, settings.LIVEKIT_API_SECRET)
+    token.with_identity(req.userId)
+    token.with_name(req.userId)
+    token.with_grants(
+        api.VideoGrants(
+            room_join=True, room=req.roomName,
+            can_publish=True, can_subscribe=True,
+        )
+    )
+    jwt_token = token.to_jwt()
+    return {"token": jwt_token, "url": settings.LIVEKIT_URL}
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# POST /voice_command
+# ══════════════════════════════════════════════════════════════════════════════
+
+@router.post("/voice_command")
+@limiter.limit("15/minute")
+async def voice_command(request: Request, req: VoiceCommandRequest):
+    """Parse a natural language voice command and route to the appropriate action."""
+    user_id = req.user_id
+    command = sanitize_input(req.command.strip().lower())
+
+    print(f"🎙️ Voice Command from {user_id}: '{command}'")
+
+    # Audit log the voice command
+    client_ip = request.client.host if request.client else None
+    audit_svc.log(
+        user_id, "voice_command_received",
+        entity_type="voice_command",
+        details={"command": command[:200]},
+        ip_address=client_ip,
+    )
+
+    # 1. Use LLM to classify intent
+    try:
+        intent_prompt = (
+            "You are a voice command parser for an app called Bubbles. "
+            "Classify the user's command into ONE of these intents:\n"
+            "1. 'start_session' - User wants to start a new live wingman session\n"
+            "2. 'ask_consultant' - User wants to ask a question about past sessions or general advice\n"
+            "3. 'view_sessions' - User wants to see session history\n"
+            "4. 'go_home' - User wants to go to the home screen\n"
+            "5. 'general_chat' - User is just chatting or the intent is unclear\n\n"
+            'Return JSON ONLY: {"intent": "<intent>", "query": "<extracted question if ask_consultant, else empty>"}'
+        )
+        completion = brain_svc.client.chat.completions.create(
+            messages=[
+                {"role": "system", "content": intent_prompt},
+                {"role": "user", "content": command},
+            ],
+            model=settings.WINGMAN_MODEL,
+            temperature=0.2,
+            max_tokens=100,
+            response_format={"type": "json_object"},
+        )
+        intent_data = json.loads(completion.choices[0].message.content)
+        intent = intent_data.get("intent", "general_chat")
+        query = intent_data.get("query", "")
+    except Exception as e:
+        print(f"❌ Voice Command: Intent parsing failed: {e}")
+        intent = "general_chat"
+        query = command
+
+    # Audit log the parsed intent
+    audit_svc.log(
+        user_id, "voice_command_parsed",
+        entity_type="voice_command",
+        details={"intent": intent, "query": query[:200]},
+    )
+
+    # 2. Route based on intent
+    if intent == "start_session":
+        return {"action": "navigate", "target": "/new-session", "response": "Starting a new live session for you. Let's go!"}
+
+    elif intent == "view_sessions":
+        return {"action": "navigate", "target": "/sessions", "response": "Here are your past sessions."}
+
+    elif intent == "go_home":
+        return {"action": "navigate", "target": "/home", "response": "Taking you home."}
+
+    elif intent == "ask_consultant":
+        question = query if query else command
+        try:
+            vc_session_id = session_svc.create_session_record(
+                user_id,
+                title=f"Voice Consultant {datetime.now().strftime('%Y-%m-%d %H:%M')}",
+                mode="consultant",
+            )
+
+            def _vc_graph_ctx():
+                graph_svc.load_graph(user_id)
+                return graph_svc.find_context(user_id, question, top_k=10)
+
+            g_ctx, v_ctx, h_ctx, s_ctx = await asyncio.gather(
+                asyncio.to_thread(_vc_graph_ctx),
+                asyncio.to_thread(vector_svc.search_memory, user_id, question),
+                asyncio.to_thread(session_svc.fetch_consultant_history, user_id, 5),
+                asyncio.to_thread(session_svc.fetch_session_summaries, user_id, 3),
+            )
+
+            result = brain_svc.ask_consultant(
+                user_id, question, h_ctx, g_ctx, v_ctx, session_summaries=s_ctx,
+            )
+            answer = result.get("answer", "")
+            session_svc.log_consultant_qa(
+                user_id, question, answer, session_id=vc_session_id,
+                model_used=result.get("model_used"),
+                latency_ms=result.get("latency_ms"),
+                tokens_used=result.get("tokens_used"),
+            )
+            session_svc.end_session(vc_session_id, summary=f"Q: {question[:100]}")
+            graph_svc.save_graph(user_id)
+
+            # Track token usage
+            session_svc.update_session_token_usage(
+                vc_session_id,
+                tokens_prompt=result.get("tokens_prompt", 0),
+                tokens_completion=result.get("tokens_completion", 0),
+            )
+
+            return {"action": "speak", "target": None, "response": answer}
+        except Exception as e:
+            print(f"❌ Voice Command: Consultant query failed: {e}")
+            return {"action": "speak", "target": None, "response": "I had trouble looking that up. Can you try again?"}
+    else:
+        # General chat / fallback
+        try:
+            chat_completion = brain_svc.client.chat.completions.create(
+                messages=[
+                    {"role": "system", "content": "You are Bubbles, a friendly AI assistant. Keep responses short, warm, and conversational (1-2 sentences max)."},
+                    {"role": "user", "content": command},
+                ],
+                model=settings.WINGMAN_MODEL,
+                temperature=0.7,
+                max_tokens=80,
+            )
+            response = chat_completion.choices[0].message.content.strip()
+            return {"action": "speak", "target": None, "response": response}
+        except Exception as e:
+            return {"action": "speak", "target": None, "response": "Hey! I'm here to help. What can I do for you?"}
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# POST /enroll  (voice enrollment)
+# ══════════════════════════════════════════════════════════════════════════════
+
+# Lazy load the speaker model to avoid heavy import at startup
+_speaker_model = None
+
+def _get_speaker_model():
+    global _speaker_model
+    if _speaker_model is None:
+        from speechbrain.inference.speaker import EncoderClassifier
+        _speaker_model = EncoderClassifier.from_hparams(
+            source="speechbrain/spkrec-ecapa-voxceleb",
+            savedir="pretrained_models/spkrec-ecapa-voxceleb",
+        )
+    return _speaker_model
+
+
+@router.post("/enroll")
+@limiter.limit("5/minute")
+async def enroll_voice(
+    request: Request,
+    user_id: str = Form(...),
+    user_name: str = Form(...),
+    file: UploadFile = File(...),
+):
+    """Enroll a speaker embedding via ECAPA-TDNN model."""
+    import torch
+    import torchaudio
+
+    suffix = os.path.splitext(file.filename or "")[1] or ".m4a"
+    tmp_path = None
+    try:
+        with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+            contents = await file.read()
+            tmp.write(contents)
+            tmp_path = tmp.name
+
+        model = await asyncio.to_thread(_get_speaker_model)
+
+        def _embed():
+            waveform, sr = torchaudio.load(tmp_path)
+            if sr != 16000:
+                waveform = torchaudio.transforms.Resample(orig_freq=sr, new_freq=16000)(waveform)
+            if waveform.shape[0] > 1:
+                waveform = waveform.mean(dim=0, keepdim=True)
+            with torch.no_grad():
+                emb = model.encode_batch(waveform)
+            return emb.squeeze().tolist()
+
+        embedding = await asyncio.to_thread(_embed)
+
+        from supabase import create_client
+        svc_client = create_client(settings.SUPABASE_URL, settings.SUPABASE_SERVICE_KEY)
+
+        # Check existing enrollment for samples_count increment
+        existing = svc_client.table("voice_enrollments").select(
+            "samples_count"
+        ).eq("user_id", user_id).maybe_single().execute()
+        current_count = 0
+        if existing.data:
+            current_count = existing.data.get("samples_count", 0) or 0
+
+        svc_client.table("voice_enrollments").upsert(
+            {
+                "user_id": user_id,
+                "embedding": embedding,
+                "model_version": "v1",
+                "samples_count": current_count + 1,
+            },
+            on_conflict="user_id",
+        ).execute()
+
+        # Audit log
+        audit_svc.log(
+            user_id, "voice_enrolled",
+            entity_type="voice_enrollment",
+            details={"user_name": user_name, "samples_count": current_count + 1},
+        )
+
+        return {"status": "enrolled", "user_id": user_id, "user_name": user_name}
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Voice enrollment failed: {exc}")
+    finally:
+        if tmp_path and os.path.exists(tmp_path):
+            os.unlink(tmp_path)

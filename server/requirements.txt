@@ -1,0 +1,32 @@
+# Bubbles Server — Python Dependencies
+# Install with: pip install -r requirements.txt
+
+# Web Framework
+fastapi
+uvicorn
+pydantic
+
+# AI & LLM
+groq
+
+# Database
+supabase
+
+# Real-time Communication
+livekit-api
+
+# NLP & Embeddings
+sentence-transformers
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch
+
+# Graph Database (in-memory)
+networkx
+
+# Rate Limiting
+slowapi
+
+# Utilities
+httpx
+python-dotenv
+python-multipart
