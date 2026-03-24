@@ -77,7 +77,6 @@ secrets.txt
 # Project-specific exclusions
 # -----------------------------
 
-content.pdf
 implementation_plan.md
 task.md
 server/new_server.py
