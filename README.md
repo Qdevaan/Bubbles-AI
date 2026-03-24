@@ -4,6 +4,14 @@ An AI-powered conversation assistant platform built with Flutter (multi-platform
 
 Bubbles combines live conversation support, consultant-style Q&A, voice workflows, memory retrieval, and knowledge graph capabilities into one product.
 
+## Base Repository
+
+This repository is a fresh start and is based on the previous codebase:
+
+- https://github.com/Qdevaan/fyp_app
+
+No commit history was carried over. The project files were re-initialized into a new clean history.
+
 ## Table of Contents
 
 1. [Project Overview](#project-overview)
