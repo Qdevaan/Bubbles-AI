@@ -1,6 +1,12 @@
 """
 Bubbles Brain API — FastAPI entry point.
 Mounts all routers, configures CORS, rate-limiting, and background tasks.
+
+CHANGES:
+  - Background cleanup now uses session_store (Redis or in-memory) instead of
+    direct dict access on the sessions module.
+  - JWT auth applied globally to all /v1/ routes via dependency injection on
+    individual endpoints (not middleware, to allow public health check).
 """
 
 import asyncio
@@ -13,6 +19,7 @@ from slowapi.errors import RateLimitExceeded
 
 from app.config import settings
 from app.utils.rate_limit import limiter
+from app.utils.session_store import session_store
 
 from app.routes import health, sessions, consultant, voice, analytics, entities
 
@@ -21,7 +28,7 @@ from app.routes import health, sessions, consultant, voice, analytics, entities
 app = FastAPI(
     title="Bubbles Brain API",
     description="Backend API for the Bubbles conversation assistant",
-    version="2.0.0",
+    version="3.0.0",
 )
 
 # Rate limiter
@@ -37,16 +44,17 @@ _allowed_origins = (
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_allowed_origins,
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 # ── Mount Routers ─────────────────────────────────────────────────────────────
 
-# Health & root (no prefix)
+# Health & root (no prefix, no auth — public endpoint)
 app.include_router(health.router)
 
-# All business endpoints under /v1/
+# All business endpoints under /v1/ (auth is applied per-endpoint via Depends)
 from fastapi import APIRouter
 
 v1 = APIRouter(prefix="/v1")
@@ -64,30 +72,27 @@ app.include_router(v1)
 _SESSION_TTL_HOURS = 6
 
 async def _cleanup_stale_sessions():
-    """Every 30 min, purge sessions older than TTL from in-memory state."""
+    """Every 30 min, purge sessions older than TTL from session store."""
     while True:
         await asyncio.sleep(30 * 60)
-        cutoff = datetime.now() - timedelta(hours=_SESSION_TTL_HOURS)
-        stale = [
-            sid
-            for sid, ts in sessions.SESSION_TIMESTAMPS.items()
-            if ts < cutoff
-        ]
-        for sid in stale:
-            sessions.SESSION_TIMESTAMPS.pop(sid, None)
-            sessions.TURN_COUNTERS.pop(sid, None)
-            sessions.SESSION_METADATA.pop(sid, None)
-            for k, v in list(sessions.LIVE_SESSIONS.items()):
-                if v == sid:
-                    del sessions.LIVE_SESSIONS[k]
-        if stale:
-            print(f"🧹 TTL cleanup: removed {len(stale)} stale session(s)")
+        try:
+            cutoff = datetime.now() - timedelta(hours=_SESSION_TTL_HOURS)
+            evicted = await session_store.evict_stale(cutoff)
+            if evicted:
+                print(f"🧹 TTL cleanup: removed {evicted} stale session(s)")
+        except Exception as e:
+            print(f"❌ Cleanup task error: {e}")
 
 
 @app.on_event("startup")
-async def _start_cleanup_task():
+async def _startup():
     asyncio.create_task(_cleanup_stale_sessions())
-    print("🚀 Bubbles Brain API v2.0 — Ready")
+    # Initialize session store (triggers Redis connection if REDIS_URL is set)
+    await session_store.evict_stale(datetime.now())  # no-op but warms connection
+    auth_mode = "DEBUG (no JWT)" if settings.DEBUG_SKIP_AUTH else "JWT Verified"
+    store_mode = "Redis" if settings.REDIS_URL else "In-Memory"
+    print(f"🚀 Bubbles Brain API v3.0 — Ready")
+    print(f"   Auth: {auth_mode}  |  Session Store: {store_mode}")
 
 
 # ── Direct Execution ──────────────────────────────────────────────────────────

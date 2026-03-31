@@ -1,4 +1,21 @@
 services:
+  # ── Redis — session state store for multi-worker support ──────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: bubbles-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── Bubbles Brain API server ──────────────────────────────────────────────
   server:
     build: .
     container_name: bubbles-server
@@ -6,11 +23,17 @@ services:
       - "8000:8000"
     env_file:
       - ../env/.env
+    environment:
+      # Connects to the Redis container — overrides any value in .env
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      redis:
+        condition: service_healthy
     restart: unless-stopped
     volumes:
       - ./app:/app/app
       - model_cache:/root/.cache
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 4
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
@@ -20,3 +43,5 @@ services:
 
 volumes:
   model_cache:
+  redis_data:
+

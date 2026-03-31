@@ -48,6 +48,29 @@ class ApiService {
     throw TimeoutException('All $retries retries exhausted');
   }
 
+  // ── Auth Header Builder ─────────────────────────────────────────────────────
+  /// Builds headers including the Supabase JWT Bearer token.
+  /// Falls back gracefully if the user is not logged in (dev/anonymous mode).
+  Future<Map<String, String>> _authHeaders({
+    bool isMultipart = false,
+  }) async {
+    final headers = <String, String>{
+      if (!isMultipart) 'Content-Type': 'application/json',
+      'ngrok-skip-browser-warning': 'true',
+    };
+
+    try {
+      final session = Supabase.instance.client.auth.currentSession;
+      if (session != null && session.accessToken.isNotEmpty) {
+        headers['Authorization'] = 'Bearer ${session.accessToken}';
+      }
+    } catch (e) {
+      debugPrint('⚠️ Could not attach Bearer token: $e');
+    }
+
+    return headers;
+  }
+
   Future<Map<String, dynamic>?> getToken(String userId, {String? roomName}) async {
     if (_baseUrl.isEmpty) return null;
     try {
@@ -59,10 +82,7 @@ class ApiService {
         final response = await http
             .post(
               Uri.parse('$_baseUrl/v1/getToken'),
-              headers: {
-                'Content-Type': 'application/json',
-                'ngrok-skip-browser-warning': 'true',
-              },
+              headers: await _authHeaders(),
               body: jsonEncode(body),
             )
             .timeout(const Duration(seconds: 10));
@@ -79,7 +99,6 @@ class ApiService {
 
   // --- 1. VOICE ENROLLMENT ---
   /// Uploads audio to enroll the user's voice signature.
-  /// Returns the enrolled_at timestamp string if successful, throws otherwise.
   Future<String> enrollVoice({
     required String userId,
     required String userName,
@@ -91,7 +110,9 @@ class ApiService {
 
     try {
       final request = http.MultipartRequest('POST', uri);
-      request.headers['ngrok-skip-browser-warning'] = 'true';
+      // Inject auth headers (without Content-Type for multipart)
+      final headers = await _authHeaders(isMultipart: true);
+      request.headers.addAll(headers);
       request.fields['user_id'] = userId;
       request.fields['user_name'] = userName;
       request.files.add(await http.MultipartFile.fromPath('file', audioPath));
@@ -107,7 +128,6 @@ class ApiService {
         );
       }
 
-      // Confirm the embedding was actually persisted in Supabase
       final status = await checkEnrollmentStatus(userId);
       if (status == null) {
         throw Exception(
@@ -122,7 +142,6 @@ class ApiService {
   }
 
   /// Queries voice_enrollments to verify the embedding row exists.
-  /// Returns the enrolled_at timestamp string, or null if not enrolled.
   Future<String?> checkEnrollmentStatus(String userId) async {
     try {
       final res = await Supabase.instance.client
@@ -146,7 +165,8 @@ class ApiService {
     try {
       var uri = Uri.parse("$_baseUrl/v1/process_audio");
       var request = http.MultipartRequest('POST', uri);
-      request.headers['ngrok-skip-browser-warning'] = 'true';
+      final headers = await _authHeaders(isMultipart: true);
+      request.headers.addAll(headers);
       request.files.add(await http.MultipartFile.fromPath('file', filePath));
 
       var streamedResponse = await request.send().timeout(
@@ -158,7 +178,7 @@ class ApiService {
         return jsonDecode(response.body);
       } else {
         debugPrint("Server Error (${response.statusCode}): ${response.body}");
-        return {"transcript": "", "suggestion": ""}; // Return empty on error
+        return {"transcript": "", "suggestion": ""};
       }
     } catch (e) {
       debugPrint("API Chunk Error: $e");
@@ -184,10 +204,7 @@ class ApiService {
         var response = await http
             .post(
               uri,
-              headers: {
-                "Content-Type": "application/json",
-                "ngrok-skip-browser-warning": "true",
-              },
+              headers: await _authHeaders(),
               body: jsonEncode({
                 "user_id": userId,
                 "transcript": fullTranscript,
@@ -219,10 +236,7 @@ class ApiService {
         var response = await http
             .post(
               uri,
-              headers: {
-                "Content-Type": "application/json",
-                "ngrok-skip-browser-warning": "true",
-              },
+              headers: await _authHeaders(),
               body: jsonEncode({"user_id": userId, "question": question}),
             )
             .timeout(const Duration(seconds: 30));
@@ -262,10 +276,7 @@ class ApiService {
         var response = await http
             .post(
               uri,
-              headers: {
-                "Content-Type": "application/json",
-                "ngrok-skip-browser-warning": "true",
-              },
+              headers: await _authHeaders(),
               body: jsonEncode(body),
             )
             .timeout(const Duration(seconds: 10));
@@ -309,10 +320,7 @@ class ApiService {
         final res = await http
             .post(
               Uri.parse("$_baseUrl/v1/start_session"),
-              headers: {
-                "Content-Type": "application/json",
-                "ngrok-skip-browser-warning": "true",
-              },
+              headers: await _authHeaders(),
               body: jsonEncode(body),
             )
             .timeout(const Duration(seconds: 10));
@@ -336,10 +344,7 @@ class ApiService {
         await http
             .post(
               Uri.parse("$_baseUrl/v1/end_session"),
-              headers: {
-                "Content-Type": "application/json",
-                "ngrok-skip-browser-warning": "true",
-              },
+              headers: await _authHeaders(),
               body: jsonEncode({"session_id": sessionId, "user_id": userId}),
             )
             .timeout(const Duration(seconds: 30));
@@ -351,8 +356,11 @@ class ApiService {
 
   // --- 7. STREAMING CONSULTANT (SSE) ---
   /// Streams tokens from /ask_consultant_stream via Server-Sent Events.
-  /// Yields text tokens one at a time. Caller should concatenate them.
-  /// [onSessionCreated] is called once with the session_id when the stream ends.
+  ///
+  /// FIX: Improved SSE parsing that correctly handles:
+  ///   - Both \n and \r\n line endings (RFC 8895 compliant)
+  ///   - Double-newline (\n\n) event boundaries
+  ///   - Partial packets that don't end on a newline
   Stream<String> askConsultantStream(
     String userId,
     String question, {
@@ -370,9 +378,11 @@ class ApiService {
         'POST',
         Uri.parse("$_baseUrl/v1/ask_consultant_stream"),
       );
-      request.headers['Content-Type'] = 'application/json';
-      request.headers['ngrok-skip-browser-warning'] = 'true';
-      request.headers['Accept'] = 'text/event-stream';
+
+      // Inject Bearer token on SSE request too
+      final headers = await _authHeaders();
+      headers['Accept'] = 'text/event-stream';
+      request.headers.addAll(headers);
       request.body = jsonEncode({
         'user_id': userId,
         'question': question,
@@ -388,31 +398,64 @@ class ApiService {
         return;
       }
 
-      String buffer = '';
+      // ── Improved SSE parser ──────────────────────────────────────────────
+      // Accumulates raw bytes into a string buffer and processes complete SSE
+      // events delimited by double-newlines (\n\n or \r\n\r\n), which is the
+      // RFC 8895 standard. This is robust against packet-splitting.
+      final StringBuffer buffer = StringBuffer();
+
       await for (final bytes in streamedResponse.stream) {
-        buffer += utf8.decode(bytes, allowMalformed: true);
-        // Process complete SSE lines
-        while (buffer.contains('\n')) {
-          final idx = buffer.indexOf('\n');
-          final line = buffer.substring(0, idx).trim();
-          buffer = buffer.substring(idx + 1);
-          if (line.startsWith('data: ')) {
-            final data = line.substring(6);
+        buffer.write(utf8.decode(bytes, allowMalformed: true));
+        final raw = buffer.toString();
+
+        // SSE events are separated by double newlines
+        // Normalize \r\n to \n for consistent processing
+        final normalized = raw.replaceAll('\r\n', '\n');
+
+        // Split on double-newline (event boundaries)
+        final events = normalized.split('\n\n');
+
+        // The last element may be an incomplete event — keep it in the buffer
+        buffer.clear();
+        if (!normalized.endsWith('\n\n')) {
+          // Last chunk is incomplete — put it back
+          buffer.write(events.removeLast());
+        } else {
+          events.removeLast(); // remove empty string after final \n\n
+        }
+
+        // Process each complete SSE event
+        for (final event in events) {
+          if (event.trim().isEmpty) continue;
+
+          // An SSE event can have multiple lines (data:, event:, id:)
+          // We only care about 'data:' lines
+          for (final line in event.split('\n')) {
+            final trimmed = line.trim();
+            if (!trimmed.startsWith('data:')) continue;
+
+            final dataStr = trimmed.substring(5).trim(); // strip 'data: '
+            if (dataStr.isEmpty || dataStr == '[DONE]') continue;
+
             try {
-              final parsed = jsonDecode(data) as Map<String, dynamic>;
+              final parsed = jsonDecode(dataStr) as Map<String, dynamic>;
               if (parsed['token'] != null) {
                 yield parsed['token'] as String;
               } else if (parsed['done'] == true) {
-                AuthService.instance.updateOnboardingProgress({'first_consultant': true});
+                AuthService.instance
+                    .updateOnboardingProgress({'first_consultant': true});
                 final sid = parsed['session_id'] as String?;
-                if (sid != null && onSessionCreated != null)
+                if (sid != null && onSessionCreated != null) {
                   onSessionCreated(sid);
+                }
                 return;
               } else if (parsed['error'] != null) {
                 yield '\n[Error: ${parsed['error']}]';
                 return;
               }
-            } catch (_) {}
+            } catch (_) {
+              // Malformed JSON — skip silently
+            }
           }
         }
       }
@@ -431,10 +474,7 @@ class ApiService {
       final res = await http
           .post(
             Uri.parse("$_baseUrl/v1/ask_entity"),
-            headers: {
-              "Content-Type": "application/json",
-              "ngrok-skip-browser-warning": "true",
-            },
+            headers: await _authHeaders(),
             body: jsonEncode({"user_id": userId, "entity_name": entityName}),
           )
           .timeout(const Duration(seconds: 15));
@@ -474,10 +514,7 @@ class ApiService {
       final res = await http
           .post(
             Uri.parse('$_baseUrl/v1/save_feedback'),
-            headers: {
-              'Content-Type': 'application/json',
-              'ngrok-skip-browser-warning': 'true',
-            },
+            headers: await _authHeaders(),
             body: jsonEncode(body),
           )
           .timeout(const Duration(seconds: 10));
@@ -496,7 +533,7 @@ class ApiService {
       final res = await http
           .get(
             Uri.parse('$_baseUrl/v1/session_analytics/$sessionId'),
-            headers: {'ngrok-skip-browser-warning': 'true'},
+            headers: await _authHeaders(),
           )
           .timeout(const Duration(seconds: 10));
       if (res.statusCode == 200) {
@@ -517,9 +554,9 @@ class ApiService {
       final res = await http
           .get(
             Uri.parse('$_baseUrl/v1/coaching_report/$sessionId'),
-            headers: {'ngrok-skip-browser-warning': 'true'},
+            headers: await _authHeaders(),
           )
-          .timeout(const Duration(seconds: 30)); // Generation can take a moment
+          .timeout(const Duration(seconds: 30));
       if (res.statusCode == 200) {
         return jsonDecode(res.body) as Map<String, dynamic>;
       }
@@ -529,6 +566,7 @@ class ApiService {
       return null;
     }
   }
+
   // --- 11b. GET KNOWLEDGE GRAPH EXPORT ---
   Future<Map<String, dynamic>?> getGraphExport(String userId) async {
     if (!_connectionService.isConnected) return null;
@@ -536,7 +574,7 @@ class ApiService {
       final res = await http
           .get(
             Uri.parse('${_connectionService.serverUrl}/v1/graph_export/$userId'),
-            headers: {'ngrok-skip-browser-warning': 'true'},
+            headers: await _authHeaders(),
           )
           .timeout(const Duration(seconds: 15));
       if (res.statusCode == 200) {
@@ -548,6 +586,7 @@ class ApiService {
       return null;
     }
   }
+
   // --- 12. PARSE VOICE COMMAND ---
   Future<Map<String, dynamic>?> parseVoiceCommand(
     String userId,
@@ -559,10 +598,7 @@ class ApiService {
       final response = await http
           .post(
             url,
-            headers: {
-              'Content-Type': 'application/json',
-              'ngrok-skip-browser-warning': 'true',
-            },
+            headers: await _authHeaders(),
             body: jsonEncode({'user_id': userId, 'command': command}),
           )
           .timeout(const Duration(seconds: 5));
@@ -576,6 +612,7 @@ class ApiService {
       return null;
     }
   }
+
   // --- 13. GAMIFICATION & QUESTS ---
   Future<Map<String, dynamic>?> getGamification(String userId) async {
     if (!_connectionService.isConnected) return null;
@@ -583,7 +620,7 @@ class ApiService {
       final res = await http
           .get(
             Uri.parse('${_connectionService.serverUrl}/v1/gamification/$userId'),
-            headers: {'ngrok-skip-browser-warning': 'true'},
+            headers: await _authHeaders(),
           )
           .timeout(const Duration(seconds: 10));
       if (res.statusCode == 200) {
@@ -602,7 +639,7 @@ class ApiService {
       final res = await http
           .get(
             Uri.parse('${_connectionService.serverUrl}/v1/quests/$userId'),
-            headers: {'ngrok-skip-browser-warning': 'true'},
+            headers: await _authHeaders(),
           )
           .timeout(const Duration(seconds: 10));
       if (res.statusCode == 200) {

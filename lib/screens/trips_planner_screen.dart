@@ -1,15 +1,2 @@
-import 'package:flutter/material.dart';
-
-class TripsPlannerScreen extends StatelessWidget {
-  const TripsPlannerScreen({Key? key}) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Trip Planner')),
-      body: const Center(
-        child: Text('Trips planning coming soon.'),
-      ),
-    );
-  }
-}
+// Re-exports TripsPlannerScreen from the shared feature-flag screens file.
+export 'tasks_screen.dart' show TripsPlannerScreen;

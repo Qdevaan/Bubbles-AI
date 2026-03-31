@@ -38,6 +38,7 @@ dependencies:
   force_directed_graphview: ^0.6.2
   device_info_plus: ^12.3.0
   package_info_plus: ^9.0.0
+  fl_chart: ^0.69.0
 
 flutter_launcher_icons:
   android: "launcher_icon"

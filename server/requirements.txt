@@ -30,3 +30,4 @@ slowapi
 httpx
 python-dotenv
 python-multipart
+redis[asyncio]

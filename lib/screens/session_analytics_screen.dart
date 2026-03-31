@@ -1,3 +1,4 @@
+import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/api_service.dart';
@@ -137,14 +138,17 @@ class _AnalyticsTab extends StatelessWidget {
           _StatRow('Dominant Mood', _capitalize('${a['dominant_sentiment'] ?? 'unknown'}')),
           if (a['avg_sentiment_score'] != null)
             _StatRow('Avg Score', (a['avg_sentiment_score'] as num).toStringAsFixed(3)),
-          if (a['sentiment_trend'] != null && (a['sentiment_trend'] as List).isNotEmpty) ...[
+          if (a['sentiment_trend'] != null &&
+              (a['sentiment_trend'] as List).isNotEmpty) ...[
             const SizedBox(height: 12),
             const Text('Emotion Flow:', style: TextStyle(color: Colors.white70)),
             const SizedBox(height: 8),
             SizedBox(
-              height: 60,
+              height: 80,
               width: double.infinity,
-              child: _SentimentTrendChart(trend: a['sentiment_trend'] as List),
+              child: _SentimentLineChart(
+                trend: a['sentiment_trend'] as List,
+              ),
             ),
           ],
         ]),
@@ -192,6 +196,24 @@ class _CoachingTab extends StatelessWidget {
             Text(r['tone_summary'] as String),
             if (r['engagement_trend'] != null)
               _StatRow('Engagement Trend', _capitalize('${r['engagement_trend']}')),
+          ]),
+        ],
+        // fl_chart Radar — Conversational Tone Radar
+        if (r['tone_aggression'] != null ||
+            r['tone_empathy'] != null ||
+            r['tone_analytical'] != null) ...[
+          const SizedBox(height: 12),
+          _SectionCard(title: '🎯 Conversational Tone Radar', children: [
+            SizedBox(
+              height: 200,
+              child: _ToneRadarChart(
+                aggression: (r['tone_aggression'] as num? ?? 5).toDouble(),
+                empathy: (r['tone_empathy'] as num? ?? 5).toDouble(),
+                analytical: (r['tone_analytical'] as num? ?? 5).toDouble(),
+                confidence: (r['tone_confidence'] as num? ?? 5).toDouble(),
+                clarity: (r['tone_clarity'] as num? ?? 5).toDouble(),
+              ),
+            ),
           ]),
         ],
         const SizedBox(height: 12),
@@ -351,65 +373,169 @@ class _LegendDot extends StatelessWidget {
   }
 }
 
-class _SentimentTrendChart extends StatelessWidget {
+// ── fl_chart: Sentiment Line Chart ───────────────────────────────────────────
+class _SentimentLineChart extends StatelessWidget {
   final List trend;
-  const _SentimentTrendChart({required this.trend});
+  const _SentimentLineChart({required this.trend});
 
   @override
   Widget build(BuildContext context) {
-    return CustomPaint(
-      painter: _TrendPainter(trend),
+    if (trend.isEmpty) return const SizedBox();
+
+    final spots = <FlSpot>[];
+    for (int i = 0; i < trend.length; i++) {
+      final item = trend[i] as Map<String, dynamic>;
+      final score = (item['score'] as num?)?.toDouble() ?? 0.0;
+      spots.add(FlSpot(i.toDouble(), score.clamp(-1.0, 1.0)));
+    }
+
+    return LineChart(
+      LineChartData(
+        minY: -1,
+        maxY: 1,
+        gridData: FlGridData(
+          show: true,
+          drawVerticalLine: false,
+          horizontalInterval: 1,
+          getDrawingHorizontalLine: (_) => FlLine(
+            color: Colors.white12,
+            strokeWidth: 1,
+          ),
+        ),
+        borderData: FlBorderData(show: false),
+        titlesData: const FlTitlesData(show: false),
+        lineBarsData: [
+          LineChartBarData(
+            spots: spots,
+            isCurved: true,
+            color: Colors.blueAccent,
+            barWidth: 2,
+            dotData: FlDotData(
+              show: true,
+              getDotPainter: (spot, _, __, ___) {
+                final c = spot.y > 0.2
+                    ? Colors.green
+                    : spot.y < -0.2
+                        ? Colors.red
+                        : Colors.grey;
+                return FlDotCirclePainter(radius: 3, color: c, strokeWidth: 0);
+              },
+            ),
+            belowBarData: BarAreaData(
+              show: true,
+              color: Colors.blueAccent.withOpacity(0.1),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
 
-class _TrendPainter extends CustomPainter {
-  final List data;
-  _TrendPainter(this.data);
+// ── fl_chart: Conversational Tone Radar Chart ─────────────────────────────────
+class _ToneRadarChart extends StatelessWidget {
+  final double aggression;
+  final double empathy;
+  final double analytical;
+  final double confidence;
+  final double clarity;
+
+  const _ToneRadarChart({
+    required this.aggression,
+    required this.empathy,
+    required this.analytical,
+    required this.confidence,
+    required this.clarity,
+  });
 
   @override
-  void paint(Canvas canvas, Size size) {
-    if (data.isEmpty) return;
-
-    final paint = Paint()
-      ..color = Colors.blueAccent
-      ..strokeWidth = 2.0
-      ..style = PaintingStyle.stroke;
-
-    final dotPaint = Paint()..style = PaintingStyle.fill;
-    
-    final path = Path();
-    final double stepX = size.width / (data.length > 1 ? data.length - 1 : 1);
-    
-    for (int i = 0; i < data.length; i++) {
-      final item = data[i] as Map<String, dynamic>;
-      final score = (item['score'] as num?)?.toDouble() ?? 0.0;
-      final normScore = (score + 1) / 2; // 0.0 to 1.0 mapping from -1.0 to 1.0
-      final y = size.height * (1 - normScore);
-      final x = i * stepX;
-      
-      if (i == 0) {
-        path.moveTo(x, y);
-      } else {
-        path.lineTo(x, y);
-      }
-      
-      if (score > 0.2) dotPaint.color = Colors.green;
-      else if (score < -0.2) dotPaint.color = Colors.red;
-      else dotPaint.color = Colors.grey;
-
-      canvas.drawCircle(Offset(x, y), 3, dotPaint);
-    }
-    
-    canvas.drawPath(path, paint);
-    
-    final zeroY = size.height / 2;
-    final gridPaint = Paint()
-      ..color = Colors.white24
-      ..strokeWidth = 1.0;
-    canvas.drawLine(Offset(0, zeroY), Offset(size.width, zeroY), gridPaint);
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: RadarChart(
+            RadarChartData(
+              dataSets: [
+                RadarDataSet(
+                  fillColor: const Color(0xFF6366F1).withOpacity(0.2),
+                  borderColor: const Color(0xFF6366F1),
+                  borderWidth: 2,
+                  entryRadius: 4,
+                  dataEntries: [
+                    RadarEntry(value: aggression),
+                    RadarEntry(value: empathy),
+                    RadarEntry(value: analytical),
+                    RadarEntry(value: confidence),
+                    RadarEntry(value: clarity),
+                  ],
+                ),
+              ],
+              radarBackgroundColor: Colors.transparent,
+              borderData: FlBorderData(show: false),
+              radarBorderData: const BorderSide(color: Colors.white12),
+              gridBorderData: const BorderSide(color: Colors.white12, width: 1),
+              tickCount: 5,
+              ticksTextStyle: const TextStyle(color: Colors.transparent, fontSize: 0),
+              tickBorderData: const BorderSide(color: Colors.white10),
+              titleTextStyle: const TextStyle(color: Colors.white70, fontSize: 11),
+              getTitle: (index, _) {
+                const titles = [
+                  'Aggressive',
+                  'Empathetic',
+                  'Analytical',
+                  'Confident',
+                  'Clear',
+                ];
+                return RadarChartTitle(
+                  text: titles[index],
+                  positionPercentageOffset: 0.1,
+                );
+              },
+            ),
+          ),
+        ),
+        // Legend
+        Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _RadarLegendItem('Aggressive', aggression),
+            _RadarLegendItem('Empathetic', empathy),
+            _RadarLegendItem('Analytical', analytical),
+            _RadarLegendItem('Confident', confidence),
+            _RadarLegendItem('Clear', clarity),
+          ],
+        ),
+      ],
+    );
   }
+}
 
+class _RadarLegendItem extends StatelessWidget {
+  final String label;
+  final double value;
+  const _RadarLegendItem(this.label, this.value);
   @override
-  bool shouldRepaint(covariant _TrendPainter oldDelegate) => true;
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 8, height: 8,
+            decoration: const BoxDecoration(
+              shape: BoxShape.circle,
+              color: Color(0xFF6366F1),
+            ),
+          ),
+          const SizedBox(width: 6),
+          Text(
+            '$label: ${value.toStringAsFixed(1)}',
+            style: const TextStyle(fontSize: 10, color: Colors.white70),
+          ),
+        ],
+      ),
+    );
+  }
 }

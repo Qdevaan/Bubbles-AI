@@ -44,6 +44,17 @@ class Settings:
     HOST: str = "0.0.0.0"
     PORT: int = 8000
 
+    # ── Redis (optional — session state store for multi-worker deployments) ───
+    # Set REDIS_URL in your .env for production (e.g. redis://localhost:6379/0).
+    # If empty, the server falls back to in-process Python dicts (single-worker).
+    REDIS_URL: str = os.getenv("REDIS_URL", "")
+
+    # ── Auth (development bypass) ─────────────────────────────────────────────
+    # Set DEBUG_SKIP_AUTH=true in .env ONLY during local development.
+    # When true, all JWT verification is bypassed and the user_id from the
+    # request body is trusted directly. MUST be false in production.
+    DEBUG_SKIP_AUTH: bool = os.getenv("DEBUG_SKIP_AUTH", "false").lower() == "true"
+
     # ── CORS ──────────────────────────────────────────────────────────────────
     ALLOWED_ORIGINS: str = os.getenv("ALLOWED_ORIGINS", "*")
 
