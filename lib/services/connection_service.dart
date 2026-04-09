@@ -7,6 +7,11 @@ import 'package:http/http.dart' as http;
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
+/// Compile-time production URL override.
+/// Set via: flutter build apk --dart-define=SERVER_URL=http://YOUR_IP:8000
+/// Falls back to LOCAL_SERVER_URL in .env, then platform emulator defaults.
+const _kServerUrl = String.fromEnvironment('SERVER_URL', defaultValue: '');
+
 enum ConnectionStatus { disconnected, connecting, connected, error, offline }
 
 class ConnectionService with ChangeNotifier {
@@ -62,25 +67,27 @@ class ConnectionService with ChangeNotifier {
 
   // --- URL Management ---
   void _determineServerUrlAndInitialCheck() {
-    // Check .env for a hardcoded URL first (e.g., for physical devices)
-    final customUrl = dotenv.env['LOCAL_SERVER_URL'];
-    
-    if (customUrl != null && customUrl.trim().isNotEmpty) {
-      _serverUrl = customUrl.trim();
+    // Priority 1: compile-time dart-define (release builds)
+    if (_kServerUrl.isNotEmpty) {
+      _serverUrl = _kServerUrl;
     } else {
-      // Default to simulator/emulator defaults based on platform
-      if (kIsWeb) {
-        _serverUrl = 'http://localhost:8000';
-      } else if (Platform.isAndroid) {
-        _serverUrl = 'http://10.0.2.2:8000';
+      // Priority 2: .env file LOCAL_SERVER_URL (development / testing)
+      final customUrl = dotenv.env['LOCAL_SERVER_URL'];
+      if (customUrl != null && customUrl.trim().isNotEmpty) {
+        _serverUrl = customUrl.trim();
       } else {
-        // iOS Simulator, macOS, Windows, Linux
-        _serverUrl = 'http://127.0.0.1:8000';
+        // Priority 3: emulator/simulator defaults
+        if (kIsWeb) {
+          _serverUrl = 'http://localhost:8000';
+        } else if (Platform.isAndroid) {
+          _serverUrl = 'http://10.0.2.2:8000';
+        } else {
+          _serverUrl = 'http://127.0.0.1:8000';
+        }
       }
     }
-    
-    notifyListeners();
 
+    notifyListeners();
     if (_serverUrl.isNotEmpty) {
       checkConnection(notifyResult: false);
     }
