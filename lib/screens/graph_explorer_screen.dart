@@ -295,7 +295,6 @@ class _GraphExplorerScreenState extends State<GraphExplorerScreen> {
             },
             edgePainter: LineEdgePainter(
               color: cs.onSurface.withOpacity(0.2),
-              width: 1.0,
             ),
             labelBuilder: BottomLabelBuilder(
               labelSize: const Size(0, 0),
