@@ -11,6 +11,39 @@
 migrate_working_dir/
 .github/
 
+.adal/
+.agents/
+.augment/
+.bob/
+.claude/
+.codebuddy/
+.commandcode/
+.continue/
+.cortex/
+.crush/
+.factory/
+.goose/
+.iflow/
+.junie/
+.kilocode/
+.kiro/
+.mcpjam/
+.kode/
+.mux/
+.neovate/
+.openhands/
+.pi/
+.pochi/
+.qoder/
+.qwen/
+.roo/
+.trae/
+.vibe/
+.windsurf/
+.zencoder/
+skills/
+
+
 *.swp
 *.iml
 *.ipr
@@ -26,6 +59,7 @@ migrate_working_dir/
 # -----------------------------
 *.log
 *.class
+CLAUDE.md
 
 
 # -----------------------------
