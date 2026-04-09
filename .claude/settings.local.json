@@ -1,0 +1,33 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(../fypo/Scripts/python.exe -c \"from app.config import settings; print\\('✅ Config loaded'\\); print\\(f'  GROQ_API_KEY: {settings.GROQ_API_KEY[:8]}...'\\); print\\(f'  SUPABASE_URL: {settings.SUPABASE_URL}'\\); print\\(f'  DEEPGRAM_API_KEY: {settings.DEEPGRAM_API_KEY[:8]}...'\\)\")",
+      "Bash(../fypo/Scripts/python.exe -c \"from app.config import settings; print\\('Config OK'\\); print\\('GROQ:', settings.GROQ_API_KEY[:8]\\); print\\('SUPABASE:', settings.SUPABASE_URL\\)\")",
+      "Bash(../fypo/Scripts/python.exe -c \"import app.main; print\\('Import OK'\\)\")",
+      "Bash(./fypo/Scripts/pip.exe show:*)",
+      "Bash(./fypo/Scripts/python.exe -c \"from supabase.lib.client_options import ClientOptions; import inspect; print\\(inspect.signature\\(ClientOptions.__init__\\)\\)\")",
+      "Bash(./fypo/Scripts/pip.exe list:*)",
+      "Bash(./fypo/Scripts/python.exe -c \"import supabase._sync.client as c; import inspect; src = inspect.getsource\\(c.Client._init_supabase_auth_client\\); print\\(src[:500]\\)\")",
+      "Bash(timeout 8 ../fypo/Scripts/python.exe -m uvicorn app.main:app --host 0.0.0.0 --port 8000)",
+      "Bash(../fypo/Scripts/python.exe -m uvicorn app.main:app --host 0.0.0.0 --port 8000)",
+      "Bash(curl -s http://localhost:8000/health)",
+      "Bash(kill %1)",
+      "Bash(netstat -ano)",
+      "Bash(ipconfig)",
+      "Bash(netsh advfirewall:*)",
+      "Bash(curl -s http://192.168.31.162:8000/health)",
+      "Bash(where ngrok:*)",
+      "Bash(ls \"e:/FYP/FYP_V2/Bubbles-AI/\"*ngrok*)",
+      "mcp__plugin_claude-mem_mcp-search__get_observations",
+      "Bash(pip index:*)",
+      "Bash(python -c \"from app.config import settings; print\\(settings.CEREBRAS_WINGMAN_MODEL, settings.GEMINI_CONSULTANT_MODEL\\)\")",
+      "Bash(pip install:*)",
+      "mcp__plugin_claude-mem_mcp-search__smart_outline",
+      "Bash(python -c \"from app.services.brain_service import BrainService; print\\('OK'\\)\")",
+      "Bash(python:*)",
+      "Bash(git add:*)",
+      "Bash(git commit -m ':*)",
+      "Bash(dart analyze:*)"
+    ]
+  }
+}

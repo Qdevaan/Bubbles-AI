@@ -20,7 +20,7 @@ services:
     build: .
     container_name: bubbles-server-v2
     ports:
-      - "8001:8000"
+      - "8000:8000"
     env_file:
       - ../env/.env
     environment:
