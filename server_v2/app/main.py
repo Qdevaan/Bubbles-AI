@@ -46,6 +46,22 @@ async def _cleanup_stale_sessions():
             print(f"❌ Cleanup task error: {e}")
 
 
+async def _self_ping():
+    """Every 14 min, ping own /health to prevent cold-start sleep on Render/Railway.
+    No-op when SELF_URL is empty (EC2 / Oracle Cloud deployments)."""
+    if not settings.SELF_URL:
+        return
+    import httpx
+    while True:
+        await asyncio.sleep(14 * 60)
+        try:
+            async with httpx.AsyncClient(timeout=10) as client:
+                r = await client.get(f"{settings.SELF_URL}/health")
+                print(f"🏓 Self-ping: {r.status_code}")
+        except Exception as e:
+            print(f"⚠️  Self-ping failed: {e}")
+
+
 # ── Lifespan ──────────────────────────────────────────────────────────────────
 
 @asynccontextmanager
@@ -61,6 +77,7 @@ async def lifespan(app: FastAPI):
 
     # Start background stale-session cleanup task
     cleanup_task = asyncio.create_task(_cleanup_stale_sessions())
+    ping_task = asyncio.create_task(_self_ping())
 
     auth_mode = "DEBUG (no JWT)" if settings.DEBUG_SKIP_AUTH else "JWT Verified"
     store_mode = "Redis" if settings.REDIS_URL else "In-Memory"
@@ -71,6 +88,7 @@ async def lifespan(app: FastAPI):
 
     # === Shutdown: drain tracked background tasks (XP, quests, streaks) ===
     cleanup_task.cancel()
+    ping_task.cancel()
     if _background_tasks:
         print(f"⏳ Draining {len(_background_tasks)} background task(s)...")
         done, pending = await asyncio.wait(_background_tasks, timeout=10)
