@@ -3,11 +3,15 @@
 
 # Web Framework
 fastapi
-uvicorn
+uvicorn[standard]
 pydantic
 pydantic-settings>=2.0
 
-# AI & LLM
+# AI & LLM — primary providers
+cerebras-cloud-sdk>=1.0.0
+google-generativeai>=0.8.0
+
+# AI & LLM — fallback / extraction
 groq
 
 # Database
@@ -16,10 +20,14 @@ supabase
 # Real-time Communication
 livekit-api
 
-# NLP & Embeddings
+# NLP & Embeddings (local)
 sentence-transformers
 --extra-index-url https://download.pytorch.org/whl/cpu
 torch
+
+# Speaker identification (voice enrollment)
+speechbrain
+torchaudio
 
 # Graph Database (in-memory)
 networkx
