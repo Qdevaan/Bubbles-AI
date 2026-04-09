@@ -1,0 +1,45 @@
+# docker-compose.prod.yml — Production deployment
+# Run with: docker compose -f docker-compose.prod.yml up -d
+#
+# Required on the VM: /opt/bubbles/env/.env  (copy from env/.env.example)
+
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: bubbles-redis
+    restart: always
+    command: >
+      redis-server
+      --appendonly yes
+      --maxmemory 512mb
+      --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  server:
+    image: bubbles-server:latest          # built by deploy.sh on the VM
+    container_name: bubbles-server
+    restart: always
+    ports:
+      - "8000:8000"
+    env_file:
+      - /opt/bubbles/env/.env
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 90s
+
+volumes:
+  redis_data:
