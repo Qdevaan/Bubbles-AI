@@ -28,6 +28,7 @@ class SessionService:
         persona: str = "casual",
         device_id: str = None,
         session_type: str = None,
+        idempotency_key: str = None,
     ) -> str:
         """Create a new session row and return its UUID."""
         if not db:
@@ -55,6 +56,8 @@ class SessionService:
             }
             if device_id:
                 row["device_id"] = device_id
+            if idempotency_key:
+                row["idempotency_key"] = idempotency_key
             result = (
                 db.table("sessions")
                 .insert(row)
@@ -76,6 +79,7 @@ class SessionService:
         title: str = "New Conversation",
         summary: str = None,
         mode: str = "live_wingman",
+        idempotency_key: str = None,
     ) -> str:
         """Create a session record and return its ID."""
         if not db:
@@ -90,6 +94,8 @@ class SessionService:
             }
             if summary:
                 data["summary"] = summary
+            if idempotency_key:
+                data["idempotency_key"] = idempotency_key
             result = db.table("sessions").insert(data).execute()
             if result.data:
                 return result.data[0]["id"]

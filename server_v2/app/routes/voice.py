@@ -22,6 +22,96 @@ router = APIRouter()
 
 
 # ══════════════════════════════════════════════════════════════════════════════
+# POST /process_audio  (audio chunk → transcript + wingman advice)
+# ══════════════════════════════════════════════════════════════════════════════
+
+@router.post("/process_audio")
+@limiter.limit("30/minute")
+async def process_audio(
+    request: Request,
+    user_id: str = Form(...),
+    session_id: str = Form(None),
+    speaker_role: str = Form("others"),
+    file: UploadFile = File(...),
+):
+    """
+    Accept a short audio chunk, transcribe via Deepgram, run wingman advice,
+    and return {"transcript": "...", "suggestion": "..."}.
+
+    Used by the Flutter live wingman screen for real-time audio-based input.
+    Falls back gracefully if Deepgram is not configured.
+    """
+    import httpx
+
+    suffix = os.path.splitext(file.filename or "")[1] or ".m4a"
+    tmp_path = None
+    transcript = ""
+
+    try:
+        with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+            contents = await file.read()
+            tmp.write(contents)
+            tmp_path = tmp.name
+
+        # ── Transcribe via Deepgram ───────────────────────────────────────────
+        if settings.DEEPGRAM_API_KEY:
+            try:
+                async with httpx.AsyncClient(timeout=20.0) as client:
+                    with open(tmp_path, "rb") as audio_file:
+                        audio_bytes = audio_file.read()
+                    dg_resp = await client.post(
+                        "https://api.deepgram.com/v1/listen?model=nova-2&smart_format=true",
+                        headers={
+                            "Authorization": f"Token {settings.DEEPGRAM_API_KEY}",
+                            "Content-Type": "audio/m4a",
+                        },
+                        content=audio_bytes,
+                    )
+                    if dg_resp.status_code == 200:
+                        dg_data = dg_resp.json()
+                        transcript = (
+                            dg_data.get("results", {})
+                            .get("channels", [{}])[0]
+                            .get("alternatives", [{}])[0]
+                            .get("transcript", "")
+                            .strip()
+                        )
+            except Exception as e:
+                print(f"⚠️ Deepgram transcription error: {e}")
+
+        if not transcript:
+            return {"transcript": "", "suggestion": ""}
+
+        # ── Get wingman advice ────────────────────────────────────────────────
+        suggestion = ""
+        role = speaker_role if speaker_role in ("user", "others") else "others"
+        if role == "others":
+            try:
+                def _ctx():
+                    graph_svc.load_graph(user_id)
+                    return graph_svc.find_context(user_id, transcript)
+
+                g_ctx, v_ctx = await asyncio.gather(
+                    asyncio.to_thread(_ctx),
+                    asyncio.to_thread(vector_svc.search_memory, user_id, transcript),
+                )
+                result = await brain_svc.get_wingman_advice(
+                    user_id, transcript, g_ctx, v_ctx, "live_wingman", "casual",
+                )
+                suggestion = result.get("answer", "")
+            except Exception as e:
+                print(f"⚠️ Wingman advice error in process_audio: {e}")
+
+        return {"transcript": transcript, "suggestion": suggestion}
+
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Audio processing failed: {exc}")
+    finally:
+        if tmp_path and os.path.exists(tmp_path):
+            os.unlink(tmp_path)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
 # POST /getToken  (LiveKit JWT)
 # ══════════════════════════════════════════════════════════════════════════════
 

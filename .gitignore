@@ -80,6 +80,7 @@ secrets.txt
 implementation_plan.md
 task.md
 server/new_server.py
+server-old/
 server_old/
 Stitch_UI
 stitch

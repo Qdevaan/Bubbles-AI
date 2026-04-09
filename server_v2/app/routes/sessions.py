@@ -95,6 +95,7 @@ async def start_session_endpoint(
         persona=req.persona,
         device_id=req.device_id,
         session_type=req.session_type,
+        idempotency_key=req.idempotency_key,
     )
 
     await session_store.set_live_session(req.user_id, session_id)
@@ -349,6 +350,7 @@ async def save_session_endpoint(
         user_id,
         title=f"Live Session {datetime.now().strftime('%Y-%m-%d %H:%M')}",
         mode="live_wingman",
+        idempotency_key=req.idempotency_key,
     )
 
     await asyncio.to_thread(session_svc.log_batch_messages, session_id, logs)

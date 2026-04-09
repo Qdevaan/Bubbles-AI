@@ -882,3 +882,87 @@ begin
     limit match_count;
 end;
 $$;
+
+
+-- sessions table — idempotency on start/save/end_session
+alter table public.sessions add column if not exists idempotency_key text unique;
+
+-- feedback table — idempotency on save_feedback
+alter table public.feedback add column if not exists idempotency_key text unique;
+
+
+-- 1. User XP/level/streak profile
+create table public.user_gamification (
+    user_id uuid primary key references auth.users(id) on delete cascade,
+    total_xp int default 0,
+    level int default 1,
+    current_streak int default 0,
+    longest_streak int default 0,
+    streak_freezes int default 1,
+    last_active_date date,
+    updated_at timestamptz default now()
+);
+
+-- 2. XP award log (idempotency + daily cap enforcement)
+create table public.xp_transactions (
+    id uuid default extensions.uuid_generate_v4() primary key,
+    user_id uuid references auth.users(id) on delete cascade,
+    amount int not null,
+    source_type text not null,     -- session_complete | consultant_qa | entity_extraction | streak_bonus | quest_complete | achievement_unlock | first_session_today
+    source_id text,                -- dedup key (session_id, quest_id, etc.)
+    description text,
+    created_at timestamptz default now()
+);
+create index idx_xp_transactions_user on public.xp_transactions(user_id, source_type, created_at);
+create unique index idx_xp_transactions_dedup on public.xp_transactions(user_id, source_type, source_id)
+    where source_id is not null;
+
+-- 3. Quest templates
+create table public.quest_definitions (
+    id uuid default extensions.uuid_generate_v4() primary key,
+    title text not null,
+    description text,
+    quest_type text default 'daily',   -- daily | weekly
+    action_type text not null,         -- complete_session | use_wingman_turns | save_memory | extract_entities
+    target int not null default 1,
+    xp_reward int default 0,
+    is_active boolean default true,
+    created_at timestamptz default now()
+);
+
+-- 4. Per-user daily quest assignments
+create table public.user_quests (
+    id uuid default extensions.uuid_generate_v4() primary key,
+    user_id uuid references auth.users(id) on delete cascade,
+    quest_id uuid references public.quest_definitions(id) on delete cascade,
+    progress int default 0,
+    target int not null,
+    is_completed boolean default false,
+    xp_awarded boolean default false,
+    assigned_date date not null,
+    completed_at timestamptz,
+    created_at timestamptz default now()
+);
+create index idx_user_quests_user_date on public.user_quests(user_id, assigned_date);
+
+-- 5. Achievement definitions
+create table public.achievements (
+    id uuid default extensions.uuid_generate_v4() primary key,
+    title text not null,
+    description text,
+    icon text default '🏆',
+    category text default 'general',
+    criteria_type text not null,   -- total_xp | streak | session_count | consultant_count | entity_count | quest_count
+    criteria_value int not null,
+    xp_reward int default 0,
+    created_at timestamptz default now()
+);
+
+-- 6. User achievement unlocks
+create table public.user_achievements (
+    id uuid default extensions.uuid_generate_v4() primary key,
+    user_id uuid references auth.users(id) on delete cascade,
+    achievement_id uuid references public.achievements(id) on delete cascade,
+    awarded_at timestamptz default now(),
+    unique(user_id, achievement_id)
+);
