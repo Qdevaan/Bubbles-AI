@@ -27,7 +27,13 @@
       "Bash(python:*)",
       "Bash(git add:*)",
       "Bash(git commit -m ':*)",
-      "Bash(dart analyze:*)"
+      "Bash(dart analyze:*)",
+      "Bash(cat env/.env.example)",
+      "Bash(cat server_v2/env/.env.example)",
+      "Bash(netsh interface:*)",
+      "Bash(docker exec:*)",
+      "Bash(grep -v \"maybe_single\\\\|execute\\\\|asyncio\\\\|table\\\\|select\\\\|\\\\.eq\\\\|\\\\.in_\\\\|\\\\.gte\\\\|^--$\")",
+      "Bash(docker compose:*)"
     ]
   }
 }

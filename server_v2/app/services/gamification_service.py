@@ -86,7 +86,7 @@ class GamificationService:
                     .maybe_single()
                     .execute()
                 )
-                if existing.data:
+                if existing is not None and existing.data:
                     return  # Already awarded — skip silently
 
             # Daily cap check for automated sources
@@ -133,7 +133,7 @@ class GamificationService:
             )
 
             current_xp = 0
-            if profile_res.data:
+            if profile_res is not None and profile_res.data:
                 current_xp = profile_res.data.get("total_xp", 0) or 0
 
             new_xp = current_xp + amount
@@ -183,7 +183,7 @@ class GamificationService:
                 .execute()
             )
 
-            if not profile_res.data:
+            if profile_res is None or not profile_res.data:
                 # First ever activity — create profile
                 await asyncio.to_thread(
                     lambda: db.table("user_gamification").upsert({
@@ -271,7 +271,7 @@ class GamificationService:
                 .execute()
             )
 
-            if existing.data:
+            if existing is not None and existing.data:
                 # Enrich with quest definition metadata
                 return await self._enrich_quests(existing.data)
 
@@ -501,7 +501,7 @@ class GamificationService:
                 .maybe_single()
                 .execute()
             )
-            if profile_res.data:
+            if profile_res is not None and profile_res.data:
                 stats["total_xp"] = profile_res.data.get("total_xp", 0) or 0
                 stats["current_streak"] = profile_res.data.get("current_streak", 0) or 0
 
@@ -567,7 +567,7 @@ class GamificationService:
                 .maybe_single()
                 .execute()
             )
-            if not profile_res.data:
+            if profile_res is None or not profile_res.data:
                 await asyncio.to_thread(
                     lambda: db.table("user_gamification").upsert({
                         "user_id": user_id,

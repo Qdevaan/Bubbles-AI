@@ -279,7 +279,7 @@ class ApiService {
               headers: await _authHeaders(),
               body: jsonEncode(body),
             )
-            .timeout(const Duration(seconds: 10));
+            .timeout(const Duration(seconds: 25));
 
         if (response.statusCode == 200) {
           var data = jsonDecode(response.body);
@@ -404,8 +404,9 @@ class ApiService {
       // RFC 8895 standard. This is robust against packet-splitting.
       final StringBuffer buffer = StringBuffer();
 
-      await for (final bytes in streamedResponse.stream) {
-        buffer.write(utf8.decode(bytes, allowMalformed: true));
+      // utf8.decoder transformer handles multi-byte chars split across chunks
+      await for (final chunk in streamedResponse.stream.transform(utf8.decoder)) {
+        buffer.write(chunk);
         final raw = buffer.toString();
 
         // SSE events are separated by double newlines

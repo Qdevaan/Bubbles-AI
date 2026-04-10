@@ -11,6 +11,7 @@ Changes from v3:
 
 import asyncio
 import os
+import socket
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta
 
@@ -81,8 +82,26 @@ async def lifespan(app: FastAPI):
 
     auth_mode = "DEBUG (no JWT)" if settings.DEBUG_SKIP_AUTH else "JWT Verified"
     store_mode = "Redis" if settings.REDIS_URL else "In-Memory"
+
+    # Detect the host machine's LAN IP for physical device connections
+    try:
+        _sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        _sock.connect(("8.8.8.8", 80))
+        _lan_ip = _sock.getsockname()[0]
+        _sock.close()
+    except Exception:
+        _lan_ip = "unknown"
+
     print(f"🚀 Bubbles Brain API v4.0 — Ready")
     print(f"   Auth: {auth_mode}  |  Session Store: {store_mode}  |  Env: {settings.APP_ENV}")
+    print(f"")
+    print(f"   ┌─────────────────────────────────────────────────────────┐")
+    print(f"   │  Local:         http://localhost:8000                   │")
+    print(f"   │  Docs:          http://localhost:8000/docs              │")
+    print(f"   │  Health:        http://localhost:8000/health            │")
+    print(f"   │  Android (LAN): http://{_lan_ip}:8000          │")
+    print(f"   └─────────────────────────────────────────────────────────┘")
+    print(f"")
 
     yield  # Server is running
 

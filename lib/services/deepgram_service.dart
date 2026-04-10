@@ -1,8 +1,10 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import 'package:web_socket_channel/io.dart';
@@ -10,18 +12,33 @@ import 'package:web_socket_channel/io.dart';
 class DeepgramService extends ChangeNotifier {
   // CONFIG — loaded from environment variables
   static String get _apiKey => dotenv.env['DEEPGRAM_API_KEY'] ?? '';
+  // encoding=linear16 is required — without it Deepgram cannot decode raw PCM
   static const String _wsUrl =
-      "wss://api.deepgram.com/v1/listen?smart_format=true&diarize=true&model=nova-2";
+      "wss://api.deepgram.com/v1/listen?smart_format=true&diarize=true&model=nova-2"
+      "&encoding=linear16&sample_rate=16000&channels=1";
 
   // STATE
   bool _isConnected = false;
   bool get isConnected => _isConnected;
+
+  bool _isMuted = false;
+  bool get isMuted => _isMuted;
 
   String _currentTranscript = "";
   String get currentTranscript => _currentTranscript;
 
   String _currentSpeaker = "user";
   String get currentSpeaker => _currentSpeaker;
+
+  // Recording state
+  final BytesBuilder _audioBuffer = BytesBuilder(copy: false);
+  final List<Map<String, String>> _fullTranscript = [];
+  String? _lastSavedAudioPath;
+  String? _lastSavedTranscriptPath;
+  String? get lastSavedAudioPath => _lastSavedAudioPath;
+  String? get lastSavedTranscriptPath => _lastSavedTranscriptPath;
+  List<Map<String, String>> get fullTranscript =>
+      List.unmodifiable(_fullTranscript);
 
   // INTERNAL
   final AudioRecorder _recorder = AudioRecorder();
@@ -69,10 +86,13 @@ class DeepgramService extends ChangeNotifier {
         ),
       );
 
-      // 4. Send Audio to WebSocket
+      // 4. Send Audio to WebSocket and buffer locally for recording
+      _audioBuffer.clear();
+      _isMuted = false;
       _audioStreamSubscription = stream.listen((data) {
-        if (_channel != null) {
-          _channel!.sink.add(data);
+        if (!_isMuted) {
+          _channel?.sink.add(data);
+          _audioBuffer.add(data);
         }
       });
 
@@ -116,9 +136,13 @@ class DeepgramService extends ChangeNotifier {
             }
 
             _currentTranscript = transcript;
-            _currentSpeaker = speakerId == 0
-                ? "user"
-                : "other"; // Simple mapping
+            _currentSpeaker = speakerId == 0 ? "user" : "other";
+
+            _fullTranscript.add({
+              'speaker': _currentSpeaker,
+              'text': transcript,
+              'timestamp': DateTime.now().toIso8601String(),
+            });
 
             debugPrint("🗣️ Deepgram: [$_currentSpeaker] $transcript");
             notifyListeners();
@@ -130,8 +154,15 @@ class DeepgramService extends ChangeNotifier {
     }
   }
 
+  void toggleMute() {
+    _isMuted = !_isMuted;
+    notifyListeners();
+    debugPrint(_isMuted ? "🔇 Mic muted" : "🎙️ Mic unmuted");
+  }
+
   Future<void> disconnect() async {
     _intentionalDisconnect = true;
+    _isMuted = false;
     _isConnected = false;
     notifyListeners();
 
@@ -142,6 +173,86 @@ class DeepgramService extends ChangeNotifier {
 
     await _channel?.sink.close();
     _channel = null;
+  }
+
+  /// Save the buffered audio as a WAV file and the full transcript as a .txt
+  /// file to the app documents directory.  Returns a map with 'audio' and
+  /// 'transcript' paths, or null if there was nothing to save.
+  Future<Map<String, String>?> saveSessionRecording(String sessionId) async {
+    if (_fullTranscript.isEmpty && _audioBuffer.isEmpty) return null;
+
+    try {
+      final dir = await getApplicationDocumentsDirectory();
+      final recordingsDir = Directory('${dir.path}/recordings');
+      if (!await recordingsDir.exists()) {
+        await recordingsDir.create(recursive: true);
+      }
+
+      final ts = DateTime.now().millisecondsSinceEpoch;
+      final Map<String, String> paths = {};
+
+      // Save WAV audio
+      if (_audioBuffer.isNotEmpty) {
+        final audioBytes = _audioBuffer.toBytes();
+        final wavHeader = _buildWavHeader(audioBytes.length);
+        final audioFile = File('${recordingsDir.path}/session_${ts}.wav');
+        final sink = audioFile.openWrite();
+        sink.add(wavHeader);
+        sink.add(audioBytes);
+        await sink.close();
+        _lastSavedAudioPath = audioFile.path;
+        paths['audio'] = audioFile.path;
+        debugPrint("✅ DeepgramService: Audio saved → ${audioFile.path}");
+      }
+
+      // Save transcript .txt
+      if (_fullTranscript.isNotEmpty) {
+        final lines = _fullTranscript.map((e) {
+          final label = e['speaker'] == 'user' ? 'You' : 'Other';
+          return '$label: ${e['text']}';
+        }).join('\n');
+        final txFile =
+            File('${recordingsDir.path}/session_${ts}_transcript.txt');
+        await txFile.writeAsString(lines);
+        _lastSavedTranscriptPath = txFile.path;
+        paths['transcript'] = txFile.path;
+        debugPrint("✅ DeepgramService: Transcript saved → ${txFile.path}");
+      }
+
+      // Reset buffers after saving
+      _audioBuffer.clear();
+      _fullTranscript.clear();
+
+      return paths.isEmpty ? null : paths;
+    } catch (e) {
+      debugPrint("❌ DeepgramService: Failed to save recording: $e");
+      return null;
+    }
+  }
+
+  /// Build a minimal 44-byte WAV header for mono 16-bit PCM at 16 kHz.
+  static Uint8List _buildWavHeader(int dataSize) {
+    final b = ByteData(44);
+    void str(int offset, String s) {
+      for (var i = 0; i < s.length; i++) {
+        b.setUint8(offset + i, s.codeUnitAt(i));
+      }
+    }
+
+    str(0, 'RIFF');
+    b.setUint32(4, 36 + dataSize, Endian.little);
+    str(8, 'WAVE');
+    str(12, 'fmt ');
+    b.setUint32(16, 16, Endian.little);  // PCM fmt chunk size
+    b.setUint16(20, 1, Endian.little);   // PCM format
+    b.setUint16(22, 1, Endian.little);   // mono
+    b.setUint32(24, 16000, Endian.little); // sample rate
+    b.setUint32(28, 32000, Endian.little); // byte rate (16000 * 1 * 2)
+    b.setUint16(32, 2, Endian.little);   // block align
+    b.setUint16(34, 16, Endian.little);  // bits per sample
+    str(36, 'data');
+    b.setUint32(40, dataSize, Endian.little);
+    return b.buffer.asUint8List();
   }
 
   void _attemptReconnect() {

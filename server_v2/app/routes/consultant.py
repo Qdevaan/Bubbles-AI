@@ -100,6 +100,21 @@ async def ask_consultant_endpoint(
     )
     await asyncio.to_thread(graph_svc.save_graph, req.user_id)
 
+    # Extract entities/relations from Q&A and persist to knowledge graph
+    try:
+        extraction = await brain_svc.extract_all_from_transcript(
+            f"Q: {req.question}\nA: {answer}", g_ctx
+        )
+        entities = extraction.get("entities", [])
+        relations = extraction.get("relations", [])
+        if entities:
+            await asyncio.to_thread(
+                entity_svc.persist_extraction, req.user_id,
+                {"entities": entities, "relations": relations}, session_id,
+            )
+    except Exception as _e:
+        print(f"⚠️ Consultant entity extraction error: {_e}")
+
     await asyncio.to_thread(
         audit_svc.log,
         req.user_id, "consultant_query",
@@ -241,6 +256,21 @@ async def ask_consultant_stream_endpoint(
                     session_id=_sid,
                 )
                 await asyncio.to_thread(graph_svc.save_graph, _uid)
+
+                # Extract entities/relations and persist to knowledge graph
+                try:
+                    extraction = await brain_svc.extract_all_from_transcript(
+                        f"Q: {_question}\nA: {full_answer}", g_ctx
+                    )
+                    _entities = extraction.get("entities", [])
+                    _relations = extraction.get("relations", [])
+                    if _entities:
+                        await asyncio.to_thread(
+                            entity_svc.persist_extraction, _uid,
+                            {"entities": _entities, "relations": _relations}, _sid,
+                        )
+                except Exception as _ee:
+                    print(f"⚠️ Consultant stream entity extraction error: {_ee}")
 
                 await asyncio.to_thread(
                     session_svc.update_session_token_usage,

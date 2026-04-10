@@ -37,6 +37,10 @@ class SessionProvider extends ChangeNotifier {
   final List<Map<String, dynamic>> _sessionLogs = [];
   List<Map<String, dynamic>> get sessionLogs => List.unmodifiable(_sessionLogs);
 
+  // Paths of the last saved recording/transcript (set after endSession)
+  Map<String, String>? _lastRecordingPaths;
+  Map<String, String>? get lastRecordingPaths => _lastRecordingPaths;
+
   String _currentSuggestion = "Tap Start to begin your Wingman session...";
   String get currentSuggestion => _currentSuggestion;
 
@@ -83,15 +87,24 @@ class SessionProvider extends ChangeNotifier {
     _lastTranscriptForRetry = transcript;
     notifyListeners();
 
-    if (_sessionId != null) {
-      api.sendTranscriptToWingman(
-        user.id,
-        transcript,
-        sessionId: _sessionId,
-        speakerRole: 'others',
-        mode: _currentLiveTone,
-      );
+    // Always await the HTTP response directly — this works regardless of
+    // whether Supabase Realtime is configured on session_logs.
+    // Realtime still fires as a secondary update if it is configured.
+    final advice = await api.sendTranscriptToWingman(
+      user.id,
+      transcript,
+      sessionId: _sessionId,
+      speakerRole: 'others',
+      mode: _currentLiveTone,
+    );
 
+    if (advice != null && advice.isNotEmpty) {
+      _realtimeTimeoutTimer?.cancel();
+      _currentSuggestion = advice;
+      _realtimeLost = false;
+      notifyListeners();
+    } else {
+      // HTTP returned nothing — fall back to Realtime timeout
       _realtimeTimeoutTimer?.cancel();
       _realtimeTimeoutTimer = Timer(const Duration(seconds: 30), () {
         if (_currentSuggestion == "Thinking...") {
@@ -99,12 +112,6 @@ class SessionProvider extends ChangeNotifier {
           notifyListeners();
         }
       });
-    } else {
-      final advice = await api.sendTranscriptToWingman(user.id, transcript);
-      if (advice != null) {
-        _currentSuggestion = advice;
-        notifyListeners();
-      }
     }
   }
 
@@ -214,10 +221,16 @@ class SessionProvider extends ChangeNotifier {
     );
   }
 
-  /// End the session and save data.
+  /// End the session, save data, and persist audio recording to device.
   Future<bool> endSession(ApiService api, DeepgramService deepgram) async {
     _isSessionActive = false;
+    _lastRecordingPaths = null;
     notifyListeners();
+
+    // Save audio + transcript before disconnecting (buffer lives in deepgram)
+    if (_sessionId != null && deepgram.fullTranscript.isNotEmpty) {
+      _lastRecordingPaths = await deepgram.saveSessionRecording(_sessionId!);
+    }
 
     await deepgram.disconnect();
 

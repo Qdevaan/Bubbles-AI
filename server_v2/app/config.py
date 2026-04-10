@@ -15,13 +15,17 @@ if sys.stdout.encoding and sys.stdout.encoding.lower() != "utf-8":
 if sys.stderr.encoding and sys.stderr.encoding.lower() != "utf-8":
     sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
-# Resolve .env path relative to this file, not the CWD
+# Resolve .env path relative to this file, not the CWD.
+# If the file doesn't exist (e.g. inside Docker where env vars are injected
+# by docker-compose env_file), pass None so pydantic-settings falls through
+# to environment variables without raising a FileNotFoundError.
 _ENV_FILE = Path(__file__).parent.parent.parent / "env" / ".env"
+_ENV_FILE_PATH = str(_ENV_FILE) if _ENV_FILE.exists() else None
 
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=str(_ENV_FILE),
+        env_file=_ENV_FILE_PATH,
         env_file_encoding="utf-8",
         case_sensitive=False,
         extra="ignore",

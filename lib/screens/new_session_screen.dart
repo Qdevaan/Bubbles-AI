@@ -210,13 +210,33 @@ class _NewSessionScreenState extends State<NewSessionScreen>
 
       if (mounted) {
         if (success) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text("Session Saved!"),
-              backgroundColor: AppColors.success,
-            ),
-          );
-          
+          // Show recording saved notification if audio was captured
+          final savedPaths = _session.lastRecordingPaths;
+          if (mounted && savedPaths != null) {
+            final hasAudio = savedPaths['audio'] != null;
+            final hasTx = savedPaths['transcript'] != null;
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                  hasAudio && hasTx
+                      ? 'Session saved — audio + transcript recorded to device'
+                      : hasTx
+                          ? 'Session saved — transcript recorded to device'
+                          : 'Session saved — audio recorded to device',
+                ),
+                backgroundColor: AppColors.success,
+                duration: const Duration(seconds: 4),
+              ),
+            );
+          } else if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text("Session Saved!"),
+                backgroundColor: AppColors.success,
+              ),
+            );
+          }
+
           await FeedbackDialog.show(context, sessionId: completedSessionId);
 
           if (mounted) {
@@ -774,65 +794,130 @@ class _NewSessionScreenState extends State<NewSessionScreen>
                   ],
                 )
               else
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Container(
-                      width: 48,
-                      height: 48,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: isDark
-                            ? AppColors.glassWhite
-                            : Colors.grey.shade200,
-                      ),
-                      child: Icon(
-                        Icons.mic_off,
-                        color: isDark ? Colors.white54 : Colors.grey,
-                        size: 22,
-                      ),
-                    ),
-                    const SizedBox(width: 20),
-                    GestureDetector(
-                      onTap: _toggleSession,
-                      child: Container(
-                        width: 64,
-                        height: 64,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: AppColors.error,
-                          boxShadow: [
-                            BoxShadow(
-                              color: AppColors.error.withAlpha(102),
-                              blurRadius: 16,
-                              spreadRadius: 2,
+                Consumer<DeepgramService>(
+                  builder: (context, deepgram, _) {
+                    final muted = deepgram.isMuted;
+                    return Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        // Mute toggle
+                        GestureDetector(
+                          onTap: deepgram.isConnected
+                              ? () {
+                                  deepgram.toggleMute();
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(deepgram.isMuted
+                                          ? 'Mic muted'
+                                          : 'Mic active'),
+                                      duration:
+                                          const Duration(milliseconds: 800),
+                                    ),
+                                  );
+                                }
+                              : null,
+                          child: Container(
+                            width: 48,
+                            height: 48,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: muted
+                                  ? AppColors.error.withAlpha(40)
+                                  : (isDark
+                                        ? AppColors.glassWhite
+                                        : Colors.grey.shade200),
+                              border: muted
+                                  ? Border.all(
+                                      color: AppColors.error.withAlpha(153),
+                                      width: 1.5,
+                                    )
+                                  : null,
                             ),
-                          ],
+                            child: Icon(
+                              muted ? Icons.mic_off : Icons.mic,
+                              color: muted
+                                  ? AppColors.error
+                                  : (isDark
+                                        ? Colors.white54
+                                        : Colors.grey),
+                              size: 22,
+                            ),
+                          ),
                         ),
-                        child: const Icon(
-                          Icons.stop_rounded,
-                          color: Colors.white,
-                          size: 32,
+                        const SizedBox(width: 20),
+                        // End session
+                        GestureDetector(
+                          onTap: _toggleSession,
+                          child: Container(
+                            width: 64,
+                            height: 64,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: AppColors.error,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: AppColors.error.withAlpha(102),
+                                  blurRadius: 16,
+                                  spreadRadius: 2,
+                                ),
+                              ],
+                            ),
+                            child: const Icon(
+                              Icons.stop_rounded,
+                              color: Colors.white,
+                              size: 32,
+                            ),
+                          ),
                         ),
-                      ),
-                    ),
-                    const SizedBox(width: 20),
-                    Container(
-                      width: 48,
-                      height: 48,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: isDark
-                            ? AppColors.glassWhite
-                            : Colors.grey.shade200,
-                      ),
-                      child: Icon(
-                        Icons.settings,
-                        color: isDark ? Colors.white54 : Colors.grey,
-                        size: 22,
-                      ),
-                    ),
-                  ],
+                        const SizedBox(width: 20),
+                        // Swap speakers (replaces dead settings icon)
+                        GestureDetector(
+                          onTap: () {
+                            session.toggleSwapSpeakers();
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Speakers swapped'),
+                                duration: Duration(milliseconds: 800),
+                              ),
+                            );
+                          },
+                          child: Container(
+                            width: 48,
+                            height: 48,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: session.swapSpeakers
+                                  ? Theme.of(context)
+                                        .colorScheme
+                                        .primary
+                                        .withAlpha(40)
+                                  : (isDark
+                                        ? AppColors.glassWhite
+                                        : Colors.grey.shade200),
+                              border: session.swapSpeakers
+                                  ? Border.all(
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .primary
+                                          .withAlpha(153),
+                                      width: 1.5,
+                                    )
+                                  : null,
+                            ),
+                            child: Icon(
+                              Icons.swap_horiz_rounded,
+                              color: session.swapSpeakers
+                                  ? Theme.of(context).colorScheme.primary
+                                  : (isDark
+                                        ? Colors.white54
+                                        : Colors.grey),
+                              size: 22,
+                            ),
+                          ),
+                        ),
+                      ],
+                    );
+                  },
                 ),
             ],
           ),
