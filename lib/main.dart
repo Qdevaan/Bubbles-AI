@@ -40,6 +40,7 @@ import 'screens/smart_home_dashboard_screen.dart';
 import 'screens/trips_planner_screen.dart';
 import 'screens/integrations_hub_screen.dart';
 import 'screens/subscription_screen.dart';
+import 'screens/insights_screen.dart';
 import 'providers/tags_provider.dart';
 import 'providers/profile_provider.dart';
 import 'providers/health_finance_provider.dart';
@@ -286,6 +287,8 @@ class BubblesApp extends StatelessWidget {
                   const AuthGuard(child: QuestsScreen()),
               AppRoutes.graphExplorer: (context) =>
                   const AuthGuard(child: GraphExplorerScreen()),
+              AppRoutes.insights: (context) =>
+                  const AuthGuard(child: InsightsScreen()),
               AppRoutes.healthDashboard: (context) =>
                   const AuthGuard(child: HealthDashboardScreen()),
               AppRoutes.expensesTracker: (context) =>

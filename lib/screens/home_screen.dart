@@ -610,19 +610,39 @@ class _HomeScreenState extends State<HomeScreen> {
                                               : AppColors.slate900,
                                         ),
                                       ),
-                                      if (home.insightsLoaded &&
-                                          (home.events.isNotEmpty ||
-                                              home.highlights.isNotEmpty))
-                                        GestureDetector(
-                                          onTap: home.loadInsights,
-                                          child: Icon(
-                                            Icons.refresh,
-                                            size: 18,
-                                            color: isDark
-                                                ? AppColors.slate500
-                                                : Colors.grey.shade400,
+                                      Row(
+                                        children: [
+                                          if (home.insightsLoaded &&
+                                              (home.events.isNotEmpty ||
+                                                  home.highlights.isNotEmpty ||
+                                                  home.notifications.isNotEmpty))
+                                            GestureDetector(
+                                              onTap: () => Navigator.pushNamed(
+                                                  context, '/insights'),
+                                              child: Text(
+                                                'See All',
+                                                style: GoogleFonts.manrope(
+                                                  fontSize: 13,
+                                                  fontWeight: FontWeight.w700,
+                                                  color: Theme.of(context)
+                                                      .colorScheme
+                                                      .primary,
+                                                ),
+                                              ),
+                                            ),
+                                          const SizedBox(width: 8),
+                                          GestureDetector(
+                                            onTap: home.loadInsights,
+                                            child: Icon(
+                                              Icons.refresh,
+                                              size: 18,
+                                              color: isDark
+                                                  ? AppColors.slate500
+                                                  : Colors.grey.shade400,
+                                            ),
                                           ),
-                                        ),
+                                        ],
+                                      ),
                                     ],
                                   ),
                                 ),
@@ -683,29 +703,32 @@ class _HomeScreenState extends State<HomeScreen> {
                                   ),
                                 ),
                                 ...home.highlights.map(
-                                  (hl) => SliverToBoxAdapter(
-                                    child: Padding(
-                                      padding:
-                                          const EdgeInsets.fromLTRB(
-                                              16, 4, 16, 4),
-                                      child: _InsightCard(
-                                        accentColor:
-                                            AppColors.error,
-                                        title: hl['title']
-                                                as String? ??
-                                            'Highlight',
-                                        badge: hl['highlight_type']
-                                                as String? ??
-                                            'Note',
-                                        description:
-                                            hl['body'] as String? ??
-                                                '',
-                                        isDark: isDark,
-                                        icon: Icons
-                                            .warning_amber_rounded,
+                                  (hl) {
+                                    final hlType =
+                                        (hl['highlight_type'] as String? ?? '')
+                                            .toLowerCase();
+                                    final hlColor = _highlightColor(
+                                        hlType,
+                                        Theme.of(context).colorScheme.primary);
+                                    final hlIcon =
+                                        _highlightIcon(hlType);
+                                    return SliverToBoxAdapter(
+                                      child: Padding(
+                                        padding: const EdgeInsets.fromLTRB(
+                                            16, 4, 16, 4),
+                                        child: _InsightCard(
+                                          accentColor: hlColor,
+                                          title: hl['title'] as String? ??
+                                              'Highlight',
+                                          badge: _highlightBadge(hlType),
+                                          description:
+                                              hl['body'] as String? ?? '',
+                                          isDark: isDark,
+                                          icon: hlIcon,
+                                        ),
                                       ),
-                                    ),
-                                  ),
+                                    );
+                                  },
                                 ),
                                 ...home.notifications.map(
                                   (tn) => SliverToBoxAdapter(
@@ -1133,6 +1156,46 @@ class _QuickActionCard extends StatelessWidget {
     );
   }
 }
+
+// -- Highlight type helpers --------------------------------------------------
+
+Color _highlightColor(String type, Color fallback) {
+  switch (type) {
+    case 'key_fact':    return const Color(0xFF6366F1); // indigo
+    case 'action_item': return const Color(0xFF10B981); // emerald
+    case 'risk':        return const Color(0xFFEF4444); // red
+    case 'opportunity': return const Color(0xFFF59E0B); // amber
+    case 'conflict':    return const Color(0xFFEC4899); // pink
+    default:            return fallback;
+  }
+}
+
+IconData _highlightIcon(String type) {
+  switch (type) {
+    case 'key_fact':    return Icons.lightbulb_outline_rounded;
+    case 'action_item': return Icons.check_circle_outline_rounded;
+    case 'risk':        return Icons.warning_amber_rounded;
+    case 'opportunity': return Icons.trending_up_rounded;
+    case 'conflict':    return Icons.report_gmailerrorred_outlined;
+    default:            return Icons.bookmark_outline_rounded;
+  }
+}
+
+String _highlightBadge(String type) {
+  switch (type) {
+    case 'key_fact':    return 'Key Fact';
+    case 'action_item': return 'Action Item';
+    case 'risk':        return 'Risk';
+    case 'opportunity': return 'Opportunity';
+    case 'conflict':    return 'Conflict';
+    default:
+      return type.isEmpty
+          ? 'Note'
+          : type[0].toUpperCase() + type.substring(1).replaceAll('_', ' ');
+  }
+}
+
+// ---------------------------------------------------------------------------
 
 class _InsightCard extends StatelessWidget {
   final Color accentColor;

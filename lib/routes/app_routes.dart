@@ -22,4 +22,5 @@ class AppRoutes {
   static const tripsPlanner = '/trips-planner';
   static const integrations = '/integrations';
   static const subscription = '/subscription';
+  static const insights = '/insights';
 }

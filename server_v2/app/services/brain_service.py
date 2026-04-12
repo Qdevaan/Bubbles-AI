@@ -373,6 +373,8 @@ class BrainService:
             "- Entity names must be non-empty strings.\n"
             "- If nothing found for a section, use an empty array [].\n"
             "- Return ONLY the JSON. No markdown, no explanation.\n"
+            "- ONLY extract proper named entities (real names, places, orgs). DO NOT extract pronouns (I, me, you, we, they, us, him, her), generic words, greetings, or informal expressions.\n"
+            "- A joke, chitchat, or greeting exchange contains NO meaningful entities — return empty arrays for all sections.\n"
         )
 
         try:

@@ -242,7 +242,7 @@ class AiBubble extends StatelessWidget {
                   border: isDark ? Border.all(color: AppColors.glassBorder) : null,
                 ),
                 child: MarkdownBody(
-                  data: streaming ? '$text ÃƒÂ¢Ã¢â‚¬â€Ã…â€™' : text,
+                  data: streaming ? '$text ▌' : text,
                   styleSheet: MarkdownStyleSheet(
                     p: GoogleFonts.manrope(
                       fontSize: 14,

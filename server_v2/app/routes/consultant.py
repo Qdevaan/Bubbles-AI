@@ -64,7 +64,7 @@ async def ask_consultant_endpoint(
     g_ctx, v_ctx, h_ctx, s_ctx, e_ctx = await asyncio.gather(
         asyncio.to_thread(_graph_ctx),
         asyncio.to_thread(vector_svc.search_memory, req.user_id, req.question),
-        asyncio.to_thread(session_svc.fetch_consultant_history, req.user_id, 5),
+        asyncio.to_thread(session_svc.fetch_consultant_history, req.user_id, 5, session_id),
         asyncio.to_thread(session_svc.fetch_session_summaries, req.user_id, 3),
         asyncio.to_thread(_entity_ctx),
     )
@@ -173,7 +173,7 @@ async def ask_consultant_stream_endpoint(
     g_ctx, v_ctx, h_ctx, s_ctx, e_ctx = await asyncio.gather(
         asyncio.to_thread(_graph_ctx),
         asyncio.to_thread(vector_svc.search_memory, req.user_id, req.question),
-        asyncio.to_thread(session_svc.fetch_consultant_history, req.user_id, 5),
+        asyncio.to_thread(session_svc.fetch_consultant_history, req.user_id, 5, session_id),
         asyncio.to_thread(session_svc.fetch_session_summaries, req.user_id, 3),
         asyncio.to_thread(_entity_ctx),
     )
@@ -195,6 +195,83 @@ async def ask_consultant_stream_endpoint(
     _question = safe_question
 
     import time as _time
+
+    async def _post_process_stream(
+        uid: str, sid: str, question: str, full_answer: str,
+        graph_ctx: str, sys_prompt: str, latency: int,
+    ):
+        """Run all post-stream work (logging, memory, entity extraction) in the
+        background so the SSE 'done' event is not delayed by slow I/O."""
+        try:
+            est_prompt_tokens = brain_svc._estimate_tokens(sys_prompt + question)
+            est_completion_tokens = brain_svc._estimate_tokens(full_answer)
+
+            await asyncio.to_thread(
+                session_svc.log_message,
+                sid, "llm", full_answer,
+                model_used=settings.CONSULTANT_MODEL,
+                latency_ms=latency,
+                tokens_used=est_prompt_tokens + est_completion_tokens,
+            )
+
+            from app.database import db as _db
+            await asyncio.to_thread(
+                lambda: _db.table("consultant_logs").insert({
+                    "user_id": uid,
+                    "question": question,
+                    "answer": full_answer,
+                    "query": question,
+                    "response": full_answer,
+                    "session_id": sid,
+                }).execute()
+            )
+
+            await vector_svc.save_memory(
+                uid, f"Q: {question}\nA: {full_answer}",
+                session_id=sid,
+            )
+            await asyncio.to_thread(graph_svc.save_graph, uid)
+
+            try:
+                extraction = await brain_svc.extract_all_from_transcript(
+                    f"Q: {question}\nA: {full_answer}", graph_ctx
+                )
+                _entities = extraction.get("entities", [])
+                _relations = extraction.get("relations", [])
+                if _entities:
+                    await asyncio.to_thread(
+                        entity_svc.persist_extraction, uid,
+                        {"entities": _entities, "relations": _relations}, sid,
+                    )
+            except Exception as _ee:
+                print(f"⚠️ Consultant stream entity extraction error: {_ee}")
+
+            await asyncio.to_thread(
+                session_svc.update_session_token_usage,
+                sid,
+                tokens_prompt=est_prompt_tokens,
+                tokens_completion=est_completion_tokens,
+            )
+
+            await asyncio.to_thread(
+                audit_svc.log,
+                uid, "consultant_stream_query",
+                entity_type="consultant_log", entity_id=sid,
+                details={"latency_ms": latency,
+                         "tokens_est": est_prompt_tokens + est_completion_tokens},
+            )
+
+            fire_and_forget(gamification_svc.award_xp(
+                uid, 15, "consultant_qa",
+                source_id=f"stream_{sid}",
+                description="Consultant streaming Q&A",
+            ))
+            fire_and_forget(gamification_svc.increment_quest_progress(uid, "ask_consultant", 1))
+            fire_and_forget(gamification_svc.increment_quest_progress(uid, "save_memory", 1))
+            fire_and_forget(gamification_svc.update_streak(uid))
+
+        except Exception as e:
+            print(f"❌ Stream post-processing error: {e}")
 
     async def generate():
         full_response: List[str] = []
@@ -224,83 +301,17 @@ async def ask_consultant_stream_endpoint(
         except Exception as e:
             yield f"data: {json.dumps({'error': str(e)})}\n\n"
 
+        # Send 'done' immediately — post-processing runs in the background
+        # so the client animation stops as soon as tokens finish.
+        yield f"data: {json.dumps({'done': True, 'session_id': _sid})}\n\n"
+
         stream_latency = int((_time.time() - stream_start) * 1000)
         full_answer = "".join(full_response)
         if full_answer:
-            try:
-                est_prompt_tokens = brain_svc._estimate_tokens(system_prompt + _question)
-                est_completion_tokens = brain_svc._estimate_tokens(full_answer)
-
-                await asyncio.to_thread(
-                    session_svc.log_message,
-                    _sid, "llm", full_answer,
-                    model_used=settings.CONSULTANT_MODEL,
-                    latency_ms=stream_latency,
-                    tokens_used=est_prompt_tokens + est_completion_tokens,
-                )
-
-                from app.database import db as _db
-                await asyncio.to_thread(
-                    lambda: _db.table("consultant_logs").insert({
-                        "user_id": _uid,
-                        "question": _question,
-                        "answer": full_answer,
-                        "query": _question,
-                        "response": full_answer,
-                        "session_id": _sid,
-                    }).execute()
-                )
-
-                await vector_svc.save_memory(
-                    _uid, f"Q: {_question}\nA: {full_answer}",
-                    session_id=_sid,
-                )
-                await asyncio.to_thread(graph_svc.save_graph, _uid)
-
-                # Extract entities/relations and persist to knowledge graph
-                try:
-                    extraction = await brain_svc.extract_all_from_transcript(
-                        f"Q: {_question}\nA: {full_answer}", g_ctx
-                    )
-                    _entities = extraction.get("entities", [])
-                    _relations = extraction.get("relations", [])
-                    if _entities:
-                        await asyncio.to_thread(
-                            entity_svc.persist_extraction, _uid,
-                            {"entities": _entities, "relations": _relations}, _sid,
-                        )
-                except Exception as _ee:
-                    print(f"⚠️ Consultant stream entity extraction error: {_ee}")
-
-                await asyncio.to_thread(
-                    session_svc.update_session_token_usage,
-                    _sid,
-                    tokens_prompt=est_prompt_tokens,
-                    tokens_completion=est_completion_tokens,
-                )
-
-                await asyncio.to_thread(
-                    audit_svc.log,
-                    _uid, "consultant_stream_query",
-                    entity_type="consultant_log", entity_id=_sid,
-                    details={"latency_ms": stream_latency,
-                             "tokens_est": est_prompt_tokens + est_completion_tokens},
-                )
-
-                # Gamification
-                fire_and_forget(gamification_svc.award_xp(
-                    _uid, 15, "consultant_qa",
-                    source_id=f"stream_{_sid}",
-                    description="Consultant streaming Q&A",
-                ))
-                fire_and_forget(gamification_svc.increment_quest_progress(_uid, "ask_consultant", 1))
-                fire_and_forget(gamification_svc.increment_quest_progress(_uid, "save_memory", 1))
-                fire_and_forget(gamification_svc.update_streak(_uid))
-
-            except Exception as e:
-                print(f"❌ Stream post-processing error: {e}")
-
-        yield f"data: {json.dumps({'done': True, 'session_id': _sid})}\n\n"
+            fire_and_forget(_post_process_stream(
+                _uid, _sid, _question, full_answer,
+                g_ctx, system_prompt, stream_latency,
+            ))
 
     return StreamingResponse(
         generate(),

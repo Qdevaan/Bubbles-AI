@@ -371,15 +371,22 @@ class SessionService:
         except Exception as e:
             print(f"❌ Session Service Error logging consultant Q&A: {e}")
 
-    def fetch_consultant_history(self, user_id: str, limit: int = 5) -> str:
-        """Fetch recent Q&A pairs from consultant_logs."""
+    def fetch_consultant_history(self, user_id: str, limit: int = 5, session_id: str = None) -> str:
+        """Fetch recent Q&A pairs from consultant_logs for the current session only.
+        Passing session_id restricts history to that session so memories don't bleed
+        across unrelated conversations."""
         if not db:
             return "No past consultant history."
         try:
-            res = (
+            query = (
                 db.table("consultant_logs")
                 .select("question, answer")
                 .eq("user_id", user_id)
+            )
+            if session_id:
+                query = query.eq("session_id", session_id)
+            res = (
+                query
                 .order("created_at", desc=True)
                 .limit(limit)
                 .execute()
