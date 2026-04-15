@@ -19,6 +19,7 @@ supabase
 
 # Real-time Communication
 livekit-api
+websockets
 
 # NLP & Embeddings (local)
 sentence-transformers
