@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:ui';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -184,6 +183,105 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
+  void _showForgotPasswordSheet(BuildContext context) {
+    final emailCtrl = TextEditingController(text: _emailCtrl.text.trim());
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    String? inlineError;
+    bool sending = false;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setSheetState) => Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(ctx).viewInsets.bottom,
+          ),
+          child: GlassDialog(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  'Reset Password',
+                  style: GoogleFonts.manrope(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    color: isDark ? Colors.white : AppColors.slate900,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Enter your email and we\'ll send a reset link.',
+                  style: GoogleFonts.manrope(
+                    fontSize: 13,
+                    color: AppColors.slate400,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                AppInput(
+                  controller: emailCtrl,
+                  label: 'Email',
+                  prefixIcon: Icons.email_outlined,
+                  type: TextInputType.emailAddress,
+                  hintText: 'your@email.com',
+                ),
+                if (inlineError != null) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    inlineError!,
+                    style: GoogleFonts.manrope(
+                      fontSize: 12,
+                      color: AppColors.error,
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 20),
+                AppButton(
+                  label: 'Send Reset Link',
+                  icon: Icons.send_rounded,
+                  filled: true,
+                  loading: sending,
+                  onTap: () async {
+                    final email = emailCtrl.text.trim();
+                    if (email.isEmpty || !email.contains('@')) {
+                      setSheetState(() => inlineError = 'Enter a valid email address.');
+                      return;
+                    }
+                    setSheetState(() { sending = true; inlineError = null; });
+                    try {
+                      await _authService.resetPasswordForEmail(email);
+                      if (ctx.mounted) {
+                        Navigator.pop(ctx);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Password reset link sent — check your inbox.'),
+                            behavior: SnackBarBehavior.floating,
+                          ),
+                        );
+                      }
+                    } catch (e) {
+                      final msg = e.toString().toLowerCase();
+                      setSheetState(() {
+                        sending = false;
+                        if (msg.contains('rate') || msg.contains('too many')) {
+                          inlineError = 'Reset email already sent. Please wait a few minutes.';
+                        } else {
+                          inlineError = 'Could not send reset email. Check your connection.';
+                        }
+                      });
+                    }
+                  },
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   Future<void> _loginWithEmail() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -336,7 +434,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               ),
                             ),
                             GestureDetector(
-                              onTap: () {},
+                              onTap: () => _showForgotPasswordSheet(context),
                               child: Padding(
                                 padding: const EdgeInsets.only(bottom: 8),
                                 child: Text(
