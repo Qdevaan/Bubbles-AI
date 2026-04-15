@@ -10,6 +10,7 @@ import 'services/voice_assistant_service.dart';
 import 'services/wake_word_service.dart';
 import 'services/analytics_service.dart';
 import 'services/device_service.dart';
+import 'services/app_cache_service.dart';
 import 'providers/theme_provider.dart';
 import 'providers/settings_provider.dart';
 import 'providers/consultant_provider.dart';
@@ -100,6 +101,9 @@ class BubblesApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
+        // 0. App Cache Service (Global app state cache)
+        ChangeNotifierProvider(create: (_) => AppCacheService()),
+
         // 1. Connection Service (Base)
         ChangeNotifierProvider(create: (context) => ConnectionService()),
 
@@ -160,10 +164,7 @@ class BubblesApp extends StatelessWidget {
         // 14. Tasks & Events Provider
         ChangeNotifierProvider(create: (_) => TaskEventProvider()),
 
-        // 15. IoT Provider
-        ChangeNotifierProvider(create: (_) => IoTManagerProvider()),
-
-        // 16. Enterprise & Subscriptions Provider
+        // 15. Enterprise & Subscriptions Provider
         ChangeNotifierProvider(create: (_) => EnterpriseProvider()),
       ],
       child: Consumer<ThemeProvider>(
@@ -295,8 +296,12 @@ class BubblesApp extends StatelessWidget {
                   const AuthGuard(child: ExpenseTrackerScreen()),
               AppRoutes.tasks: (context) => 
                   const AuthGuard(child: TasksScreen()),
-              AppRoutes.smartHome: (context) =>
-                  const AuthGuard(child: SmartHomeDashboardScreen()),
+              AppRoutes.smartHome: (context) => AuthGuard(
+                child: ChangeNotifierProvider(
+                  create: (_) => IoTManagerProvider(),
+                  child: const SmartHomeDashboardScreen(),
+                ),
+              ),
               AppRoutes.tripsPlanner: (context) =>
                   const AuthGuard(child: TripsPlannerScreen()),
               AppRoutes.integrations: (context) =>
