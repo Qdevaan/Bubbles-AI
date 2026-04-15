@@ -398,7 +398,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                 icon: Icons.storage_outlined,
                                 title: 'Data Management',
                                 onTap: () =>
-                                    _showComingSoon(context, 'Data Management'),
+                                    Navigator.pushNamed(context, AppRoutes.data),
                               ),
                               TileDivider(isDark: isDark),
                               SettingsTile(
@@ -410,7 +410,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                 icon: Icons.lock_outline,
                                 title: 'Permissions',
                                 onTap: () =>
-                                    _showComingSoon(context, 'Permissions'),
+                                    Navigator.pushNamed(context, AppRoutes.permissions),
                               ),
                             ],
                           ),

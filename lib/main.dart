@@ -42,6 +42,10 @@ import 'screens/trips_planner_screen.dart';
 import 'screens/integrations_hub_screen.dart';
 import 'screens/subscription_screen.dart';
 import 'screens/insights_screen.dart';
+import 'screens/language_screen.dart';
+import 'screens/permissions_screen.dart';
+import 'screens/data_management_screen.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'providers/tags_provider.dart';
 import 'providers/profile_provider.dart';
 import 'providers/health_finance_provider.dart';
@@ -167,8 +171,8 @@ class BubblesApp extends StatelessWidget {
         // 15. Enterprise & Subscriptions Provider
         ChangeNotifierProvider(create: (_) => EnterpriseProvider()),
       ],
-      child: Consumer<ThemeProvider>(
-        builder: (context, themeProvider, child) {
+      child: Consumer2<ThemeProvider, SettingsProvider>(
+        builder: (context, themeProvider, settingsProvider, child) {
           return MaterialApp(
             navigatorKey: BubblesApp.navigatorKey,
             navigatorObservers: [_AnalyticsNavigatorObserver()],
@@ -177,6 +181,19 @@ class BubblesApp extends StatelessWidget {
 
             // Theme Mode: Follows stored settings (System/Light/Dark)
             themeMode: themeProvider.themeMode,
+
+            // Locale
+            locale: settingsProvider.locale,
+            supportedLocales: const [
+              Locale('en'),
+              Locale('ur'),
+              Locale('ar'),
+            ],
+            localizationsDelegates: const [
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+            ],
 
             // Light Theme Configuration
             theme: themeProvider.lightTheme,
@@ -308,6 +325,12 @@ class BubblesApp extends StatelessWidget {
                   const AuthGuard(child: IntegrationsHubScreen()),
               AppRoutes.subscription: (context) =>
                   const AuthGuard(child: SubscriptionScreen()),
+              AppRoutes.language: (context) =>
+                  const AuthGuard(child: LanguageScreen()),
+              AppRoutes.permissions: (context) =>
+                  const AuthGuard(child: PermissionsScreen()),
+              AppRoutes.data: (context) =>
+                  const AuthGuard(child: DataManagementScreen()),
             },
           );
         },
