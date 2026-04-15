@@ -1,6 +1,7 @@
 import 'dart:ui';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:async';
 
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
@@ -43,6 +44,7 @@ class _ConsultantScreenState extends State<ConsultantScreen>
   bool _showScrollToBottom = false;
 
   // -- Hands-free voice mode (lifecycle-coupled, stays local) --
+  StreamSubscription? _ttsCompleteSub;
   CVoiceMode _voiceMode = CVoiceMode.off;
   final SpeechToText _stt = SpeechToText();
   bool _sttReady = false;
@@ -125,6 +127,7 @@ class _ConsultantScreenState extends State<ConsultantScreen>
     _micPulse.dispose();
     _ttsPlayer.dispose();
     _stt.stop();
+    _ttsCompleteSub?.cancel();
     super.dispose();
   }
 
@@ -306,7 +309,7 @@ class _ConsultantScreenState extends State<ConsultantScreen>
     _sttReady = await _stt.initialize(
       onError: (e) => debugPrint('STT error: ${e.errorMsg}'),
     );
-    _ttsPlayer.onPlayerComplete.listen((_) {
+    _ttsCompleteSub = _ttsPlayer.onPlayerComplete.listen((_) {
       if (_voiceModeActive && mounted) {
         _setVoiceMode(CVoiceMode.listening);
         _startSTT();
