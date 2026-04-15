@@ -1,4 +1,3 @@
-import 'dart:ui';
 
 import '../services/app_cache_service.dart';
 import 'package:flutter/material.dart';
@@ -62,6 +61,7 @@ class _EntityScreenState extends State<EntityScreen> {
   void initState() {
     super.initState();
     final uid = AuthService.instance.currentUser?.id;
+    // context.read is safe in initState() — AppCacheService is a root provider (listen: false)
     final cache = context.read<AppCacheService>();
     if (cache.entities != null && cache.cacheUserId == uid) {
       _entities = List.from(cache.entities!);
