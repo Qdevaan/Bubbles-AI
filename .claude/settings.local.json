@@ -33,7 +33,8 @@
       "Bash(netsh interface:*)",
       "Bash(docker exec:*)",
       "Bash(grep -v \"maybe_single\\\\|execute\\\\|asyncio\\\\|table\\\\|select\\\\|\\\\.eq\\\\|\\\\.in_\\\\|\\\\.gte\\\\|^--$\")",
-      "Bash(docker compose:*)"
+      "Bash(docker compose:*)",
+      "Bash(npx ccstatusline@latest:*)"
     ]
   }
 }

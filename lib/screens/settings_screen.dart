@@ -9,6 +9,7 @@ import '../services/connection_service.dart';
 import '../services/voice_assistant_service.dart';
 import '../providers/theme_provider.dart';
 import '../providers/settings_provider.dart';
+import '../routes/app_routes.dart';
 import '../widgets/settings/settings_widgets.dart';
 import '../widgets/settings/settings_dialogs.dart';
 
@@ -192,7 +193,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                   ),
                                 ),
                                 onTap: () =>
-                                    _showComingSoon(context, 'Subscription'),
+                                    Navigator.pushNamed(context, AppRoutes.subscription),
                               ),
                             ],
                           ),
@@ -271,7 +272,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                     color: AppColors.textMuted,
                                   ),
                                 ),
-                                                                  onTap: () => _showComingSoon(context, 'Language'),
+                                                                  onTap: () => Navigator.pushNamed(context, AppRoutes.language),
                                 ),
                                 TileDivider(isDark: isDark),
                                 Consumer<SettingsProvider>(

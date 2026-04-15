@@ -1,6 +1,6 @@
-# -----------------------------
+# =============================
 # OS / Editor / Tooling
-# -----------------------------
+# =============================
 .DS_Store
 .history
 .svn/
@@ -21,16 +21,16 @@ migrate_working_dir/
 # .vscode/
 
 
-# -----------------------------
-# Logs and binaries
-# -----------------------------
+# =============================
+# Logs and Binaries
+# =============================
 *.log
 *.class
 
 
-# -----------------------------
+# =============================
 # Flutter / Dart
-# -----------------------------
+# =============================
 .dart_tool/
 .flutter-plugins-dependencies
 .pub/
@@ -47,25 +47,25 @@ app.*.symbols
 app.*.map.json
 
 
-# -----------------------------
-# Android build outputs
-# -----------------------------
+# =============================
+# Android Build Outputs
+# =============================
 android/app/debug/
 android/app/profile/
 android/app/release/
 
 
-# -----------------------------
-# Python / backend
-# -----------------------------
+# =============================
+# Python / Backend
+# =============================
 *.pyc
 __pycache__/
 server/__pycache__/
 
 
-# -----------------------------
-# Environment and secrets
-# -----------------------------
+# =============================
+# Environment and Secrets
+# =============================
 .env
 env/
 server/.env
@@ -73,10 +73,9 @@ new_server/.env
 secrets.txt
 
 
-# -----------------------------
-# Project-specific exclusions
-# -----------------------------
-
+# =============================
+# Project-Specific Exclusions
+# =============================
 implementation_plan.md
 task.md
 server/new_server.py
@@ -85,3 +84,7 @@ server_old/
 Stitch_UI
 stitch
 .soft_delete/
+Documentation/
+
+.claude/
+docs/
