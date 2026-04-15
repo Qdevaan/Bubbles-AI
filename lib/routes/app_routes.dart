@@ -23,4 +23,7 @@ class AppRoutes {
   static const integrations = '/integrations';
   static const subscription = '/subscription';
   static const insights = '/insights';
+  static const language    = '/settings/language';
+  static const permissions = '/settings/permissions';
+  static const data        = '/settings/data';
 }
