@@ -46,6 +46,14 @@ class PermissionsUtil {
     }
   }
 
+  /// Returns the current status for a single permission.
+  static Future<PermissionStatus> checkPermission(Permission permission) =>
+      permission.status;
+
+  /// Requests a single permission. Returns the resulting status.
+  static Future<PermissionStatus> requestPermission(Permission permission) =>
+      permission.request();
+
   static Future<void> _showSettingsDialog({
     required BuildContext context,
     required String title,
