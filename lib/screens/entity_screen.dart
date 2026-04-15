@@ -1,4 +1,6 @@
 import 'dart:ui';
+
+import '../services/app_cache_service.dart';
 import 'package:flutter/material.dart';
 import 'dart:async';
 import 'package:google_fonts/google_fonts.dart';
@@ -25,10 +27,6 @@ class EntityScreen extends StatefulWidget {
 class _EntityScreenState extends State<EntityScreen> {
   Timer? _debounceTimer;
   final _supabase = Supabase.instance.client;
-
-  // Static cache — entities survive widget re-creation so re-opening is instant.
-  static List<Map<String, dynamic>>? _cachedEntities;
-  static String? _cacheUserId;
 
   List<Map<String, dynamic>> _entities = [];
   bool _loading = true;
@@ -64,8 +62,9 @@ class _EntityScreenState extends State<EntityScreen> {
   void initState() {
     super.initState();
     final uid = AuthService.instance.currentUser?.id;
-    if (_cachedEntities != null && _cacheUserId == uid) {
-      _entities = List.from(_cachedEntities!);
+    final cache = context.read<AppCacheService>();
+    if (cache.entities != null && cache.cacheUserId == uid) {
+      _entities = List.from(cache.entities!);
       _loading = false;
     } else {
       _loadEntities();
@@ -73,6 +72,7 @@ class _EntityScreenState extends State<EntityScreen> {
   }
 
   Future<void> _loadEntities() async {
+    context.read<AppCacheService>().invalidateEntities();
     setState(() {
       _loading = true;
       _error = null;
@@ -158,8 +158,7 @@ class _EntityScreenState extends State<EntityScreen> {
       }).toList();
 
       if (!mounted) return;
-      _cachedEntities = enriched;
-      _cacheUserId = AuthService.instance.currentUser?.id;
+      context.read<AppCacheService>().setEntities(enriched, user.id);
       setState(() {
         _entities = enriched;
         _loading = false;
