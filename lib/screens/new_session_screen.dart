@@ -9,6 +9,7 @@ import '../widgets/glass_morphism.dart';
 import '../services/api_service.dart';
 import '../services/auth_service.dart';
 import '../services/deepgram_service.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/connection_service.dart';
 import '../providers/session_provider.dart';
 import '../providers/settings_provider.dart';
@@ -252,13 +253,17 @@ class _NewSessionScreenState extends State<NewSessionScreen>
         }
       }
     } else {
+      final serverUrl = context.read<ConnectionService>().serverUrl;
+      final jwt = Supabase.instance.client.auth.currentSession?.accessToken ?? '';
       await _session.startSession(
-        api, 
-        deepgram, 
+        api,
+        deepgram,
         targetEntityId: targetEntityId,
         tone: _selectedPersona,
         isEphemeral: _isIncognito,
         isMultiplayer: _isMultiplayer,
+        serverUrl: serverUrl,
+        jwt: jwt,
       );
     }
   }

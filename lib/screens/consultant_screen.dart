@@ -5,8 +5,8 @@ import 'dart:async';
 
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
@@ -430,25 +430,22 @@ class _ConsultantScreenState extends State<ConsultantScreen>
         .replaceAll(RegExp(r'\n+'), ' ')
         .trim();
 
-    final apiKey = dotenv.env['DEEPGRAM_API_KEY'] ?? '';
-    if (apiKey.isEmpty) {
+    final serverUrl = context.read<ConnectionService>().serverUrl;
+    final jwt = Supabase.instance.client.auth.currentSession?.accessToken ?? '';
+    if (serverUrl.isEmpty || jwt.isEmpty) {
       if (_voiceModeActive && mounted) {
         _setVoiceMode(CVoiceMode.listening);
         _startSTT();
       }
       return;
     }
-
     _setVoiceMode(CVoiceMode.speaking);
-
     try {
       final response = await http
           .post(
-            Uri.parse(
-              'https://api.deepgram.com/v1/speak?model=aura-orpheus-en',
-            ),
+            Uri.parse('$serverUrl/v1/tts'),
             headers: {
-              'Authorization': 'Token $apiKey',
+              'Authorization': 'Bearer $jwt',
               'Content-Type': 'application/json',
             },
             body: jsonEncode({'text': plain}),

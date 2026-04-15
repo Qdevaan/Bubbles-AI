@@ -170,6 +170,8 @@ class SessionProvider extends ChangeNotifier {
     String? targetEntityId,
     bool isEphemeral = false,
     bool isMultiplayer = false,
+    required String serverUrl,
+    required String jwt,
   }) async {
     _currentLiveTone = tone;
     final user = AuthService.instance.currentUser;
@@ -197,7 +199,7 @@ class SessionProvider extends ChangeNotifier {
       debugPrint('Live session created: $sid');
     }
 
-    await deepgram.connect();
+    await deepgram.connect(serverUrl: serverUrl, jwt: jwt);
 
     if (deepgram.isConnected) {
       _currentSuggestion = "Listening...";
