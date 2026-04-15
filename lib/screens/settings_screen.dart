@@ -9,6 +9,7 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../theme/design_tokens.dart';
+import '../services/app_cache_service.dart';
 import '../services/auth_service.dart';
 import '../services/api_service.dart';
 import '../services/connection_service.dart';
@@ -31,6 +32,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _logout() async {
     setState(() => _isLoggingOut = true);
     try {
+      context.read<AppCacheService>().invalidateAll();
       await AuthService.instance.signOut();
       if (mounted) {
         Navigator.of(

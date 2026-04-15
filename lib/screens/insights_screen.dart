@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'package:provider/provider.dart';
+
+import '../services/app_cache_service.dart';
 import '../services/auth_service.dart';
 import '../theme/design_tokens.dart';
 import '../widgets/glass_morphism.dart';
@@ -18,12 +21,6 @@ class InsightsScreen extends StatefulWidget {
 class _InsightsScreenState extends State<InsightsScreen>
     with SingleTickerProviderStateMixin {
   late final TabController _tabController;
-
-  // ── Static cache (survives re-navigation) ────────────────────────────────
-  static List<Map<String, dynamic>>? _cachedEvents;
-  static List<Map<String, dynamic>>? _cachedHighlights;
-  static List<Map<String, dynamic>>? _cachedNotifications;
-  static String? _cacheUserId;
 
   List<Map<String, dynamic>> _events = [];
   List<Map<String, dynamic>> _highlights = [];
@@ -45,10 +42,12 @@ class _InsightsScreenState extends State<InsightsScreen>
     super.initState();
     _tabController = TabController(length: _tabs.length, vsync: this);
     final uid = AuthService.instance.currentUser?.id;
-    if (_cachedEvents != null && _cacheUserId == uid) {
-      _events        = List.from(_cachedEvents!);
-      _highlights    = List.from(_cachedHighlights!);
-      _notifications = List.from(_cachedNotifications!);
+    // context.read is safe in initState() — AppCacheService is a root provider (listen: false)
+    final cache = context.read<AppCacheService>();
+    if (cache.events != null && cache.cacheUserId == uid) {
+      _events        = List.from(cache.events!);
+      _highlights    = List.from(cache.highlights!);
+      _notifications = List.from(cache.notifications!);
       _loading = false;
     } else {
       _load();
@@ -64,6 +63,9 @@ class _InsightsScreenState extends State<InsightsScreen>
   // ── Load ─────────────────────────────────────────────────────────────────
 
   Future<void> _load() async {
+    // Capture cache reference before any await — safe with root provider
+    final cache = context.read<AppCacheService>();
+    cache.invalidateInsights();
     setState(() { _loading = true; _error = null; });
     final user = AuthService.instance.currentUser;
     if (user == null) {
@@ -97,10 +99,12 @@ class _InsightsScreenState extends State<InsightsScreen>
       _notifications = List<Map<String, dynamic>>.from(ntRes);
 
       // Populate cache
-      _cachedEvents        = List.from(_events);
-      _cachedHighlights    = List.from(_highlights);
-      _cachedNotifications = List.from(_notifications);
-      _cacheUserId         = user.id;
+      cache.setInsights(
+        events: _events,
+        highlights: _highlights,
+        notifications: _notifications,
+        userId: user.id,
+      );
 
       setState(() { _loading = false; });
     } catch (e) {
@@ -121,11 +125,16 @@ class _InsightsScreenState extends State<InsightsScreen>
           case 'highlights':    _highlights.removeWhere((e) => e['id'] == item.id);
           case 'notifications': _notifications.removeWhere((e) => e['id'] == item.id);
         }
-        // Keep cache in sync
-        _cachedEvents        = List.from(_events);
-        _cachedHighlights    = List.from(_highlights);
-        _cachedNotifications = List.from(_notifications);
       });
+      // Keep cache in sync — called after setState so lists are updated
+      if (mounted) {
+        context.read<AppCacheService>().setInsights(
+          events: _events,
+          highlights: _highlights,
+          notifications: _notifications,
+          userId: AuthService.instance.currentUser!.id,
+        );
+      }
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -315,7 +324,6 @@ class _InsightsScreenState extends State<InsightsScreen>
               'due_text': dueCtrl.text.trim().isEmpty ? null : dueCtrl.text.trim(),
               'description': bodyCtrl.text.trim().isEmpty ? null : bodyCtrl.text.trim(),
             };
-            _cachedEvents = List.from(_events);
           });
         }
       } else {
@@ -333,9 +341,17 @@ class _InsightsScreenState extends State<InsightsScreen>
               'body': bodyCtrl.text.trim(),
               'highlight_type': hlType,
             };
-            _cachedHighlights = List.from(_highlights);
           });
         }
+      }
+      // Keep cache in sync after edit
+      if (mounted) {
+        context.read<AppCacheService>().setInsights(
+          events: _events,
+          highlights: _highlights,
+          notifications: _notifications,
+          userId: AuthService.instance.currentUser!.id,
+        );
       }
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -372,8 +388,16 @@ class _InsightsScreenState extends State<InsightsScreen>
       if (idx != -1) {
         setState(() {
           _notifications[idx] = {..._notifications[idx], 'is_read': nowRead};
-          _cachedNotifications = List.from(_notifications);
         });
+        // Keep cache in sync after toggle
+        if (mounted) {
+          context.read<AppCacheService>().setInsights(
+            events: _events,
+            highlights: _highlights,
+            notifications: _notifications,
+            userId: AuthService.instance.currentUser!.id,
+          );
+        }
       }
     } catch (_) {}
   }
