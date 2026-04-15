@@ -87,6 +87,19 @@ class AuthService {
     }
   }
 
+  /// Sends a password reset email via Supabase.
+  /// Always returns success (Supabase does not reveal whether the email exists).
+  Future<void> resetPasswordForEmail(String email) async {
+    try {
+      await _client.auth.resetPasswordForEmail(
+        email,
+        redirectTo: 'io.supabase.bubbles://reset-password',
+      );
+    } catch (e) {
+      throw _handleAuthError(e);
+    }
+  }
+
   /// Sign out the current user and CLEAR local cache.
   Future<void> signOut() async {
     try {
@@ -99,6 +112,22 @@ class AuthService {
       // Clear the locally saved profile so the next user doesn't see it
       final prefs = await SharedPreferences.getInstance();
       await prefs.remove(_profileCacheKey);
+    } catch (e) {
+      throw _handleAuthError(e);
+    }
+  }
+
+  /// Deletes the current user's account by calling the Supabase `delete_user` RPC.
+  /// The caller is responsible for signing out on success.
+  /// Throws on RPC failure — the account is NOT deleted if this throws.
+  ///
+  /// PREREQUISITE: The `delete_user` SQL function must exist in Supabase:
+  /// CREATE OR REPLACE FUNCTION delete_user() RETURNS void AS $$
+  ///   BEGIN DELETE FROM auth.users WHERE id = auth.uid(); END;
+  /// $$ LANGUAGE plpgsql SECURITY DEFINER;
+  Future<void> deleteAccount() async {
+    try {
+      await _client.rpc('delete_user');
     } catch (e) {
       throw _handleAuthError(e);
     }
