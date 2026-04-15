@@ -127,12 +127,13 @@ class _InsightsScreenState extends State<InsightsScreen>
         }
       });
       // Keep cache in sync — called after setState so lists are updated
-      if (mounted) {
+      final uid = AuthService.instance.currentUser?.id;
+      if (uid != null && mounted) {
         context.read<AppCacheService>().setInsights(
           events: _events,
           highlights: _highlights,
           notifications: _notifications,
-          userId: AuthService.instance.currentUser!.id,
+          userId: uid,
         );
       }
       if (mounted) {
@@ -345,12 +346,13 @@ class _InsightsScreenState extends State<InsightsScreen>
         }
       }
       // Keep cache in sync after edit
-      if (mounted) {
+      final editUid = AuthService.instance.currentUser?.id;
+      if (editUid != null && mounted) {
         context.read<AppCacheService>().setInsights(
           events: _events,
           highlights: _highlights,
           notifications: _notifications,
-          userId: AuthService.instance.currentUser!.id,
+          userId: editUid,
         );
       }
       if (mounted) {
@@ -390,12 +392,13 @@ class _InsightsScreenState extends State<InsightsScreen>
           _notifications[idx] = {..._notifications[idx], 'is_read': nowRead};
         });
         // Keep cache in sync after toggle
-        if (mounted) {
+        final toggleUid = AuthService.instance.currentUser?.id;
+        if (toggleUid != null && mounted) {
           context.read<AppCacheService>().setInsights(
             events: _events,
             highlights: _highlights,
             notifications: _notifications,
-            userId: AuthService.instance.currentUser!.id,
+            userId: toggleUid,
           );
         }
       }

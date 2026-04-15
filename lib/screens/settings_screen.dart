@@ -2,16 +2,9 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
-import 'package:cached_network_image/cached_network_image.dart';
-import 'package:record/record.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:permission_handler/permission_handler.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
-
 import '../theme/design_tokens.dart';
 import '../services/app_cache_service.dart';
 import '../services/auth_service.dart';
-import '../services/api_service.dart';
 import '../services/connection_service.dart';
 import '../services/voice_assistant_service.dart';
 import '../providers/theme_provider.dart';
