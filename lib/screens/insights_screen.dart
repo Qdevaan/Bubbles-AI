@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:provider/provider.dart';
 
 import '../services/app_cache_service.dart';
 import '../services/auth_service.dart';
+import '../services/insights_service.dart';
 import '../theme/design_tokens.dart';
 import '../widgets/glass_morphism.dart';
 import '../widgets/animated_background.dart';
@@ -46,7 +46,7 @@ class _InsightsScreenState extends State<InsightsScreen>
   void initState() {
     super.initState();
     _tabController = TabController(length: _tabs.length, vsync: this);
-    final uid = AuthService.instance.currentUser?.id;
+    final uid = AuthService.instance.currentUserId;
     // context.read is safe in initState() — AppCacheService is a root provider (listen: false)
     final cache = context.read<AppCacheService>();
     if (cache.events != null && cache.cacheUserId == uid) {
@@ -74,43 +74,27 @@ class _InsightsScreenState extends State<InsightsScreen>
     final cache = context.read<AppCacheService>();
     cache.invalidateInsights();
     setState(() { _loading = true; _error = null; });
-    final user = AuthService.instance.currentUser;
-    if (user == null) {
+    final uid = AuthService.instance.currentUserId;
+    if (uid == null) {
       setState(() { _loading = false; _error = 'please_login'; });
       return;
     }
-    final sb = Supabase.instance.client;
     try {
-      final evRes = await sb
-          .from('events')
-          .select('id, title, due_text, description, created_at')
-          .eq('user_id', user.id)
-          .order('created_at', ascending: false)
-          .limit(50);
-      final hlRes = await sb
-          .from('highlights')
-          .select('id, title, body, highlight_type, is_resolved, created_at')
-          .eq('user_id', user.id)
-          .order('created_at', ascending: false)
-          .limit(50);
-      final ntRes = await sb
-          .from('notifications')
-          .select('id, title, body, notif_type, is_read, created_at')
-          .eq('user_id', user.id)
-          .order('created_at', ascending: false)
-          .limit(50);
+      final events        = await InsightsService.instance.fetchEvents(uid);
+      final highlights    = await InsightsService.instance.fetchHighlights(uid);
+      final notifications = await InsightsService.instance.fetchNotifications(uid);
 
       if (!mounted) return;
-      _events        = List<Map<String, dynamic>>.from(evRes);
-      _highlights    = List<Map<String, dynamic>>.from(hlRes);
-      _notifications = List<Map<String, dynamic>>.from(ntRes);
+      _events        = events;
+      _highlights    = highlights;
+      _notifications = notifications;
 
       // Populate cache
       cache.setInsights(
         events: _events,
         highlights: _highlights,
         notifications: _notifications,
-        userId: user.id,
+        userId: uid,
       );
 
       setState(() { _loading = false; });
@@ -124,9 +108,8 @@ class _InsightsScreenState extends State<InsightsScreen>
   // ── Delete ───────────────────────────────────────────────────────────────
 
   Future<void> _deleteItem(_InsightItem item) async {
-    final sb = Supabase.instance.client;
     try {
-      await sb.from(item.table).delete().eq('id', item.id);
+      await InsightsService.instance.deleteItem(item.table, item.id);
       setState(() {
         switch (item.table) {
           case 'events':        _events.removeWhere((e) => e['id'] == item.id);
@@ -135,7 +118,7 @@ class _InsightsScreenState extends State<InsightsScreen>
         }
       });
       // Keep cache in sync — called after setState so lists are updated
-      final uid = AuthService.instance.currentUser?.id;
+      final uid = AuthService.instance.currentUserId;
       if (uid != null && mounted) {
         context.read<AppCacheService>().setInsights(
           events: _events,
@@ -316,15 +299,14 @@ class _InsightsScreenState extends State<InsightsScreen>
     final newTitle = titleCtrl.text.trim();
     if (newTitle.isEmpty) return;
 
-    final sb = Supabase.instance.client;
     try {
       if (item.table == 'events') {
-        await sb.from('events').update({
-          'title': newTitle,
-          if (dueCtrl.text.trim().isNotEmpty) 'due_text': dueCtrl.text.trim()
-              else 'due_text': null,
-          'description': bodyCtrl.text.trim().isEmpty ? null : bodyCtrl.text.trim(),
-        }).eq('id', item.id);
+        await InsightsService.instance.updateEvent(
+          id: item.id,
+          title: newTitle,
+          dueText: dueCtrl.text.trim().isNotEmpty ? dueCtrl.text.trim() : null,
+          description: bodyCtrl.text.trim().isEmpty ? null : bodyCtrl.text.trim(),
+        );
         final idx = _events.indexWhere((e) => e['id'] == item.id);
         if (idx != -1) {
           setState(() {
@@ -337,11 +319,12 @@ class _InsightsScreenState extends State<InsightsScreen>
           });
         }
       } else {
-        await sb.from('highlights').update({
-          'title': newTitle,
-          'body': bodyCtrl.text.trim(),
-          'highlight_type': hlType,
-        }).eq('id', item.id);
+        await InsightsService.instance.updateHighlight(
+          id: item.id,
+          title: newTitle,
+          body: bodyCtrl.text.trim(),
+          highlightType: hlType,
+        );
         final idx = _highlights.indexWhere((e) => e['id'] == item.id);
         if (idx != -1) {
           setState(() {
@@ -355,7 +338,7 @@ class _InsightsScreenState extends State<InsightsScreen>
         }
       }
       // Keep cache in sync after edit
-      final editUid = AuthService.instance.currentUser?.id;
+      final editUid = AuthService.instance.currentUserId;
       if (editUid != null && mounted) {
         context.read<AppCacheService>().setInsights(
           events: _events,
@@ -393,16 +376,18 @@ class _InsightsScreenState extends State<InsightsScreen>
     );
     if (raw.isEmpty) return;
     final nowRead = !(raw['is_read'] == true);
-    final sb = Supabase.instance.client;
     try {
-      await sb.from('notifications').update({'is_read': nowRead}).eq('id', item.id);
+      await InsightsService.instance.updateNotificationReadStatus(
+        id: item.id,
+        isRead: nowRead,
+      );
       final idx = _notifications.indexWhere((n) => n['id'] == item.id);
       if (idx != -1) {
         setState(() {
           _notifications[idx] = {..._notifications[idx], 'is_read': nowRead};
         });
         // Keep cache in sync after toggle
-        final toggleUid = AuthService.instance.currentUser?.id;
+        final toggleUid = AuthService.instance.currentUserId;
         if (toggleUid != null && mounted) {
           context.read<AppCacheService>().setInsights(
             events: _events,
