@@ -12,7 +12,7 @@ import '../providers/home_provider.dart';
 import '../providers/gamification_provider.dart';
 import '../widgets/glass_morphism.dart';
 import '../widgets/animated_background.dart';
-import '../widgets/xp_progress_ring.dart';
+
 import '../widgets/mood_check_widget.dart';
 import '../widgets/streak_strip.dart';
 import '../widgets/skeleton_loader.dart';
@@ -257,18 +257,6 @@ class _HomeScreenState extends State<HomeScreen>
 
         return Scaffold(
           backgroundColor: isDark ? AppColors.backgroundDark : AppColors.backgroundLight,
-          floatingActionButton: home.loading ? null : Consumer<ConnectionService>(
-            builder: (_, conn, __) => _AnimatedFab(
-              isDark: isDark,
-              onTap: () {
-                if (conn.isConnected) {
-                  Navigator.pushNamed(context, '/new-session');
-                } else {
-                  _showNotConnectedDialog(context);
-                }
-              },
-            ),
-          ),
           body: home.loading
               ? const Center(child: SkeletonCardGroup(count: 4))
               : GestureDetector(
@@ -343,14 +331,24 @@ class _HomeScreenState extends State<HomeScreen>
                                   ),
                                 ),
                               ),
-                              Text(
-                                'Bubbles',
-                                style: GoogleFonts.manrope(
-                                  fontWeight: FontWeight.w800,
-                                  fontSize: 18,
-                                  color: isDark
-                                      ? Colors.white
-                                      : AppColors.slate900,
+                              Expanded(
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                                  child: Center(
+                                    child: SingleChildScrollView(
+                                      scrollDirection: Axis.horizontal,
+                                      child: Consumer<GamificationProvider>(
+                                        builder: (_, gp, __) => StreakStrip(
+                                          streak: gp.currentStreak,
+                                          totalXp: gp.totalXp,
+                                          level: gp.level,
+                                          streakFreezes: gp.streakFreezes,
+                                          skillTierEmoji: gp.skillTierEmoji,
+                                          onTap: () => Navigator.pushNamed(context, '/game-center'),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
                                 ),
                               ),
                               Semantics(
@@ -459,22 +457,7 @@ class _HomeScreenState extends State<HomeScreen>
                                                 ),
                                               ),
                                             ),
-                                            if (gp.isStreakHot)
-                                              Container(
-                                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                                decoration: BoxDecoration(
-                                                  color: AppColors.streakFire.withAlpha(20),
-                                                  borderRadius: BorderRadius.circular(AppRadius.full),
-                                                ),
-                                                child: Text(
-                                                  '🔥 ${gp.currentStreak}d',
-                                                  style: GoogleFonts.manrope(
-                                                    fontSize: 12,
-                                                    fontWeight: FontWeight.w800,
-                                                    color: AppColors.streakFire,
-                                                  ),
-                                                ),
-                                              ),
+
                                           ],
                                         ),
                                         ShaderMask(
@@ -534,31 +517,19 @@ class _HomeScreenState extends State<HomeScreen>
                                                 context);
                                           }
                                         },
-                                        child: _buildHeroCard(
-                                            context,
-                                            isDark,
-                                            isConnected),
+                                        child: _EntityOrb(
+                                            isConnected: isConnected,
+                                            breatheAnimation: _breatheCtrl,
+                                            onTap: () {
+                                              if (isConnected) {
+                                                Navigator.pushNamed(context, '/new-session');
+                                              } else {
+                                                _showNotConnectedDialog(context);
+                                              }
+                                            },
+                                        ),
                                       );
                                     },
-                                  ),
-                                ),
-                              ),
-
-                              // --- STREAK STRIP ---
-                              SliverToBoxAdapter(
-                                child: Padding(
-                                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-                                  child: Center(
-                                    child: Consumer<GamificationProvider>(
-                                      builder: (_, gp, __) => StreakStrip(
-                                        streak: gp.currentStreak,
-                                        totalXp: gp.totalXp,
-                                        level: gp.level,
-                                        streakFreezes: gp.streakFreezes,
-                                        skillTierEmoji: gp.skillTierEmoji,
-                                        onTap: () => Navigator.pushNamed(context, '/game-center'),
-                                      ),
-                                    ),
                                   ),
                                 ),
                               ),
@@ -910,187 +881,6 @@ class _HomeScreenState extends State<HomeScreen>
     );
   }
 
-  Widget _buildHeroCard(
-      BuildContext context, bool isDark, bool isConnected) {
-    return Container(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(AppRadius.xxl),
-        color: isDark ? AppColors.glassWhite : Colors.white,
-        border: Border.all(
-          color: isDark ? AppColors.glassBorder : Colors.grey.shade200,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Theme.of(context).colorScheme.primary.withAlpha(isDark ? 38 : 20),
-            blurRadius: 24,
-            spreadRadius: -4,
-          ),
-        ],
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Semantics(
-                      label: isConnected
-                          ? 'Server status: connected'
-                          : 'Server status: disconnected',
-                      child: Row(
-                        children: [
-                          if (isConnected)
-                            _PulseDot()
-                          else
-                            const Icon(Icons.circle,
-                                color: AppColors.error, size: 8),
-                          const SizedBox(width: 8),
-                          Text(
-                            isConnected
-                                ? 'STATUS: ACTIVE'
-                                : 'STATUS: DISCONNECTED',
-                            style: GoogleFonts.manrope(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w700,
-                              color: isConnected
-                                  ? Theme.of(context)
-                                      .colorScheme
-                                      .primary
-                                  : AppColors.error,
-                              letterSpacing: 1.2,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      'Live Wingman',
-                      style: GoogleFonts.manrope(
-                        fontSize: 22,
-                        fontWeight: FontWeight.w700,
-                        color: isDark
-                            ? Colors.white
-                            : AppColors.slate900,
-                      ),
-                    ),
-                  ],
-                ),
-                // Breathing mic icon
-                AnimatedBuilder(
-                  animation: _breatheCtrl,
-                  builder: (_, child) => Transform.scale(
-                    scale: 1.0 + (_breatheCtrl.value * 0.12),
-                    child: child,
-                  ),
-                  child: Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: isDark
-                          ? AppColors.glassWhite
-                          : Theme.of(context).colorScheme.primary.withAlpha(26),
-                      borderRadius: BorderRadius.circular(AppRadius.lg),
-                    ),
-                    child: Icon(
-                      Icons.mic,
-                      color: isDark
-                          ? Colors.white
-                          : Theme.of(context).colorScheme.primary,
-                      size: 22,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 14),
-            Text(
-              'Ready to listen. I\'ll provide real-time cues discreetly through your connected device.',
-              style: GoogleFonts.manrope(
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
-                color: isDark
-                    ? AppColors.slate300
-                    : AppColors.slate600,
-                height: 1.5,
-              ),
-            ),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  child: Container(
-                    height: 48,
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [Theme.of(context).colorScheme.primary, Theme.of(context).colorScheme.primary.withAlpha(200)],
-                      ),
-                      borderRadius:
-                          BorderRadius.circular(AppRadius.full),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Theme.of(context).colorScheme.primary.withAlpha(51),
-                          blurRadius: 12,
-                        ),
-                      ],
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(Icons.record_voice_over,
-                            color: Colors.white, size: 20),
-                        const SizedBox(width: 8),
-                        Text(
-                          'Start Session',
-                          style: GoogleFonts.manrope(
-                            fontWeight: FontWeight.w700,
-                            color: Colors.white,
-                            fontSize: 14,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                GestureDetector(
-                  onTap: () =>
-                      Navigator.pushNamed(context, '/settings'),
-                  child: Container(
-                    width: 48,
-                    height: 48,
-                    decoration: BoxDecoration(
-                      color: isDark
-                          ? AppColors.glassWhite
-                          : Colors.black.withAlpha(10),
-                      borderRadius:
-                          BorderRadius.circular(AppRadius.full),
-                      border: Border.all(
-                        color: isDark
-                            ? AppColors.glassBorder
-                            : Colors.black.withAlpha(20),
-                      ),
-                    ),
-                    child: Icon(
-                      Icons.settings,
-                      color: isDark
-                          ? Colors.white
-                          : AppColors.slate600,
-                      size: 20,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 }
 
 // --- WIDGETS ---
@@ -1622,80 +1412,138 @@ class _NotificationCard extends StatelessWidget {
   }
 }
 
-// ── Animated Floating Action Button ─────────────────────────────────────────
+// ── Entity Orb ─────────────────────────────────────────────────────────────
 
-class _AnimatedFab extends StatefulWidget {
-  final bool isDark;
+class _EntityOrb extends StatefulWidget {
+  final bool isConnected;
+  final AnimationController breatheAnimation;
   final VoidCallback onTap;
 
-  const _AnimatedFab({required this.isDark, required this.onTap});
+  const _EntityOrb({
+    required this.isConnected,
+    required this.breatheAnimation,
+    required this.onTap,
+  });
 
   @override
-  State<_AnimatedFab> createState() => _AnimatedFabState();
+  State<_EntityOrb> createState() => _EntityOrbState();
 }
 
-class _AnimatedFabState extends State<_AnimatedFab>
-    with SingleTickerProviderStateMixin {
+class _EntityOrbState extends State<_EntityOrb> with SingleTickerProviderStateMixin {
   bool _pressed = false;
-  late AnimationController _pulseCtrl;
-
-  @override
-  void initState() {
-    super.initState();
-    _pulseCtrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1500),
-    )..repeat(reverse: true);
-  }
-
-  @override
-  void dispose() {
-    _pulseCtrl.dispose();
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) {
     final primary = Theme.of(context).colorScheme.primary;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return AnimatedBuilder(
-      animation: _pulseCtrl,
-      builder: (_, child) => Transform.scale(
-        scale: _pressed ? 0.9 : (1.0 + _pulseCtrl.value * 0.04),
-        child: child,
-      ),
-      child: GestureDetector(
-        onTapDown: (_) => setState(() => _pressed = true),
-        onTapUp: (_) {
-          setState(() => _pressed = false);
-          widget.onTap();
-        },
-        onTapCancel: () => setState(() => _pressed = false),
-        child: Container(
-          width: 60,
-          height: 60,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [primary, primary.withAlpha(200)],
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: primary.withAlpha(80),
-                blurRadius: 16,
-                spreadRadius: -2,
-                offset: const Offset(0, 4),
+    return Center(
+      child: Column(
+        children: [
+          // Dynamic Greeting
+          Padding(
+            padding: const EdgeInsets.only(bottom: 20),
+            child: Text(
+              "Ready to talk?",
+              style: GoogleFonts.manrope(
+                fontSize: 16,
+                letterSpacing: 0.5,
+                fontWeight: FontWeight.w600,
+                color: isDark ? const Color(0xFFCBD5E1) : const Color(0xFF475569),
               ),
-            ],
+            ),
           ),
-          child: const Icon(
-            Icons.record_voice_over_rounded,
-            color: Colors.white,
-            size: 26,
+          
+          // The Orb
+          AnimatedBuilder(
+            animation: widget.breatheAnimation,
+            builder: (_, child) {
+              final scale = 1.0 + (widget.breatheAnimation.value * 0.08);
+              return Transform.scale(
+                scale: _pressed ? 0.95 : scale,
+                child: child,
+              );
+            },
+            child: GestureDetector(
+              onTapDown: (_) => setState(() => _pressed = true),
+              onTapUp: (_) {
+                setState(() => _pressed = false);
+                widget.onTap();
+              },
+              onTapCancel: () => setState(() => _pressed = false),
+              child: Container(
+                width: 170,
+                height: 170,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: RadialGradient(
+                    colors: [
+                      primary.withAlpha(isDark ? 255 : 200),
+                      primary.withAlpha(isDark ? 80 : 40),
+                      Colors.transparent,
+                    ],
+                    stops: const [0.4, 0.8, 1.0],
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: primary.withAlpha(widget.isConnected ? 120 : 60),
+                      blurRadius: widget.isConnected ? 60 : 30,
+                      spreadRadius: widget.isConnected ? 10 : -10,
+                    )
+                  ],
+                ),
+                child: Center(
+                  child: Container(
+                    width: 76,
+                    height: 76,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: isDark ? const Color(0xFF0F172A) : Colors.white,
+                      border: Border.all(
+                        color: primary.withAlpha(100),
+                        width: 2,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withAlpha(20),
+                          blurRadius: 10,
+                        )
+                      ],
+                    ),
+                    child: Center(
+                      child: Icon(
+                        widget.isConnected ? Icons.graphic_eq_rounded : Icons.mic_rounded,
+                        size: 32,
+                        color: primary,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
           ),
-        ),
+          
+          // Status indicator
+          Padding(
+            padding: const EdgeInsets.only(top: 24),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                if (widget.isConnected) _PulseDot() else const Icon(Icons.circle, color: Color(0xFFEF4444), size: 8),
+                const SizedBox(width: 8),
+                Text(
+                  widget.isConnected ? 'ACTIVE' : 'TAP TO CONNECT',
+                  style: GoogleFonts.manrope(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: widget.isConnected ? primary : (isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
+                    letterSpacing: 1.5,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
