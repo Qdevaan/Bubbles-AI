@@ -9,8 +9,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:speech_to_text/speech_to_text.dart';
 import 'package:speech_to_text/speech_recognition_result.dart';
 import 'package:http/http.dart' as http;
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'auth_service.dart';
+import 'user_settings_service.dart';
 import 'connection_service.dart';
 import 'wake_word_service.dart';
 
@@ -127,9 +127,12 @@ class VoiceAssistantService extends ChangeNotifier {
 
   Future<void> _loadFromSupabase() async {
     try {
-      final user = AuthService.instance.currentUser;
-      if (user == null) return;
-      // voice_mode column was removed. Local SharedPreferences is used instead.
+      final userId = AuthService.instance.currentUserId;
+      if (userId == null) return;
+      // voice_mode column was removed from user_settings; local SharedPreferences
+      // is the source of truth. UserSettingsService is available here for any
+      // future per-user settings that need server-side persistence.
+      await UserSettingsService.instance.fetchSettings(userId);
     } catch (e) {
       debugPrint('VoiceAssistantService._loadFromSupabase: $e');
     }
@@ -388,7 +391,7 @@ class VoiceAssistantService extends ChangeNotifier {
     notifyListeners();
 
     final serverUrl = _connectionService.serverUrl;
-    final jwt = Supabase.instance.client.auth.currentSession?.accessToken ?? '';
+    final jwt = AuthService.instance.accessToken ?? '';
 
     if (serverUrl.isEmpty || jwt.isEmpty) {
       debugPrint('⚠️ Deepgram TTS: serverUrl or jwt is empty, skipping audio playback');
