@@ -1,4 +1,3 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
@@ -950,7 +949,7 @@ class _GenericSessionDetailState extends State<GenericSessionDetail> {
                                       initialValue: _feedbackMap[log['id'] as String? ?? ''],
                                       onRate: (val) {
                                         setState(() => _feedbackMap[log['id'] as String] = val);
-                                        final userId = AuthService.instance.currentUser?.id ?? '';
+                                        final userId = AuthService.instance.currentUserId ?? '';
                                         context.read<ApiService>().saveFeedback(
                                           userId: userId,
                                           sessionId: widget.sessionId,
@@ -1008,7 +1007,7 @@ class _GenericSessionDetailState extends State<GenericSessionDetail> {
                                     currentValue: _feedbackMap[log['id'] as String? ?? ''],
                                     onFeedback: (val) {
                                       setState(() => _feedbackMap[log['id'] as String] = val);
-                                      final userId = AuthService.instance.currentUser?.id ?? '';
+                                      final userId = AuthService.instance.currentUserId ?? '';
                                       context.read<ApiService>().saveFeedback(
                                         userId: userId,
                                         sessionId: widget.sessionId,
