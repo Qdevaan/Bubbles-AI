@@ -57,11 +57,11 @@ class SettingsProvider with ChangeNotifier {
   bool get dataSharingOptIn => _dataSharingOptIn;
 
   SettingsProvider() {
-    _loadSettings();
+    loadSettings();
   }
 
   // ── Load: SharedPreferences first, then Supabase overrides ────────────────
-  Future<void> _loadSettings() async {
+  Future<void> loadSettings() async {
     final prefs = await SharedPreferences.getInstance();
     _defaultLiveTone = prefs.getString(_liveToneKey) ?? 'casual';
     _defaultConsultantTone = prefs.getString(_consultantToneKey) ?? 'casual';

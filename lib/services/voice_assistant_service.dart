@@ -129,44 +129,14 @@ class VoiceAssistantService extends ChangeNotifier {
     try {
       final user = AuthService.instance.currentUser;
       if (user == null) return;
-      final row = await Supabase.instance.client
-          .from('user_settings')
-          .select('voice_mode')
-          .eq('user_id', user.id)
-          .maybeSingle();
-      if (row != null && row['voice_mode'] != null) {
-        final modeStr = row['voice_mode'] as String;
-        VoiceMode? matchedMode;
-        for (var vm in VoiceMode.values) {
-          if (vm.name == modeStr) {
-            matchedMode = vm;
-            break;
-          }
-        }
-        if (matchedMode != null && matchedMode != _voiceMode) {
-          _voiceMode = matchedMode;
-          notifyListeners();
-          final prefs = await SharedPreferences.getInstance();
-          await prefs.setInt(_voiceModeKey, _voiceMode.index);
-        }
-      }
+      // voice_mode column was removed. Local SharedPreferences is used instead.
     } catch (e) {
       debugPrint('VoiceAssistantService._loadFromSupabase: $e');
     }
   }
 
   Future<void> _upsertVoiceMode(VoiceMode mode) async {
-    try {
-      final user = AuthService.instance.currentUser;
-      if (user == null) return;
-      await Supabase.instance.client.from('user_settings').upsert({
-        'user_id': user.id,
-        'voice_mode': mode.name,
-        'updated_at': DateTime.now().toUtc().toIso8601String(),
-      });
-    } catch (e) {
-      debugPrint('VoiceAssistantService._upsertVoiceMode: $e');
-    }
+    // Disabled Supabase sync: 'voice_mode' column has been removed.
   }
 
   Future<void> _initSTT() async {

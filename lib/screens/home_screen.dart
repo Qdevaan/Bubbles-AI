@@ -1219,22 +1219,6 @@ class _InsightCardState extends State<_InsightCard>
               ],
             ),
 
-            // Preview (always visible, 2 lines max)
-            if (hasBody && !_expanded)
-              Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: Text(
-                  widget.description,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.manrope(
-                    fontSize: 13,
-                    color: widget.isDark ? AppColors.slate400 : AppColors.slate500,
-                    height: 1.4,
-                  ),
-                ),
-              ),
-
             // Expanded body
             SizeTransition(
               sizeFactor: _expandAnim,
