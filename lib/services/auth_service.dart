@@ -24,6 +24,12 @@ class AuthService {
   bool get isEmailVerified =>
       _client.auth.currentUser?.emailConfirmedAt != null;
 
+  /// JWT access token for the current session. Null when signed out.
+  String? get accessToken => _client.auth.currentSession?.accessToken;
+
+  /// Supabase user ID for the current session. Null when signed out.
+  String? get currentUserId => _client.auth.currentUser?.id;
+
   // ---------------------------------------------------------------------------
   // AUTHENTICATION METHODS
   // ---------------------------------------------------------------------------
