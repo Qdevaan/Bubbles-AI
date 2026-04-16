@@ -652,4 +652,25 @@ class ApiService {
       return null;
     }
   }
+
+  // --- 14. AI PERFORMANCE SUMMARY (Adaptive Engine) ---
+  /// Returns AI-analyzed performance summary for adaptive gamification.
+  Future<Map<String, dynamic>?> getPerformanceSummary(String userId) async {
+    if (!_connectionService.isConnected) return null;
+    try {
+      final res = await http
+          .get(
+            Uri.parse('${_connectionService.serverUrl}/v1/performance_summary/$userId'),
+            headers: await _authHeaders(),
+          )
+          .timeout(const Duration(seconds: 15));
+      if (res.statusCode == 200) {
+        return jsonDecode(res.body) as Map<String, dynamic>;
+      }
+      return null;
+    } catch (e) {
+      debugPrint('getPerformanceSummary error: $e');
+      return null;
+    }
+  }
 }

@@ -1208,6 +1208,14 @@ class _ErrorView extends StatelessWidget {
     required this.isDark,
   });
 
+  String _getLaymanError(String err) {
+    final lower = err.toLowerCase();
+    if (lower.contains('socketexception') || lower.contains('failed host lookup') || lower.contains('clientexception')) {
+      return 'Network is unreachable. Please check your internet connection.';
+    }
+    return err;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Center(
@@ -1227,7 +1235,7 @@ class _ErrorView extends StatelessWidget {
             ),
             const SizedBox(height: 6),
             Text(
-              error,
+              _getLaymanError(error),
               style: GoogleFonts.manrope(
                 fontSize: 12,
                 color: AppColors.textMuted,

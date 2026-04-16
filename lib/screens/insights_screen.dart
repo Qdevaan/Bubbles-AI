@@ -8,6 +8,8 @@ import '../services/app_cache_service.dart';
 import '../services/auth_service.dart';
 import '../theme/design_tokens.dart';
 import '../widgets/glass_morphism.dart';
+import '../widgets/animated_background.dart';
+import '../widgets/skeleton_loader.dart';
 
 /// Full-screen insights viewer with edit, delete, and static caching.
 /// Navigated to from the home screen "See All" button.
@@ -21,6 +23,9 @@ class InsightsScreen extends StatefulWidget {
 class _InsightsScreenState extends State<InsightsScreen>
     with SingleTickerProviderStateMixin {
   late final TabController _tabController;
+  final ScrollController _scrollCtrl = ScrollController();
+  final TextEditingController _searchCtrl = TextEditingController();
+  String _searchQuery = '';
 
   List<Map<String, dynamic>> _events = [];
   List<Map<String, dynamic>> _highlights = [];
@@ -57,6 +62,8 @@ class _InsightsScreenState extends State<InsightsScreen>
   @override
   void dispose() {
     _tabController.dispose();
+    _scrollCtrl.dispose();
+    _searchCtrl.dispose();
     super.dispose();
   }
 
@@ -69,7 +76,7 @@ class _InsightsScreenState extends State<InsightsScreen>
     setState(() { _loading = true; _error = null; });
     final user = AuthService.instance.currentUser;
     if (user == null) {
-      setState(() { _loading = false; _error = 'Not logged in.'; });
+      setState(() { _loading = false; _error = 'please_login'; });
       return;
     }
     final sb = Supabase.instance.client;
@@ -108,8 +115,9 @@ class _InsightsScreenState extends State<InsightsScreen>
 
       setState(() { _loading = false; });
     } catch (e) {
+      debugPrint('InsightsScreen._load error: $e');
       if (!mounted) return;
-      setState(() { _loading = false; _error = e.toString(); });
+      setState(() { _loading = false; _error = 'load_failed'; });
     }
   }
 
@@ -146,10 +154,11 @@ class _InsightsScreenState extends State<InsightsScreen>
         );
       }
     } catch (e) {
+      debugPrint('InsightsScreen._deleteItem error: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Delete failed: $e'),
+            content: const Text('Couldn\'t delete that — check your connection and try again.'),
             backgroundColor: AppColors.error,
             behavior: SnackBarBehavior.floating,
           ),
@@ -364,10 +373,11 @@ class _InsightsScreenState extends State<InsightsScreen>
         );
       }
     } catch (e) {
+      debugPrint('InsightsScreen._editItem error: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Save failed: $e'),
+            content: const Text('Couldn\'t save your changes — please try again in a moment.'),
             backgroundColor: AppColors.error,
             behavior: SnackBarBehavior.floating,
           ),
@@ -474,23 +484,34 @@ class _InsightsScreenState extends State<InsightsScreen>
   }
 
   List<_InsightItem> _itemsForTab(int idx) {
+    List<_InsightItem> items;
     switch (idx) {
-      case 0: return _allItems;
-      case 1: return _events.map(_InsightItem.fromEvent).toList();
-      case 2: return _highlights
+      case 0: items = _allItems;
+      case 1: items = _events.map(_InsightItem.fromEvent).toList();
+      case 2: items = _highlights
             .where((h) => (h['highlight_type'] ?? '') == 'key_fact')
             .map(_InsightItem.fromHighlight).toList();
-      case 3: return _highlights
+      case 3: items = _highlights
             .where((h) => (h['highlight_type'] ?? '') == 'action_item')
             .map(_InsightItem.fromHighlight).toList();
-      case 4: return _highlights.where((h) {
+      case 4: items = _highlights.where((h) {
               final t = h['highlight_type'] ?? '';
               return t == 'risk' || t == 'conflict' ||
                   (t != 'key_fact' && t != 'action_item' && t != 'opportunity');
             }).map(_InsightItem.fromHighlight).toList();
-      case 5: return _notifications.map(_InsightItem.fromNotification).toList();
-      default: return [];
+      case 5: items = _notifications.map(_InsightItem.fromNotification).toList();
+      default: items = [];
     }
+    // Apply search filter
+    if (_searchQuery.isNotEmpty) {
+      final q = _searchQuery.toLowerCase();
+      items = items.where((i) =>
+        i.title.toLowerCase().contains(q) ||
+        i.body.toLowerCase().contains(q) ||
+        i.badge.toLowerCase().contains(q)
+      ).toList();
+    }
+    return items;
   }
 
   // ── Build ─────────────────────────────────────────────────────────────────
@@ -509,7 +530,10 @@ class _InsightsScreenState extends State<InsightsScreen>
         backgroundColor:
             isDark ? AppColors.backgroundDark : AppColors.backgroundLight,
         body: Stack(children: [
-          const MeshGradientBackground(),
+          AnimatedAmbientBackground(
+            isDark: isDark,
+            scrollController: _scrollCtrl,
+          ),
           SafeArea(
             child: Column(children: [
               // Header
@@ -535,6 +559,86 @@ class _InsightsScreenState extends State<InsightsScreen>
                   ),
                 ]),
               ),
+
+              // Summary stats header
+              if (!_loading && _error == null)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+                  child: Row(
+                    children: [
+                      _StatChip(
+                        icon: Icons.event_rounded,
+                        color: const Color(0xFFF59E0B),
+                        count: _events.length,
+                        label: 'Events',
+                        isDark: isDark,
+                      ),
+                      const SizedBox(width: 8),
+                      _StatChip(
+                        icon: Icons.lightbulb_outline_rounded,
+                        color: const Color(0xFF6366F1),
+                        count: _highlights.length,
+                        label: 'Highlights',
+                        isDark: isDark,
+                      ),
+                      const SizedBox(width: 8),
+                      _StatChip(
+                        icon: Icons.notifications_active_outlined,
+                        color: const Color(0xFF10B981),
+                        count: _notifications.length,
+                        label: 'Updates',
+                        isDark: isDark,
+                      ),
+                    ],
+                  ),
+                ),
+
+              // Search bar
+              if (!_loading && _error == null)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                  child: Container(
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: isDark ? AppColors.glassWhite : Colors.grey.shade50,
+                      borderRadius: BorderRadius.circular(AppRadius.full),
+                      border: Border.all(
+                        color: isDark ? AppColors.glassBorder : Colors.grey.shade200,
+                      ),
+                    ),
+                    child: TextField(
+                      controller: _searchCtrl,
+                      onChanged: (v) => setState(() => _searchQuery = v),
+                      style: GoogleFonts.manrope(
+                        fontSize: 13,
+                        color: isDark ? Colors.white : AppColors.slate900,
+                      ),
+                      decoration: InputDecoration(
+                        hintText: 'Search insights...',
+                        hintStyle: GoogleFonts.manrope(
+                          fontSize: 13,
+                          color: isDark ? AppColors.slate500 : Colors.grey.shade400,
+                        ),
+                        prefixIcon: Icon(Icons.search,
+                            size: 18,
+                            color: isDark ? AppColors.slate500 : Colors.grey.shade400),
+                        suffixIcon: _searchQuery.isNotEmpty
+                            ? GestureDetector(
+                                onTap: () {
+                                  _searchCtrl.clear();
+                                  setState(() => _searchQuery = '');
+                                },
+                                child: Icon(Icons.close,
+                                    size: 16,
+                                    color: isDark ? AppColors.slate400 : Colors.grey.shade500),
+                              )
+                            : null,
+                        border: InputBorder.none,
+                        contentPadding: const EdgeInsets.symmetric(vertical: 10),
+                      ),
+                    ),
+                  ),
+                ),
 
               // Tab bar
               SizedBox(
@@ -591,23 +695,34 @@ class _InsightsScreenState extends State<InsightsScreen>
               // Content
               Expanded(
                 child: _loading
-                    ? const Center(child: CircularProgressIndicator())
+                    ? const Padding(
+                        padding: EdgeInsets.all(16),
+                        child: SkeletonCardGroup(count: 5),
+                      )
                     : _error != null
                         ? _ErrorState(error: _error!, onRetry: _load, isDark: isDark)
                         : AnimatedBuilder(
                             animation: _tabController,
                             builder: (_, __) {
                               final items = _itemsForTab(_tabController.index);
-                              if (items.isEmpty) return _EmptyState(isDark: isDark);
+                              if (items.isEmpty) {
+                                return _searchQuery.isNotEmpty
+                                    ? _SearchEmptyState(isDark: isDark, query: _searchQuery)
+                                    : _EmptyState(isDark: isDark);
+                              }
                               return ListView.builder(
+                                controller: _scrollCtrl,
                                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
                                 itemCount: items.length,
-                                itemBuilder: (ctx, i) => _InsightTile(
-                                  key: ValueKey(items[i].id),
-                                  item: items[i],
-                                  isDark: isDark,
-                                  onEdit: () => _editItem(items[i]),
-                                  onDelete: () => _confirmDelete(items[i]),
+                                itemBuilder: (ctx, i) => _AnimatedInsightTile(
+                                  index: i,
+                                  child: _InsightTile(
+                                    key: ValueKey(items[i].id),
+                                    item: items[i],
+                                    isDark: isDark,
+                                    onEdit: () => _editItem(items[i]),
+                                    onDelete: () => _confirmDelete(items[i]),
+                                  ),
                                 ),
                               );
                             },
@@ -739,7 +854,7 @@ class _InsightItem {
 
 // ── Tile ──────────────────────────────────────────────────────────────────────
 
-class _InsightTile extends StatelessWidget {
+class _InsightTile extends StatefulWidget {
   final _InsightItem item;
   final bool isDark;
   final VoidCallback onEdit;
@@ -752,6 +867,292 @@ class _InsightTile extends StatelessWidget {
     required this.onEdit,
     required this.onDelete,
   });
+
+  @override
+  State<_InsightTile> createState() => _InsightTileState();
+}
+
+class _InsightTileState extends State<_InsightTile>
+    with SingleTickerProviderStateMixin {
+  bool _expanded = false;
+  late AnimationController _ctrl;
+  late Animation<double> _expandAnim;
+  late Animation<double> _chevronTurn;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 300),
+    );
+    _expandAnim = CurvedAnimation(parent: _ctrl, curve: Curves.easeOutCubic);
+    _chevronTurn = Tween<double>(begin: 0.0, end: 0.5).animate(_expandAnim);
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  void _toggle() {
+    setState(() => _expanded = !_expanded);
+    _expanded ? _ctrl.forward() : _ctrl.reverse();
+  }
+
+  String _formatTime(String? iso) {
+    if (iso == null || iso.isEmpty) return '';
+    try {
+      final dt = DateTime.parse(iso).toLocal();
+      final now = DateTime.now();
+      final diff = now.difference(dt);
+      if (diff.inMinutes < 1) return 'just now';
+      if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
+      if (diff.inHours < 24) return '${diff.inHours}h ago';
+      if (diff.inDays < 7) return '${diff.inDays}d ago';
+      return '${dt.day}/${dt.month}/${dt.year}';
+    } catch (_) {
+      return '';
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final item = widget.item;
+    final isDark = widget.isDark;
+    final hasBody = item.body.isNotEmpty;
+    final timeStr = _formatTime(item.createdAt);
+
+    return Dismissible(
+      key: ValueKey('dismiss_${item.id}'),
+      direction: DismissDirection.endToStart,
+      background: Container(
+        alignment: Alignment.centerRight,
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.only(right: 20),
+        decoration: BoxDecoration(
+          color: AppColors.error.withAlpha(200),
+          borderRadius: BorderRadius.circular(AppRadius.xxl),
+        ),
+        child: const Icon(Icons.delete_outline_rounded,
+            color: Colors.white, size: 24),
+      ),
+      confirmDismiss: (_) async {
+        widget.onDelete();
+        return false;
+      },
+      child: GestureDetector(
+        onTap: hasBody ? _toggle : null,
+        onLongPress: () => _showActions(context),
+        child: Opacity(
+          opacity: item.isDimmed ? 0.55 : 1.0,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeOutCubic,
+            margin: const EdgeInsets.only(bottom: 10),
+            decoration: BoxDecoration(
+              color: isDark ? AppColors.glassWhite : Colors.white,
+              borderRadius: BorderRadius.circular(AppRadius.xxl),
+              border: Border(left: BorderSide(color: item.color, width: 3)),
+              boxShadow: _expanded
+                  ? [
+                      BoxShadow(
+                        color: item.color.withAlpha(isDark ? 30 : 15),
+                        blurRadius: 16,
+                        spreadRadius: -2,
+                      ),
+                    ]
+                  : isDark
+                      ? null
+                      : [
+                          BoxShadow(
+                            color: Colors.black.withAlpha(10),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Header row
+                  Row(children: [
+                    Container(
+                      padding: const EdgeInsets.all(7),
+                      decoration: BoxDecoration(
+                        color: item.color.withAlpha(30),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Icon(item.icon, size: 14, color: item.color),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(item.title,
+                              style: GoogleFonts.manrope(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w700,
+                                  color: isDark
+                                      ? Colors.white
+                                      : AppColors.slate900)),
+                          if (timeStr.isNotEmpty)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 2),
+                              child: Text(timeStr,
+                                  style: GoogleFonts.manrope(
+                                      fontSize: 11,
+                                      color: isDark
+                                          ? AppColors.slate500
+                                          : Colors.grey.shade400)),
+                            ),
+                        ],
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: item.color.withAlpha(25),
+                        borderRadius: BorderRadius.circular(AppRadius.full),
+                        border: Border.all(color: item.color.withAlpha(80)),
+                      ),
+                      child: Text(item.badge,
+                          style: GoogleFonts.manrope(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              color: item.color)),
+                    ),
+                    if (hasBody) ...[
+                      const SizedBox(width: 4),
+                      RotationTransition(
+                        turns: _chevronTurn,
+                        child: Icon(Icons.expand_more_rounded,
+                            size: 20,
+                            color: isDark
+                                ? AppColors.slate500
+                                : Colors.grey.shade400),
+                      ),
+                    ] else ...[
+                      const SizedBox(width: 4),
+                      GestureDetector(
+                        onTap: () => _showActions(context),
+                        child: Icon(Icons.more_vert_rounded,
+                            size: 18,
+                            color: isDark
+                                ? AppColors.slate500
+                                : Colors.grey.shade400),
+                      ),
+                    ],
+                  ]),
+
+                  // Preview (collapsed: 1 line)
+                  if (hasBody && !_expanded)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: Text(item.body,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.manrope(
+                              fontSize: 13,
+                              height: 1.4,
+                              color: isDark
+                                  ? AppColors.slate400
+                                  : AppColors.slate500)),
+                    ),
+
+                  // Expanded body
+                  SizeTransition(
+                    sizeFactor: _expandAnim,
+                    axisAlignment: -1.0,
+                    child: hasBody
+                        ? Padding(
+                            padding: const EdgeInsets.only(top: 10),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                // Full body in styled container
+                                Container(
+                                  width: double.infinity,
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(
+                                    color: isDark
+                                        ? Colors.white.withAlpha(5)
+                                        : Colors.grey.shade50,
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(
+                                      color: isDark
+                                          ? AppColors.glassBorder
+                                          : Colors.grey.shade100,
+                                    ),
+                                  ),
+                                  child: Text(item.body,
+                                      style: GoogleFonts.manrope(
+                                          fontSize: 13,
+                                          color: isDark
+                                              ? AppColors.slate300
+                                              : AppColors.slate600,
+                                          height: 1.6)),
+                                ),
+                                const SizedBox(height: 10),
+                                // Action buttons row
+                                Row(
+                                  children: [
+                                    _ActionChip(
+                                      icon: item.table == 'notifications'
+                                          ? Icons.mark_email_read_outlined
+                                          : Icons.edit_outlined,
+                                      label: item.table == 'notifications'
+                                          ? (item.isDimmed
+                                              ? 'Mark unread'
+                                              : 'Mark read')
+                                          : 'Edit',
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .primary,
+                                      isDark: isDark,
+                                      onTap: widget.onEdit,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    _ActionChip(
+                                      icon: Icons.delete_outline_rounded,
+                                      label: 'Delete',
+                                      color: AppColors.error,
+                                      isDark: isDark,
+                                      onTap: widget.onDelete,
+                                    ),
+                                    const Spacer(),
+                                    Icon(Icons.touch_app_outlined,
+                                        size: 12,
+                                        color: isDark
+                                            ? AppColors.slate500
+                                            : Colors.grey.shade400),
+                                    const SizedBox(width: 4),
+                                    Text('Tap to collapse',
+                                        style: GoogleFonts.manrope(
+                                            fontSize: 11,
+                                            color: isDark
+                                                ? AppColors.slate500
+                                                : Colors.grey.shade400)),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          )
+                        : const SizedBox.shrink(),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 
   void _showActions(BuildContext context) {
     showModalBottomSheet(
@@ -782,27 +1183,26 @@ class _InsightTile extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: item.color.withAlpha(30),
+                  color: widget.item.color.withAlpha(30),
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: item.color.withAlpha(80)),
+                  border: Border.all(color: widget.item.color.withAlpha(80)),
                 ),
-                child: Icon(item.icon, color: item.color, size: 16),
+                child: Icon(widget.item.icon, color: widget.item.color, size: 16),
               ),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text(item.title,
+                  Text(widget.item.title,
                       style: GoogleFonts.manrope(
                           fontWeight: FontWeight.w700, fontSize: 15)),
-                  Text(item.badge,
-                      style: GoogleFonts.manrope(fontSize: 12, color: item.color)),
+                  Text(widget.item.badge,
+                      style: GoogleFonts.manrope(fontSize: 12, color: widget.item.color)),
                 ]),
               ),
             ]),
             const SizedBox(height: 16),
             const Divider(),
-            // Edit (not for notifications — those get toggled)
-            if (item.table != 'notifications')
+            if (widget.item.table != 'notifications')
               ListTile(
                 leading: Icon(Icons.edit_outlined,
                     color: Theme.of(context).colorScheme.primary),
@@ -810,17 +1210,17 @@ class _InsightTile extends StatelessWidget {
                     style: TextStyle(
                         color: Theme.of(context).colorScheme.primary)),
                 contentPadding: EdgeInsets.zero,
-                onTap: () { Navigator.pop(context); onEdit(); },
+                onTap: () { Navigator.pop(context); widget.onEdit(); },
               )
             else
               ListTile(
                 leading: Icon(Icons.mark_email_read_outlined,
                     color: Theme.of(context).colorScheme.primary),
-                title: Text(item.isDimmed ? 'Mark as unread' : 'Mark as read',
+                title: Text(widget.item.isDimmed ? 'Mark as unread' : 'Mark as read',
                     style: TextStyle(
                         color: Theme.of(context).colorScheme.primary)),
                 contentPadding: EdgeInsets.zero,
-                onTap: () { Navigator.pop(context); onEdit(); },
+                onTap: () { Navigator.pop(context); widget.onEdit(); },
               ),
             ListTile(
               leading: Icon(Icons.delete_outline,
@@ -829,102 +1229,183 @@ class _InsightTile extends StatelessWidget {
                   style: TextStyle(
                       color: Theme.of(context).colorScheme.error)),
               contentPadding: EdgeInsets.zero,
-              onTap: () { Navigator.pop(context); onDelete(); },
+              onTap: () { Navigator.pop(context); widget.onDelete(); },
             ),
           ],
         ),
       ),
     );
   }
+}
+
+// ── Inline Action Chip ────────────────────────────────────────────────────────
+
+class _ActionChip extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Color color;
+  final bool isDark;
+  final VoidCallback onTap;
+
+  const _ActionChip({
+    required this.icon,
+    required this.label,
+    required this.color,
+    required this.isDark,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Dismissible(
-      key: ValueKey('dismiss_${item.id}'),
-      direction: DismissDirection.endToStart,
-      background: Container(
-        alignment: Alignment.centerRight,
-        margin: const EdgeInsets.only(bottom: 10),
-        padding: const EdgeInsets.only(right: 20),
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
-          color: AppColors.error.withAlpha(200),
-          borderRadius: BorderRadius.circular(AppRadius.xxl),
+          color: color.withAlpha(isDark ? 20 : 12),
+          borderRadius: BorderRadius.circular(AppRadius.full),
+          border: Border.all(color: color.withAlpha(60)),
         ),
-        child: const Icon(Icons.delete_outline_rounded,
-            color: Colors.white, size: 24),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 13, color: color),
+            const SizedBox(width: 4),
+            Text(label,
+                style: GoogleFonts.manrope(
+                    fontSize: 11, fontWeight: FontWeight.w600, color: color)),
+          ],
+        ),
       ),
-      confirmDismiss: (_) async {
-        onDelete();
-        return false; // let _confirmDelete handle actual removal
-      },
-      child: GestureDetector(
-        onLongPress: () => _showActions(context),
-        child: Opacity(
-          opacity: item.isDimmed ? 0.55 : 1.0,
-          child: Container(
-            margin: const EdgeInsets.only(bottom: 10),
-            decoration: BoxDecoration(
-              color: isDark ? AppColors.glassWhite : Colors.white,
-              borderRadius: BorderRadius.circular(AppRadius.xxl),
-              border: Border(left: BorderSide(color: item.color, width: 3)),
-              boxShadow: isDark
-                  ? null
-                  : [BoxShadow(color: Colors.black.withAlpha(10),
-                        blurRadius: 8, offset: const Offset(0, 2))],
+    );
+  }
+}
+
+// ── Stat Chip (summary header) ────────────────────────────────────────────────
+
+class _StatChip extends StatelessWidget {
+  final IconData icon;
+  final Color color;
+  final int count;
+  final String label;
+  final bool isDark;
+
+  const _StatChip({
+    required this.icon,
+    required this.color,
+    required this.count,
+    required this.label,
+    required this.isDark,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+        decoration: BoxDecoration(
+          color: isDark ? AppColors.glassWhite : Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isDark ? AppColors.glassBorder : Colors.grey.shade200,
+          ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 28,
+              height: 28,
+              decoration: BoxDecoration(
+                color: color.withAlpha(25),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(icon, size: 14, color: color),
             ),
-            child: Padding(
-              padding: const EdgeInsets.all(14),
+            const SizedBox(width: 8),
+            Flexible(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(children: [
-                    Container(
-                      padding: const EdgeInsets.all(6),
-                      decoration: BoxDecoration(
-                        color: item.color.withAlpha(30),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Icon(item.icon, size: 14, color: item.color),
+                  Text(
+                    '$count',
+                    style: GoogleFonts.manrope(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                      color: isDark ? Colors.white : AppColors.slate900,
                     ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(item.title,
-                          style: GoogleFonts.manrope(fontSize: 14,
-                              fontWeight: FontWeight.w700,
-                              color: isDark ? Colors.white : AppColors.slate900)),
+                  ),
+                  Text(
+                    label,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.manrope(
+                      fontSize: 10,
+                      color: isDark ? AppColors.slate500 : AppColors.slate400,
                     ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: item.color.withAlpha(25),
-                        borderRadius: BorderRadius.circular(AppRadius.full),
-                        border: Border.all(color: item.color.withAlpha(80)),
-                      ),
-                      child: Text(item.badge,
-                          style: GoogleFonts.manrope(fontSize: 11,
-                              fontWeight: FontWeight.w700, color: item.color)),
-                    ),
-                    const SizedBox(width: 4),
-                    // Quick action menu button
-                    GestureDetector(
-                      onTap: () => _showActions(context),
-                      child: Icon(Icons.more_vert_rounded,
-                          size: 18,
-                          color: isDark ? AppColors.slate500 : Colors.grey.shade400),
-                    ),
-                  ]),
-                  if (item.body.isNotEmpty) ...[
-                    const SizedBox(height: 8),
-                    Text(item.body,
-                        style: GoogleFonts.manrope(fontSize: 13, height: 1.4,
-                            color: isDark ? AppColors.slate400 : AppColors.slate500)),
-                  ],
+                  ),
                 ],
               ),
             ),
-          ),
+          ],
         ),
+      ),
+    );
+  }
+}
+
+// ── Animated Insight Tile (stagger fade-in) ───────────────────────────────────
+
+class _AnimatedInsightTile extends StatefulWidget {
+  final int index;
+  final Widget child;
+
+  const _AnimatedInsightTile({
+    required this.index,
+    required this.child,
+  });
+
+  @override
+  State<_AnimatedInsightTile> createState() => _AnimatedInsightTileState();
+}
+
+class _AnimatedInsightTileState extends State<_AnimatedInsightTile>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _ctrl;
+  late Animation<double> _opacity;
+  late Animation<Offset> _slide;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 400),
+    );
+    _opacity = CurvedAnimation(parent: _ctrl, curve: Curves.easeOut);
+    _slide = Tween(
+      begin: const Offset(0, 0.05),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOutCubic));
+
+    // Stagger: delay based on index, capped at 300ms
+    final delay = Duration(milliseconds: (widget.index * 50).clamp(0, 300));
+    Future.delayed(delay, () {
+      if (mounted) _ctrl.forward();
+    });
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FadeTransition(
+      opacity: _opacity,
+      child: SlideTransition(
+        position: _slide,
+        child: widget.child,
       ),
     );
   }
@@ -937,19 +1418,57 @@ class _EmptyState extends StatelessWidget {
   const _EmptyState({required this.isDark});
 
   @override
+  Widget build(BuildContext context) {
+    final primary = Theme.of(context).colorScheme.primary;
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          ShaderMask(
+            shaderCallback: (bounds) => LinearGradient(
+              colors: [primary, primary.withAlpha(80)],
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+            ).createShader(bounds),
+            child: Icon(Icons.auto_awesome_outlined, size: 64,
+                color: Colors.white),
+          ),
+          const SizedBox(height: 16),
+          Text('Nothing here yet',
+              style: GoogleFonts.manrope(fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  color: isDark ? AppColors.slate400 : AppColors.slate600)),
+          const SizedBox(height: 8),
+          Text('Start a session to generate\npersonalized insights.',
+              textAlign: TextAlign.center,
+              style: GoogleFonts.manrope(fontSize: 13, height: 1.5,
+                  color: isDark ? AppColors.slate500 : AppColors.slate400)),
+        ]),
+      ),
+    );
+  }
+}
+
+class _SearchEmptyState extends StatelessWidget {
+  final bool isDark;
+  final String query;
+  const _SearchEmptyState({required this.isDark, required this.query});
+
+  @override
   Widget build(BuildContext context) => Center(
         child: Padding(
           padding: const EdgeInsets.all(32),
           child: Column(mainAxisSize: MainAxisSize.min, children: [
-            Icon(Icons.auto_awesome_outlined, size: 56,
+            Icon(Icons.search_off_rounded, size: 52,
                 color: (isDark ? Colors.white : Colors.black).withAlpha(40)),
             const SizedBox(height: 16),
-            Text('Nothing here yet',
+            Text('No results for "$query"',
+                textAlign: TextAlign.center,
                 style: GoogleFonts.manrope(fontSize: 16,
                     fontWeight: FontWeight.w700,
                     color: isDark ? AppColors.slate400 : AppColors.slate600)),
             const SizedBox(height: 8),
-            Text('Start a session to generate insights.',
+            Text('Try a different search term.',
                 textAlign: TextAlign.center,
                 style: GoogleFonts.manrope(fontSize: 13,
                     color: isDark ? AppColors.slate500 : AppColors.slate400)),
@@ -965,25 +1484,72 @@ class _ErrorState extends StatelessWidget {
   const _ErrorState(
       {required this.error, required this.onRetry, required this.isDark});
 
+  String get _friendlyTitle {
+    if (error == 'please_login') return 'You\'re not signed in';
+    return 'Something went wrong';
+  }
+
+  String get _friendlySubtitle {
+    if (error == 'please_login') {
+      return 'Sign in to see your insights and highlights.';
+    }
+    return 'We couldn\'t load your insights right now.\nPlease check your internet and try again.';
+  }
+
+  IconData get _icon {
+    if (error == 'please_login') return Icons.lock_outline_rounded;
+    return Icons.cloud_off_rounded;
+  }
+
   @override
-  Widget build(BuildContext context) => Center(
-        child: Padding(
-          padding: const EdgeInsets.all(32),
-          child: Column(mainAxisSize: MainAxisSize.min, children: [
-            Icon(Icons.error_outline,
-                size: 48, color: AppColors.error.withAlpha(150)),
-            const SizedBox(height: 12),
-            Text(error,
-                textAlign: TextAlign.center,
-                style: GoogleFonts.manrope(fontSize: 13,
-                    color: isDark ? AppColors.slate400 : AppColors.slate600)),
-            const SizedBox(height: 20),
-            FilledButton.icon(
-              onPressed: onRetry,
-              icon: const Icon(Icons.refresh),
-              label: const Text('Retry'),
+  Widget build(BuildContext context) {
+    final primary = Theme.of(context).colorScheme.primary;
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Container(
+            width: 72,
+            height: 72,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: (isDark ? Colors.white : Colors.black).withAlpha(10),
             ),
-          ]),
-        ),
-      );
+            child: Icon(_icon,
+                size: 36,
+                color: isDark ? AppColors.slate400 : AppColors.slate500),
+          ),
+          const SizedBox(height: 16),
+          Text(_friendlyTitle,
+              textAlign: TextAlign.center,
+              style: GoogleFonts.manrope(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w700,
+                  color: isDark ? Colors.white : AppColors.slate900)),
+          const SizedBox(height: 8),
+          Text(_friendlySubtitle,
+              textAlign: TextAlign.center,
+              style: GoogleFonts.manrope(
+                  fontSize: 13,
+                  height: 1.5,
+                  color: isDark ? AppColors.slate400 : AppColors.slate500)),
+          const SizedBox(height: 24),
+          FilledButton.icon(
+            onPressed: onRetry,
+            icon: const Icon(Icons.refresh_rounded),
+            label: const Text('Try Again'),
+            style: FilledButton.styleFrom(
+              backgroundColor: primary,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AppRadius.full),
+              ),
+            ),
+          ),
+        ]),
+      ),
+    );
+  }
 }
+

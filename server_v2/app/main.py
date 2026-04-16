@@ -27,7 +27,7 @@ from app.utils import _background_tasks
 from app.utils.rate_limit import limiter
 from app.utils.session_store import session_store
 
-from app.routes import health, sessions, consultant, voice, analytics, entities, gamification, stt
+from app.routes import health, sessions, consultant, voice, analytics, entities, gamification, stt, performance
 
 
 # ── Session TTL ───────────────────────────────────────────────────────────────
@@ -192,6 +192,7 @@ v1.include_router(analytics.router)
 v1.include_router(entities.router)
 v1.include_router(gamification.router)
 v1.include_router(stt.router)
+v1.include_router(performance.router)
 
 app.include_router(v1)
 

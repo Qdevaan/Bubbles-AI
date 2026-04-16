@@ -9,8 +9,13 @@ import '../services/auth_service.dart';
 import '../services/connection_service.dart';
 import '../services/voice_assistant_service.dart';
 import '../providers/home_provider.dart';
-import '../widgets/app_drawer.dart';
+import '../providers/gamification_provider.dart';
 import '../widgets/glass_morphism.dart';
+import '../widgets/animated_background.dart';
+import '../widgets/xp_progress_ring.dart';
+import '../widgets/mood_check_widget.dart';
+import '../widgets/streak_strip.dart';
+import '../widgets/skeleton_loader.dart';
 
 // ============================================================================
 //  HOME SCREEN
@@ -23,14 +28,30 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _breatheCtrl;
+  final ScrollController _homeScrollCtrl = ScrollController();
+
   @override
   void initState() {
     super.initState();
+    _breatheCtrl = AnimationController(
+      vsync: this,
+      duration: AppDurations.breathe,
+    )..repeat(reverse: true);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       Provider.of<HomeProvider>(context, listen: false).init();
       Provider.of<VoiceAssistantService>(context, listen: false).activate();
+      Provider.of<GamificationProvider>(context, listen: false).init();
     });
+  }
+
+  @override
+  void dispose() {
+    _breatheCtrl.dispose();
+    _homeScrollCtrl.dispose();
+    super.dispose();
   }
 
   String _getGreeting() {
@@ -236,8 +257,20 @@ class _HomeScreenState extends State<HomeScreen> {
 
         return Scaffold(
           backgroundColor: isDark ? AppColors.backgroundDark : AppColors.backgroundLight,
+          floatingActionButton: home.loading ? null : Consumer<ConnectionService>(
+            builder: (_, conn, __) => _AnimatedFab(
+              isDark: isDark,
+              onTap: () {
+                if (conn.isConnected) {
+                  Navigator.pushNamed(context, '/new-session');
+                } else {
+                  _showNotConnectedDialog(context);
+                }
+              },
+            ),
+          ),
           body: home.loading
-              ? const Center(child: CircularProgressIndicator())
+              ? const Center(child: SkeletonCardGroup(count: 4))
               : GestureDetector(
                   behavior: HitTestBehavior.opaque,
                   onHorizontalDragEnd: (details) {
@@ -251,37 +284,11 @@ class _HomeScreenState extends State<HomeScreen> {
                   },
                   child: Stack(
                     children: [
-                      // Mesh gradient
-                      if (isDark) ...[
-                        Positioned(
-                          top: -120,
-                          left: -120,
-                          child: Container(
-                            width: 400,
-                            height: 400,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              gradient: RadialGradient(
-                                colors: [Theme.of(context).colorScheme.primary.withAlpha(38), Colors.transparent],
-                              ),
-                            ),
-                          ),
-                        ),
-                        Positioned(
-                          bottom: -120,
-                          right: -120,
-                          child: Container(
-                            width: 400,
-                            height: 400,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              gradient: RadialGradient(
-                                colors: [Theme.of(context).colorScheme.primary.withAlpha(26), Colors.transparent],
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
+                      // Animated ambient background (replaces static mesh gradient)
+                      AnimatedAmbientBackground(
+                        isDark: isDark,
+                        scrollController: _homeScrollCtrl,
+                      ),
                       SafeArea(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -294,45 +301,44 @@ class _HomeScreenState extends State<HomeScreen> {
                             mainAxisAlignment:
                                 MainAxisAlignment.spaceBetween,
                             children: [
-                              Builder(
-                                builder: (context) => Semantics(
-                                  label: 'Profile settings',
-                                  button: true,
-                                  child: GestureDetector(
-                                    onTap: () => Navigator.pushNamed(
-                                        context, '/settings'),
-                                    child: Container(
-                                      width: 44,
-                                      height: 44,
-                                      decoration: BoxDecoration(
-                                        shape: BoxShape.circle,
-                                        border: Border.all(
-                                          color: Theme.of(context).colorScheme.primary,
-                                          width: 2,
-                                        ),
+                              // Avatar with accent border
+                              Semantics(
+                                label: 'Profile settings',
+                                button: true,
+                                child: GestureDetector(
+                                  onTap: () => Navigator.pushNamed(
+                                      context, '/settings'),
+                                  child: Container(
+                                    width: 48,
+                                    height: 48,
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      border: Border.all(
+                                        color: Theme.of(context).colorScheme.primary,
+                                        width: 2,
                                       ),
-                                      child: ClipOval(
-                                        child: avatarUrl != null
-                                            ? CachedNetworkImage(
-                                                imageUrl: avatarUrl,
-                                                fit: BoxFit.cover,
-                                                placeholder: (_, __) =>
-                                                    Container(
-                                                        color: AppColors
-                                                            .surfaceDark),
-                                              )
-                                            : Container(
+                                    ),
+                                    child: ClipOval(
+                                      child: avatarUrl != null
+                                          ? CachedNetworkImage(
+                                              imageUrl: avatarUrl,
+                                              fit: BoxFit.cover,
+                                              placeholder: (_, __) =>
+                                                  Container(
+                                                      color: AppColors
+                                                          .surfaceDark),
+                                            )
+                                          : Container(
+                                              color: isDark
+                                                  ? AppColors.surfaceDark
+                                                  : Colors.grey.shade200,
+                                              child: Icon(
+                                                Icons.person,
                                                 color: isDark
-                                                    ? AppColors.surfaceDark
-                                                    : Colors.grey.shade200,
-                                                child: Icon(
-                                                  Icons.person,
-                                                  color: isDark
-                                                      ? Colors.white54
-                                                      : Colors.grey,
-                                                ),
+                                                    ? Colors.white54
+                                                    : Colors.grey,
                                               ),
-                                      ),
+                                            ),
                                     ),
                                   ),
                                 ),
@@ -360,15 +366,17 @@ class _HomeScreenState extends State<HomeScreen> {
                                         height: 40,
                                         decoration: BoxDecoration(
                                           shape: BoxShape.circle,
+                                          border: Border.all(
+                                            color: Theme.of(context).colorScheme.primary,
+                                            width: 2,
+                                          ),
                                           color: isDark
                                               ? AppColors.glassWhite
                                               : Colors.grey.shade100,
                                         ),
                                         child: Icon(
                                           Icons.notifications_outlined,
-                                          color: isDark
-                                              ? Colors.white70
-                                              : Colors.grey.shade700,
+                                          color: Theme.of(context).colorScheme.primary,
                                         ),
                                       ),
                                       if (home.unreadNotifications > 0 ||
@@ -424,46 +432,84 @@ class _HomeScreenState extends State<HomeScreen> {
                         // --- SCROLLABLE CONTENT ---
                         Expanded(
                           child: CustomScrollView(
+                            controller: _homeScrollCtrl,
                             slivers: [
-                              // --- GREETING ---
+                              // --- GREETING with streak ---
                               SliverToBoxAdapter(
                                 child: Padding(
                                   padding: const EdgeInsets.fromLTRB(
-                                      20, 12, 20, 16),
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        _getGreeting(),
-                                        style: GoogleFonts.manrope(
-                                          fontSize: 28,
-                                          fontWeight: FontWeight.w800,
-                                          color: isDark
-                                              ? Colors.white
-                                              : AppColors.slate900,
-                                          height: 1.2,
-                                        ),
-                                      ),
-                                      ShaderMask(
-                                        shaderCallback: (bounds) =>
-                                            LinearGradient(
-                                          colors: [
-                                            Theme.of(context).colorScheme.primary,
-                                            Color(0xFF93C5FD),
+                                      20, 12, 20, 8),
+                                  child: Consumer<GamificationProvider>(
+                                    builder: (_, gp, __) => Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Row(
+                                          children: [
+                                            Expanded(
+                                              child: Text(
+                                                _getGreeting(),
+                                                style: GoogleFonts.manrope(
+                                                  fontSize: 28,
+                                                  fontWeight: FontWeight.w800,
+                                                  color: isDark
+                                                      ? Colors.white
+                                                      : AppColors.slate900,
+                                                  height: 1.2,
+                                                ),
+                                              ),
+                                            ),
+                                            if (gp.isStreakHot)
+                                              Container(
+                                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                                decoration: BoxDecoration(
+                                                  color: AppColors.streakFire.withAlpha(20),
+                                                  borderRadius: BorderRadius.circular(AppRadius.full),
+                                                ),
+                                                child: Text(
+                                                  '🔥 ${gp.currentStreak}d',
+                                                  style: GoogleFonts.manrope(
+                                                    fontSize: 12,
+                                                    fontWeight: FontWeight.w800,
+                                                    color: AppColors.streakFire,
+                                                  ),
+                                                ),
+                                              ),
                                           ],
-                                        ).createShader(bounds),
-                                        child: Text(
-                                          '$firstName.',
-                                          style: GoogleFonts.manrope(
-                                            fontSize: 28,
-                                            fontWeight: FontWeight.w800,
-                                            color: Colors.white,
-                                            height: 1.3,
+                                        ),
+                                        ShaderMask(
+                                          shaderCallback: (bounds) =>
+                                              LinearGradient(
+                                            colors: [
+                                              Theme.of(context).colorScheme.primary,
+                                              const Color(0xFF93C5FD),
+                                            ],
+                                          ).createShader(bounds),
+                                          child: Text(
+                                            '$firstName.',
+                                            style: GoogleFonts.manrope(
+                                              fontSize: 28,
+                                              fontWeight: FontWeight.w800,
+                                              color: Colors.white,
+                                              height: 1.3,
+                                            ),
                                           ),
                                         ),
-                                      ),
-                                    ],
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+
+                              // --- MOOD CHECK-IN ---
+                              SliverToBoxAdapter(
+                                child: Padding(
+                                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+                                  child: MoodCheckWidget(
+                                    onMoodSelected: (mood) {
+                                      // TODO: persist mood via provider
+                                      debugPrint('Mood selected: $mood');
+                                    },
                                   ),
                                 ),
                               ),
@@ -498,11 +544,30 @@ class _HomeScreenState extends State<HomeScreen> {
                                 ),
                               ),
 
+                              // --- STREAK STRIP ---
+                              SliverToBoxAdapter(
+                                child: Padding(
+                                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                                  child: Center(
+                                    child: Consumer<GamificationProvider>(
+                                      builder: (_, gp, __) => StreakStrip(
+                                        streak: gp.currentStreak,
+                                        totalXp: gp.totalXp,
+                                        level: gp.level,
+                                        streakFreezes: gp.streakFreezes,
+                                        skillTierEmoji: gp.skillTierEmoji,
+                                        onTap: () => Navigator.pushNamed(context, '/game-center'),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+
                               // --- QUICK ACTIONS ---
                               SliverToBoxAdapter(
                                 child: Padding(
                                   padding: const EdgeInsets.fromLTRB(
-                                      16, 12, 16, 4),
+                                      16, 8, 16, 4),
                                   child: Text(
                                     'Quick Actions',
                                     style: GoogleFonts.manrope(
@@ -577,13 +642,13 @@ class _HomeScreenState extends State<HomeScreen> {
                                       Expanded(
                                         child: _QuickActionCard(
                                           icon: Icons.emoji_events,
-                                          iconColor: Colors.amber,
-                                          iconBg: Colors.amber.withAlpha(51),
-                                          title: 'Quests & XP',
-                                          subtitle: 'Daily challenges',
+                                          iconColor: AppColors.xpGold,
+                                          iconBg: AppColors.xpGold.withAlpha(51),
+                                          title: 'Game Center',
+                                          subtitle: 'Quests & Achievements',
                                           onTap: () =>
                                               Navigator.pushNamed(
-                                                  context, '/quests'),
+                                                  context, '/game-center'),
                                         ),
                                       ),
                                     ],
@@ -653,10 +718,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                   child: Padding(
                                     padding: EdgeInsets.symmetric(
                                         horizontal: 16, vertical: 8),
-                                    child: Center(
-                                        child:
-                                            CircularProgressIndicator(
-                                                strokeWidth: 2)),
+                                    child: SkeletonCardGroup(count: 3),
                                   ),
                                 )
                               else if (home.events.isEmpty &&
@@ -797,7 +859,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                   const SizedBox(height: 12),
                   Text(
-                    'You are not connected to the server. Would you like to connect now?',
+                    'Looks like you\'re not connected right now. Connect to start a new session.',
                     style: GoogleFonts.manrope(
                       fontSize: 14,
                       fontWeight: FontWeight.w500,
@@ -919,20 +981,28 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                   ],
                 ),
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: isDark
-                        ? AppColors.glassWhite
-                        : Theme.of(context).colorScheme.primary.withAlpha(26),
-                    borderRadius: BorderRadius.circular(AppRadius.lg),
+                // Breathing mic icon
+                AnimatedBuilder(
+                  animation: _breatheCtrl,
+                  builder: (_, child) => Transform.scale(
+                    scale: 1.0 + (_breatheCtrl.value * 0.12),
+                    child: child,
                   ),
-                  child: Icon(
-                    Icons.mic,
-                    color: isDark
-                        ? Colors.white
-                        : Theme.of(context).colorScheme.primary,
-                    size: 22,
+                  child: Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: isDark
+                          ? AppColors.glassWhite
+                          : Theme.of(context).colorScheme.primary.withAlpha(26),
+                      borderRadius: BorderRadius.circular(AppRadius.lg),
+                    ),
+                    child: Icon(
+                      Icons.mic,
+                      color: isDark
+                          ? Colors.white
+                          : Theme.of(context).colorScheme.primary,
+                      size: 22,
+                    ),
                   ),
                 ),
               ],
@@ -1084,7 +1154,7 @@ class _PulseDotState extends State<_PulseDot>
   }
 }
 
-class _QuickActionCard extends StatelessWidget {
+class _QuickActionCard extends StatefulWidget {
   final IconData icon;
   final Color iconColor;
   final Color iconBg;
@@ -1102,55 +1172,77 @@ class _QuickActionCard extends StatelessWidget {
   });
 
   @override
+  State<_QuickActionCard> createState() => _QuickActionCardState();
+}
+
+class _QuickActionCardState extends State<_QuickActionCard> {
+  bool _pressed = false;
+
+  @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: isDark ? AppColors.glassWhite : Colors.white,
-          borderRadius: BorderRadius.circular(AppRadius.xxl),
-          border: Border.all(
-            color: isDark
-                ? AppColors.glassBorder
-                : Colors.grey.shade200,
+      onTapDown: (_) => setState(() => _pressed = true),
+      onTapUp: (_) {
+        setState(() => _pressed = false);
+        widget.onTap();
+      },
+      onTapCancel: () => setState(() => _pressed = false),
+      child: AnimatedScale(
+        scale: _pressed ? 0.95 : 1.0,
+        duration: const Duration(milliseconds: 120),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 120),
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: isDark ? AppColors.glassWhite : Colors.white,
+            borderRadius: BorderRadius.circular(AppRadius.xxl),
+            border: Border.all(
+              color: _pressed
+                  ? widget.iconColor.withAlpha(80)
+                  : (isDark ? AppColors.glassBorder : Colors.grey.shade200),
+            ),
+            boxShadow: _pressed
+                ? [
+                    BoxShadow(
+                      color: widget.iconColor.withAlpha(20),
+                      blurRadius: 12,
+                      spreadRadius: -2,
+                    ),
+                  ]
+                : null,
           ),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: iconBg,
-                borderRadius: BorderRadius.circular(10),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: widget.iconBg,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(widget.icon, color: widget.iconColor, size: 22),
               ),
-              child: Icon(icon, color: iconColor, size: 22),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              title,
-              style: GoogleFonts.manrope(
-                fontSize: 14,
-                fontWeight: FontWeight.w700,
-                color: isDark
-                    ? Colors.white
-                    : AppColors.slate900,
+              const SizedBox(height: 12),
+              Text(
+                widget.title,
+                style: GoogleFonts.manrope(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  color: isDark ? Colors.white : AppColors.slate900,
+                ),
               ),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              subtitle,
-              style: GoogleFonts.manrope(
-                fontSize: 12,
-                color: isDark
-                    ? AppColors.slate400
-                    : AppColors.slate500,
+              const SizedBox(height: 2),
+              Text(
+                widget.subtitle,
+                style: GoogleFonts.manrope(
+                  fontSize: 12,
+                  color: isDark ? AppColors.slate400 : AppColors.slate500,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -1197,7 +1289,7 @@ String _highlightBadge(String type) {
 
 // ---------------------------------------------------------------------------
 
-class _InsightCard extends StatelessWidget {
+class _InsightCard extends StatefulWidget {
   final Color accentColor;
   final String title;
   final String badge;
@@ -1215,61 +1307,203 @@ class _InsightCard extends StatelessWidget {
   });
 
   @override
+  State<_InsightCard> createState() => _InsightCardState();
+}
+
+class _InsightCardState extends State<_InsightCard>
+    with SingleTickerProviderStateMixin {
+  bool _expanded = false;
+  late AnimationController _ctrl;
+  late Animation<double> _expandAnim;
+  late Animation<double> _chevronTurn;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 300),
+    );
+    _expandAnim = CurvedAnimation(parent: _ctrl, curve: Curves.easeOutCubic);
+    _chevronTurn = Tween<double>(begin: 0.0, end: 0.5).animate(_expandAnim);
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  void _toggle() {
+    setState(() => _expanded = !_expanded);
+    if (_expanded) {
+      _ctrl.forward();
+    } else {
+      _ctrl.reverse();
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: isDark ? AppColors.glassWhite : Colors.white,
-        borderRadius: BorderRadius.circular(AppRadius.xxl),
-        border:
-            Border(left: BorderSide(color: accentColor, width: 3)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                children: [
-                  if (icon != null) ...[
-                    Icon(icon, size: 16, color: accentColor),
-                    const SizedBox(width: 6),
-                  ],
-                  Text(
-                    title,
+    final hasBody = widget.description.isNotEmpty;
+
+    return GestureDetector(
+      onTap: hasBody ? _toggle : null,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOutCubic,
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: widget.isDark ? AppColors.glassWhite : Colors.white,
+          borderRadius: BorderRadius.circular(AppRadius.xxl),
+          border: Border(
+            left: BorderSide(color: widget.accentColor, width: 3),
+          ),
+          boxShadow: _expanded
+              ? [
+                  BoxShadow(
+                    color: widget.accentColor.withAlpha(widget.isDark ? 30 : 15),
+                    blurRadius: 16,
+                    spreadRadius: -2,
+                  ),
+                ]
+              : null,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header row
+            Row(
+              children: [
+                // Icon container
+                if (widget.icon != null)
+                  Container(
+                    padding: const EdgeInsets.all(7),
+                    margin: const EdgeInsets.only(right: 10),
+                    decoration: BoxDecoration(
+                      color: widget.accentColor.withAlpha(25),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Icon(widget.icon, size: 16, color: widget.accentColor),
+                  ),
+                // Title
+                Expanded(
+                  child: Text(
+                    widget.title,
                     style: GoogleFonts.manrope(
-                      fontSize: 15,
+                      fontSize: 14,
                       fontWeight: FontWeight.w700,
-                      color: isDark
-                          ? Colors.white
-                          : AppColors.slate900,
+                      color: widget.isDark ? Colors.white : AppColors.slate900,
+                    ),
+                  ),
+                ),
+                // Badge
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: widget.accentColor.withAlpha(25),
+                    borderRadius: BorderRadius.circular(AppRadius.full),
+                    border: Border.all(color: widget.accentColor.withAlpha(80)),
+                  ),
+                  child: Text(
+                    widget.badge,
+                    style: GoogleFonts.manrope(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: widget.accentColor,
+                    ),
+                  ),
+                ),
+                // Expand chevron
+                if (hasBody) ...[
+                  const SizedBox(width: 6),
+                  RotationTransition(
+                    turns: _chevronTurn,
+                    child: Icon(
+                      Icons.expand_more_rounded,
+                      size: 20,
+                      color: widget.isDark ? AppColors.slate500 : Colors.grey.shade400,
                     ),
                   ),
                 ],
-              ),
-              Text(
-                badge,
-                style: GoogleFonts.manrope(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                  color: accentColor,
+              ],
+            ),
+
+            // Preview (always visible, 2 lines max)
+            if (hasBody && !_expanded)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text(
+                  widget.description,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.manrope(
+                    fontSize: 13,
+                    color: widget.isDark ? AppColors.slate400 : AppColors.slate500,
+                    height: 1.4,
+                  ),
                 ),
               ),
-            ],
-          ),
-          const SizedBox(height: 6),
-          Text(
-            description,
-            style: GoogleFonts.manrope(
-              fontSize: 13,
-              color: isDark
-                  ? AppColors.slate400
-                  : AppColors.slate500,
-              height: 1.4,
+
+            // Expanded body
+            SizeTransition(
+              sizeFactor: _expandAnim,
+              axisAlignment: -1.0,
+              child: hasBody
+                  ? Padding(
+                      padding: const EdgeInsets.only(top: 10),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: widget.isDark
+                                  ? Colors.white.withAlpha(5)
+                                  : Colors.grey.shade50,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text(
+                              widget.description,
+                              style: GoogleFonts.manrope(
+                                fontSize: 13,
+                                color: widget.isDark
+                                    ? AppColors.slate300
+                                    : AppColors.slate600,
+                                height: 1.6,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.touch_app_outlined,
+                                size: 12,
+                                color: widget.isDark
+                                    ? AppColors.slate500
+                                    : Colors.grey.shade400,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                'Tap to collapse',
+                                style: GoogleFonts.manrope(
+                                  fontSize: 11,
+                                  color: widget.isDark
+                                      ? AppColors.slate500
+                                      : Colors.grey.shade400,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    )
+                  : const SizedBox.shrink(),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -1383,6 +1617,85 @@ class _NotificationCard extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+// ── Animated Floating Action Button ─────────────────────────────────────────
+
+class _AnimatedFab extends StatefulWidget {
+  final bool isDark;
+  final VoidCallback onTap;
+
+  const _AnimatedFab({required this.isDark, required this.onTap});
+
+  @override
+  State<_AnimatedFab> createState() => _AnimatedFabState();
+}
+
+class _AnimatedFabState extends State<_AnimatedFab>
+    with SingleTickerProviderStateMixin {
+  bool _pressed = false;
+  late AnimationController _pulseCtrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _pulseCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1500),
+    )..repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _pulseCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final primary = Theme.of(context).colorScheme.primary;
+
+    return AnimatedBuilder(
+      animation: _pulseCtrl,
+      builder: (_, child) => Transform.scale(
+        scale: _pressed ? 0.9 : (1.0 + _pulseCtrl.value * 0.04),
+        child: child,
+      ),
+      child: GestureDetector(
+        onTapDown: (_) => setState(() => _pressed = true),
+        onTapUp: (_) {
+          setState(() => _pressed = false);
+          widget.onTap();
+        },
+        onTapCancel: () => setState(() => _pressed = false),
+        child: Container(
+          width: 60,
+          height: 60,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [primary, primary.withAlpha(200)],
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: primary.withAlpha(80),
+                blurRadius: 16,
+                spreadRadius: -2,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: const Icon(
+            Icons.record_voice_over_rounded,
+            color: Colors.white,
+            size: 26,
+          ),
+        ),
       ),
     );
   }

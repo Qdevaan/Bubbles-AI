@@ -33,6 +33,8 @@ import 'screens/entity_screen.dart';
 import 'screens/session_analytics_screen.dart';
 import 'screens/roleplay_setup_screen.dart';
 import 'screens/quests_screen.dart';
+import 'screens/game_center_screen.dart';
+import 'providers/gamification_provider.dart';
 import 'screens/graph_explorer_screen.dart';
 import 'screens/health_dashboard_screen.dart';
 import 'screens/expense_tracker_screen.dart';
@@ -170,6 +172,13 @@ class BubblesApp extends StatelessWidget {
 
         // 15. Enterprise & Subscriptions Provider
         ChangeNotifierProvider(create: (_) => EnterpriseProvider()),
+
+        // 16. Gamification Provider (depends on ApiService)
+        ChangeNotifierProxyProvider<ApiService, GamificationProvider>(
+          create: (context) =>
+              GamificationProvider(Provider.of<ApiService>(context, listen: false)),
+          update: (context, api, previous) => previous!,
+        ),
       ],
       child: Consumer2<ThemeProvider, SettingsProvider>(
         builder: (context, themeProvider, settingsProvider, child) {
@@ -302,7 +311,9 @@ class BubblesApp extends StatelessWidget {
               AppRoutes.roleplaySetup: (context) =>
                   const AuthGuard(child: RoleplaySetupScreen()),
               AppRoutes.quests: (context) =>
-                  const AuthGuard(child: QuestsScreen()),
+                  const AuthGuard(child: GameCenterScreen()),
+              AppRoutes.gameCenter: (context) =>
+                  const AuthGuard(child: GameCenterScreen()),
               AppRoutes.graphExplorer: (context) =>
                   const AuthGuard(child: GraphExplorerScreen()),
               AppRoutes.insights: (context) =>

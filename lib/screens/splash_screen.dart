@@ -151,10 +151,10 @@ class _SplashScreenState extends State<SplashScreen> {
                       Expanded(
                         child: Text(
                           title,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
-                            color: Colors.white,
+                            color: isDark ? Colors.white : AppColors.slate900,
                           ),
                         ),
                       ),

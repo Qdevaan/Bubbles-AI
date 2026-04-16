@@ -14,6 +14,7 @@ class AppRoutes {
   static const sessionAnalytics = '/session-analytics';
   static const roleplaySetup = '/roleplay-setup';
   static const quests = '/quests';
+  static const gameCenter = '/game-center'; // Replaces quests as primary nav target
   static const graphExplorer = '/graph-explorer';
   static const healthDashboard = '/health-dashboard';
   static const expensesTracker = '/expenses-tracker';
