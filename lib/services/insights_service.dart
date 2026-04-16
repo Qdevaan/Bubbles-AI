@@ -54,6 +54,10 @@ class InsightsService {
   ///
   /// [table] must be one of: 'events', 'highlights', 'notifications'.
   Future<void> deleteItem(String table, String id) async {
+    assert(
+      const {'events', 'highlights', 'notifications'}.contains(table),
+      'deleteItem: invalid table "$table". Must be events, highlights, or notifications.',
+    );
     await _client.from(table).delete().eq('id', id);
   }
 
