@@ -47,6 +47,10 @@ class _InsightsScreenState extends State<InsightsScreen>
     super.initState();
     _tabController = TabController(length: _tabs.length, vsync: this);
     final uid = AuthService.instance.currentUserId;
+    if (uid == null) {
+      setState(() { _loading = false; });
+      return;
+    }
     // context.read is safe in initState() — AppCacheService is a root provider (listen: false)
     final cache = context.read<AppCacheService>();
     if (cache.events != null && cache.cacheUserId == uid) {
@@ -397,7 +401,14 @@ class _InsightsScreenState extends State<InsightsScreen>
           );
         }
       }
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('Error toggling notification read: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Failed to update notification')),
+        );
+      }
+    }
   }
 
   // ── Confirm delete dialog ─────────────────────────────────────────────────
