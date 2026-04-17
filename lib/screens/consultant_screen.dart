@@ -500,8 +500,16 @@ class _ConsultantScreenState extends State<ConsultantScreen>
     }
   }
 
-  // -- Drawer (reads from provider) --
-  Widget _buildDrawer(bool isDark, ConsultantProvider chat) {
+  // -- Drawer (reads from Selector data record) --
+  Widget _buildDrawerFromData(
+    bool isDark,
+    ({
+      bool drawerLoading,
+      bool drawerLoaded,
+      List<Map<String, dynamic>> pastChats,
+      String? currentSessionId,
+    }) chat,
+  ) {
     final primary = Theme.of(context).colorScheme.primary;
     return Drawer(
       backgroundColor: isDark ? AppColors.backgroundDark : Colors.white,
@@ -603,20 +611,32 @@ class _ConsultantScreenState extends State<ConsultantScreen>
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final cs = Theme.of(context).colorScheme;
 
-    return Consumer<ConsultantProvider>(
-      builder: (context, chat, _) {
-        return MeshGradientBackground(
-          child: Scaffold(
-            backgroundColor: Colors.transparent,
-            key: _scaffoldKey,
-            drawer: _buildDrawer(isDark, chat),
-            onDrawerChanged: (isOpen) {
-              if (isOpen && !chat.drawerLoaded && !chat.drawerLoading) {
-                _loadPastChats();
-              }
-            },
+    return MeshGradientBackground(
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        key: _scaffoldKey,
+        drawer: Selector<ConsultantProvider,
+            ({bool drawerLoading, bool drawerLoaded, List<Map<String, dynamic>> pastChats, String? currentSessionId})>(
+          selector: (_, cp) => (
+            drawerLoading: cp.drawerLoading,
+            drawerLoaded: cp.drawerLoaded,
+            pastChats: cp.pastChats,
+            currentSessionId: cp.currentSessionId,
+          ),
+          shouldRebuild: (prev, next) =>
+              prev.drawerLoading != next.drawerLoading ||
+              prev.drawerLoaded != next.drawerLoaded ||
+              prev.pastChats.length != next.pastChats.length ||
+              prev.currentSessionId != next.currentSessionId,
+          builder: (context, data, _) => _buildDrawerFromData(isDark, data),
+        ),
+        onDrawerChanged: (isOpen) {
+          final cp = context.read<ConsultantProvider>();
+          if (isOpen && !cp.drawerLoaded && !cp.drawerLoading) {
+            _loadPastChats();
+          }
+        },
             body: SafeArea(
               child: Column(
                 children: [
@@ -729,9 +749,23 @@ class _ConsultantScreenState extends State<ConsultantScreen>
 
                   // -- CHAT AREA --
                   Expanded(
-                    child: Stack(
+                    child: Selector<ConsultantProvider,
+                        ({bool loadingChat, bool loading, List<Map<String, String>> messages})>(
+                      selector: (_, cp) => (
+                        loadingChat: cp.loadingChat,
+                        loading: cp.loading,
+                        messages: cp.messages,
+                      ),
+                      shouldRebuild: (prev, next) =>
+                          prev.loadingChat != next.loadingChat ||
+                          prev.loading != next.loading ||
+                          prev.messages.length != next.messages.length ||
+                          (next.messages.isNotEmpty &&
+                              prev.messages.isNotEmpty &&
+                              prev.messages.last['text'] != next.messages.last['text']),
+                      builder: (context, data, _) => Stack(
                       children: [
-                        chat.loadingChat
+                        data.loadingChat
                             ? const Center(child: CircularProgressIndicator())
                             : ListView.builder(
                                 controller: _scrollController,
@@ -742,14 +776,14 @@ class _ConsultantScreenState extends State<ConsultantScreen>
                                   16,
                                 ),
                                 itemCount:
-                                    chat.messages.length +
-                                    (chat.loading ? 1 : 0),
+                                    data.messages.length +
+                                    (data.loading ? 1 : 0),
                                 itemBuilder: (context, index) {
-                                  if (chat.loading &&
-                                      index == chat.messages.length) {
+                                  if (data.loading &&
+                                      index == data.messages.length) {
                                     return TypingIndicator(isDark: isDark);
                                   }
-                                  final msg = chat.messages[index];
+                                  final msg = data.messages[index];
                                   final isUser = msg['role'] == "user";
                                   return Padding(
                                     padding: const EdgeInsets.only(bottom: 24),
@@ -805,6 +839,7 @@ class _ConsultantScreenState extends State<ConsultantScreen>
                       ],
                     ),
                   ),
+                ),
 
                   // -- VOICE STATUS BANNER --
                   if (_voiceMode != CVoiceMode.off)
@@ -904,40 +939,40 @@ class _ConsultantScreenState extends State<ConsultantScreen>
                               ),
                             ),
                             const SizedBox(width: 10),
-                            Semantics(
-                              label: 'Send message',
-                              child: GestureDetector(
-                                onTap: (chat.loading || chat.loadingChat)
-                                    ? null
-                                    : _sendMessage,
-                                child: Container(
-                                  width: 44,
-                                  height: 44,
-                                  decoration: BoxDecoration(
-                                    color: (chat.loading || chat.loadingChat)
-                                        ? (isDark
-                                              ? AppColors.glassWhite
-                                              : Colors.grey.shade300)
-                                        : Theme.of(context).colorScheme.primary,
-                                    shape: BoxShape.circle,
-                                    boxShadow:
-                                        (chat.loading || chat.loadingChat)
-                                        ? null
-                                        : [
-                                            BoxShadow(
-                                              color: Theme.of(context)
-                                                  .colorScheme
-                                                  .primary
-                                                  .withAlpha(77),
-                                              blurRadius: 12,
-                                              offset: const Offset(0, 4),
-                                            ),
-                                          ],
-                                  ),
-                                  child: const Icon(
-                                    Icons.send_rounded,
-                                    color: Colors.white,
-                                    size: 20,
+                            Selector<ConsultantProvider, bool>(
+                              selector: (_, cp) => cp.loading || cp.loadingChat,
+                              builder: (context, isBusy, _) => Semantics(
+                                label: 'Send message',
+                                child: GestureDetector(
+                                  onTap: isBusy ? null : _sendMessage,
+                                  child: Container(
+                                    width: 44,
+                                    height: 44,
+                                    decoration: BoxDecoration(
+                                      color: isBusy
+                                          ? (isDark
+                                                ? AppColors.glassWhite
+                                                : Colors.grey.shade300)
+                                          : Theme.of(context).colorScheme.primary,
+                                      shape: BoxShape.circle,
+                                      boxShadow: isBusy
+                                          ? null
+                                          : [
+                                              BoxShadow(
+                                                color: Theme.of(context)
+                                                    .colorScheme
+                                                    .primary
+                                                    .withAlpha(77),
+                                                blurRadius: 12,
+                                                offset: const Offset(0, 4),
+                                              ),
+                                            ],
+                                    ),
+                                    child: const Icon(
+                                      Icons.send_rounded,
+                                      color: Colors.white,
+                                      size: 20,
+                                    ),
                                   ),
                                 ),
                               ),
@@ -952,7 +987,5 @@ class _ConsultantScreenState extends State<ConsultantScreen>
             ),
           ),
         );
-      },
-    );
   }
 }
