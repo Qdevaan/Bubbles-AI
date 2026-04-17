@@ -284,24 +284,25 @@ class _NewSessionScreenState extends State<NewSessionScreen>
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return Consumer<SessionProvider>(
-      builder: (context, session, _) {
-        return MeshGradientBackground(
-          child: Scaffold(
-            backgroundColor: Colors.transparent,
-            body: Stack(
+    return MeshGradientBackground(
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        body: Selector<SessionProvider, bool>(
+          selector: (_, s) => s.isSessionActive,
+          builder: (context, isSessionActive, _) {
+            return Stack(
               children: [
-                ..._buildBlobs(isDark, session.isSessionActive),
+                ..._buildBlobs(isDark, isSessionActive),
                 SafeArea(
-                  child: session.isSessionActive
-                      ? _buildActiveSession(isDark, session)
-                      : _buildPreSession(isDark, session),
+                  child: isSessionActive
+                      ? _buildActiveSession(isDark)
+                      : _buildPreSession(isDark),
                 ),
               ],
-            ),
-          ),
-        );
-      },
+            );
+          },
+        ),
+      ),
     );
   }
 
@@ -345,7 +346,7 @@ class _NewSessionScreenState extends State<NewSessionScreen>
   // ========================
   // PRE-SESSION VIEW
   // ========================
-  Widget _buildPreSession(bool isDark, SessionProvider session) {
+  Widget _buildPreSession(bool isDark) {
     return Column(
       children: [
         Padding(
@@ -373,21 +374,26 @@ class _NewSessionScreenState extends State<NewSessionScreen>
                   ),
                 ),
               ),
-              IconButton(
-                icon: Icon(
-                  session.swapSpeakers
-                      ? Icons.swap_horiz_rounded
-                      : Icons.compare_arrows_rounded,
-                  color: isDark ? Colors.white70 : Colors.grey,
-                ),
-                tooltip: "Swap Speakers",
-                onPressed: () {
-                  session.toggleSwapSpeakers();
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text("Speakers Swapped!"),
-                      duration: Duration(milliseconds: 500),
+              Selector<SessionProvider, bool>(
+                selector: (_, s) => s.swapSpeakers,
+                builder: (context, swapSpeakers, _) {
+                  return IconButton(
+                    icon: Icon(
+                      swapSpeakers
+                          ? Icons.swap_horiz_rounded
+                          : Icons.compare_arrows_rounded,
+                      color: isDark ? Colors.white70 : Colors.grey,
                     ),
+                    tooltip: "Swap Speakers",
+                    onPressed: () {
+                      context.read<SessionProvider>().toggleSwapSpeakers();
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text("Speakers Swapped!"),
+                          duration: Duration(milliseconds: 500),
+                        ),
+                      );
+                    },
                   );
                 },
               ),
@@ -599,8 +605,7 @@ class _NewSessionScreenState extends State<NewSessionScreen>
   // ========================
   // ACTIVE SESSION VIEW
   // ========================
-  Widget _buildActiveSession(bool isDark, SessionProvider session) {
-    final logs = session.sessionLogs;
+  Widget _buildActiveSession(bool isDark) {
     return Column(
       children: [
         // Header with LIVE badge
@@ -650,20 +655,25 @@ class _NewSessionScreenState extends State<NewSessionScreen>
                   ),
                 ),
               ),
-              IconButton(
-                icon: Icon(
-                  session.swapSpeakers
-                      ? Icons.swap_horiz_rounded
-                      : Icons.compare_arrows_rounded,
-                  color: isDark ? Colors.white70 : Colors.grey,
-                ),
-                onPressed: () {
-                  session.toggleSwapSpeakers();
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text("Speakers Swapped!"),
-                      duration: Duration(milliseconds: 500),
+              Selector<SessionProvider, bool>(
+                selector: (_, s) => s.swapSpeakers,
+                builder: (context, swapSpeakers, _) {
+                  return IconButton(
+                    icon: Icon(
+                      swapSpeakers
+                          ? Icons.swap_horiz_rounded
+                          : Icons.compare_arrows_rounded,
+                      color: isDark ? Colors.white70 : Colors.grey,
                     ),
+                    onPressed: () {
+                      context.read<SessionProvider>().toggleSwapSpeakers();
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text("Speakers Swapped!"),
+                          duration: Duration(milliseconds: 500),
+                        ),
+                      );
+                    },
                   );
                 },
               ),
@@ -673,46 +683,51 @@ class _NewSessionScreenState extends State<NewSessionScreen>
 
         // Chat transcript
         Expanded(
-          child: logs.isEmpty
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Icons.graphic_eq,
-                        size: 52,
-                        color: Theme.of(
-                          context,
-                        ).colorScheme.primary.withAlpha(102),
+          child: Selector<SessionProvider, List<Map<String, dynamic>>>(
+            selector: (_, s) => s.sessionLogs,
+            builder: (context, logs, _) {
+              return logs.isEmpty
+                  ? Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.graphic_eq,
+                            size: 52,
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.primary.withAlpha(102),
+                          ),
+                          const SizedBox(height: 10),
+                          Text(
+                            "Listening...",
+                            style: GoogleFonts.manrope(
+                              color: isDark
+                                  ? AppColors.slate400
+                                  : AppColors.slate500,
+                              fontSize: 16,
+                            ),
+                          ),
+                        ],
                       ),
-                      const SizedBox(height: 10),
-                      Text(
-                        "Listening...",
-                        style: GoogleFonts.manrope(
-                          color: isDark
-                              ? AppColors.slate400
-                              : AppColors.slate500,
-                          fontSize: 16,
-                        ),
-                      ),
-                    ],
-                  ),
-                )
-              : ListView.builder(
-                  controller: _scrollController,
-                  reverse: true,
-                  padding: const EdgeInsets.all(16),
-                  itemCount: logs.length,
-                  itemBuilder: (context, index) {
-                    final msg = logs[logs.length - 1 - index];
-                    bool isMe = msg['speaker'] == "User";
-                    return ChatBubble(
-                      text: msg['text'],
-                      isUser: isMe,
-                      speakerLabel: isMe ? null : "Other",
+                    )
+                  : ListView.builder(
+                      controller: _scrollController,
+                      reverse: true,
+                      padding: const EdgeInsets.all(16),
+                      itemCount: logs.length,
+                      itemBuilder: (context, index) {
+                        final msg = logs[logs.length - 1 - index];
+                        bool isMe = msg['speaker'] == "User";
+                        return ChatBubble(
+                          text: msg['text'],
+                          isUser: isMe,
+                          speakerLabel: isMe ? null : "Other",
+                        );
+                      },
                     );
-                  },
-                ),
+            },
+          ),
         ),
 
         // HUD Panel
@@ -776,7 +791,17 @@ class _NewSessionScreenState extends State<NewSessionScreen>
                       ),
                       child: SingleChildScrollView(
                         physics: const BouncingScrollPhysics(),
-                        child: _buildAdviceContent(isDark, session),
+                        child: Selector<SessionProvider, (bool, String)>(
+                          selector: (_, s) => (s.realtimeLost, s.currentSuggestion),
+                          builder: (context, data, _) {
+                            final (realtimeLost, currentSuggestion) = data;
+                            return _buildAdviceContent(
+                              isDark,
+                              realtimeLost: realtimeLost,
+                              currentSuggestion: currentSuggestion,
+                            );
+                          },
+                        ),
                       ),
                     ),
                   ],
@@ -785,145 +810,155 @@ class _NewSessionScreenState extends State<NewSessionScreen>
               const SizedBox(height: 20),
 
               // Controls
-              if (session.isSaving)
-                Column(
-                  children: [
-                    CircularProgressIndicator(
-                      color: Theme.of(context).colorScheme.primary,
-                    ),
-                    const SizedBox(height: 10),
-                    Text(
-                      "Saving Memories...",
-                      style: GoogleFonts.manrope(color: AppColors.textMuted),
-                    ),
-                  ],
-                )
-              else
-                Consumer<DeepgramService>(
-                  builder: (context, deepgram, _) {
-                    final muted = deepgram.isMuted;
-                    return Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
+              Selector<SessionProvider, bool>(
+                selector: (_, s) => s.isSaving,
+                builder: (context, isSaving, _) {
+                  if (isSaving) {
+                    return Column(
                       children: [
-                        // Mute toggle
-                        GestureDetector(
-                          onTap: deepgram.isConnected
-                              ? () {
-                                  deepgram.toggleMute();
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text(deepgram.isMuted
-                                          ? 'Mic muted'
-                                          : 'Mic active'),
-                                      duration:
-                                          const Duration(milliseconds: 800),
-                                    ),
-                                  );
-                                }
-                              : null,
-                          child: Container(
-                            width: 48,
-                            height: 48,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: muted
-                                  ? AppColors.error.withAlpha(40)
-                                  : (isDark
-                                        ? AppColors.glassWhite
-                                        : Colors.grey.shade200),
-                              border: muted
-                                  ? Border.all(
-                                      color: AppColors.error.withAlpha(153),
-                                      width: 1.5,
-                                    )
-                                  : null,
-                            ),
-                            child: Icon(
-                              muted ? Icons.mic_off : Icons.mic,
-                              color: muted
-                                  ? AppColors.error
-                                  : (isDark
-                                        ? Colors.white54
-                                        : Colors.grey),
-                              size: 22,
-                            ),
-                          ),
+                        CircularProgressIndicator(
+                          color: Theme.of(context).colorScheme.primary,
                         ),
-                        const SizedBox(width: 20),
-                        // End session
-                        GestureDetector(
-                          onTap: _toggleSession,
-                          child: Container(
-                            width: 64,
-                            height: 64,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: AppColors.error,
-                              boxShadow: [
-                                BoxShadow(
-                                  color: AppColors.error.withAlpha(102),
-                                  blurRadius: 16,
-                                  spreadRadius: 2,
-                                ),
-                              ],
-                            ),
-                            child: const Icon(
-                              Icons.stop_rounded,
-                              color: Colors.white,
-                              size: 32,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 20),
-                        // Swap speakers (replaces dead settings icon)
-                        GestureDetector(
-                          onTap: () {
-                            session.toggleSwapSpeakers();
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Speakers swapped'),
-                                duration: Duration(milliseconds: 800),
-                              ),
-                            );
-                          },
-                          child: Container(
-                            width: 48,
-                            height: 48,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: session.swapSpeakers
-                                  ? Theme.of(context)
-                                        .colorScheme
-                                        .primary
-                                        .withAlpha(40)
-                                  : (isDark
-                                        ? AppColors.glassWhite
-                                        : Colors.grey.shade200),
-                              border: session.swapSpeakers
-                                  ? Border.all(
-                                      color: Theme.of(context)
-                                          .colorScheme
-                                          .primary
-                                          .withAlpha(153),
-                                      width: 1.5,
-                                    )
-                                  : null,
-                            ),
-                            child: Icon(
-                              Icons.swap_horiz_rounded,
-                              color: session.swapSpeakers
-                                  ? Theme.of(context).colorScheme.primary
-                                  : (isDark
-                                        ? Colors.white54
-                                        : Colors.grey),
-                              size: 22,
-                            ),
-                          ),
+                        const SizedBox(height: 10),
+                        Text(
+                          "Saving Memories...",
+                          style: GoogleFonts.manrope(color: AppColors.textMuted),
                         ),
                       ],
                     );
-                  },
-                ),
+                  }
+                  return Consumer<DeepgramService>(
+                    builder: (context, deepgram, _) {
+                      final muted = deepgram.isMuted;
+                      return Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          // Mute toggle
+                          GestureDetector(
+                            onTap: deepgram.isConnected
+                                ? () {
+                                    deepgram.toggleMute();
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(deepgram.isMuted
+                                            ? 'Mic muted'
+                                            : 'Mic active'),
+                                        duration:
+                                            const Duration(milliseconds: 800),
+                                      ),
+                                    );
+                                  }
+                                : null,
+                            child: Container(
+                              width: 48,
+                              height: 48,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: muted
+                                    ? AppColors.error.withAlpha(40)
+                                    : (isDark
+                                          ? AppColors.glassWhite
+                                          : Colors.grey.shade200),
+                                border: muted
+                                    ? Border.all(
+                                        color: AppColors.error.withAlpha(153),
+                                        width: 1.5,
+                                      )
+                                    : null,
+                              ),
+                              child: Icon(
+                                muted ? Icons.mic_off : Icons.mic,
+                                color: muted
+                                    ? AppColors.error
+                                    : (isDark
+                                          ? Colors.white54
+                                          : Colors.grey),
+                                size: 22,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 20),
+                          // End session
+                          GestureDetector(
+                            onTap: _toggleSession,
+                            child: Container(
+                              width: 64,
+                              height: 64,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: AppColors.error,
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: AppColors.error.withAlpha(102),
+                                    blurRadius: 16,
+                                    spreadRadius: 2,
+                                  ),
+                                ],
+                              ),
+                              child: const Icon(
+                                Icons.stop_rounded,
+                                color: Colors.white,
+                                size: 32,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 20),
+                          // Swap speakers
+                          Selector<SessionProvider, bool>(
+                            selector: (_, s) => s.swapSpeakers,
+                            builder: (context, swapSpeakers, _) {
+                              return GestureDetector(
+                                onTap: () {
+                                  context.read<SessionProvider>().toggleSwapSpeakers();
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('Speakers swapped'),
+                                      duration: Duration(milliseconds: 800),
+                                    ),
+                                  );
+                                },
+                                child: Container(
+                                  width: 48,
+                                  height: 48,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    color: swapSpeakers
+                                        ? Theme.of(context)
+                                              .colorScheme
+                                              .primary
+                                              .withAlpha(40)
+                                        : (isDark
+                                              ? AppColors.glassWhite
+                                              : Colors.grey.shade200),
+                                    border: swapSpeakers
+                                        ? Border.all(
+                                            color: Theme.of(context)
+                                                .colorScheme
+                                                .primary
+                                                .withAlpha(153),
+                                            width: 1.5,
+                                          )
+                                        : null,
+                                  ),
+                                  child: Icon(
+                                    Icons.swap_horiz_rounded,
+                                    color: swapSpeakers
+                                        ? Theme.of(context).colorScheme.primary
+                                        : (isDark
+                                              ? Colors.white54
+                                              : Colors.grey),
+                                    size: 22,
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        ],
+                      );
+                    },
+                  );
+                },
+              ),
             ],
           ),
         ),
@@ -933,8 +968,12 @@ class _NewSessionScreenState extends State<NewSessionScreen>
     );
   }
 
-  Widget _buildAdviceContent(bool isDark, SessionProvider session) {
-    if (session.realtimeLost) {
+  Widget _buildAdviceContent(
+    bool isDark, {
+    required bool realtimeLost,
+    required String currentSuggestion,
+  }) {
+    if (realtimeLost) {
       return Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
@@ -962,8 +1001,8 @@ class _NewSessionScreenState extends State<NewSessionScreen>
             ),
             TextButton(
               onPressed: () {
-                final api = Provider.of<ApiService>(context, listen: false);
-                session.retryWingman(api);
+                final api = context.read<ApiService>();
+                context.read<SessionProvider>().retryWingman(api);
               },
               style: TextButton.styleFrom(
                 foregroundColor: AppColors.error,
@@ -985,7 +1024,7 @@ class _NewSessionScreenState extends State<NewSessionScreen>
       );
     }
 
-    final suggestion = session.currentSuggestion;
+    final suggestion = currentSuggestion;
 
     if (suggestion.contains("**Context-Based Advice:**")) {
       List<Widget> sections = [];
