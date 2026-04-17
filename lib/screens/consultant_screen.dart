@@ -628,7 +628,10 @@ class _ConsultantScreenState extends State<ConsultantScreen>
               prev.drawerLoading != next.drawerLoading ||
               prev.drawerLoaded != next.drawerLoaded ||
               prev.pastChats.length != next.pastChats.length ||
-              prev.currentSessionId != next.currentSessionId,
+              prev.currentSessionId != next.currentSessionId ||
+              (next.pastChats.isNotEmpty &&
+                  prev.pastChats.isNotEmpty &&
+                  prev.pastChats.first['title'] != next.pastChats.first['title']),
           builder: (context, data, _) => _buildDrawerFromData(isDark, data),
         ),
         onDrawerChanged: (isOpen) {
