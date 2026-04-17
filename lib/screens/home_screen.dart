@@ -115,35 +115,46 @@ class _HomeScreenState extends State<HomeScreen>
                       ),
                     ),
                     const Spacer(),
-                    Consumer<HomeProvider>(
-                      builder: (_, hp, __) =>
-                          (hp.highlights.isNotEmpty || hp.events.isNotEmpty)
-                              ? TextButton(
-                                  onPressed: () async {
-                                    await hp.clearAllHighlights();
-                                    if (context.mounted) Navigator.pop(ctx);
-                                  },
-                                  child: Text(
-                                    'Clear all',
-                                    style: GoogleFonts.manrope(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w600,
-                                      color: Theme.of(context)
-                                          .colorScheme
-                                          .primary,
-                                    ),
-                                  ),
-                                )
-                              : const SizedBox.shrink(),
+                    Selector<HomeProvider, bool>(
+                      selector: (_, hp) =>
+                          hp.highlights.isNotEmpty || hp.events.isNotEmpty,
+                      builder: (context, hasItems, __) => hasItems
+                          ? TextButton(
+                              onPressed: () async {
+                                await context
+                                    .read<HomeProvider>()
+                                    .clearAllHighlights();
+                                if (context.mounted) Navigator.pop(ctx);
+                              },
+                              child: Text(
+                                'Clear all',
+                                style: GoogleFonts.manrope(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .primary,
+                                ),
+                              ),
+                            )
+                          : const SizedBox.shrink(),
                     ),
                   ],
                 ),
               ),
               const Divider(height: 1),
               Expanded(
-                child: Consumer<HomeProvider>(
-                  builder: (_, hp, __) {
-                    if (hp.highlights.isEmpty && hp.events.isEmpty && hp.notifications.isEmpty) {
+                child: Selector<HomeProvider,
+                    (List<Map<String, dynamic>>, List<Map<String, dynamic>>, List<Map<String, dynamic>>)>(
+                  selector: (_, hp) =>
+                      (hp.highlights, hp.events, hp.notifications),
+                  shouldRebuild: (prev, next) =>
+                      prev.$1.length != next.$1.length ||
+                      prev.$2.length != next.$2.length ||
+                      prev.$3.length != next.$3.length,
+                  builder: (context, panelData, __) {
+                    final (highlights, events, notifications) = panelData;
+                    if (highlights.isEmpty && events.isEmpty && notifications.isEmpty) {
                       return Center(
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
@@ -184,7 +195,7 @@ class _HomeScreenState extends State<HomeScreen>
                       controller: scrollController,
                       padding: const EdgeInsets.all(16),
                       children: [
-                        ...hp.notifications.map(
+                        ...notifications.map(
                           (n) {
                             final type = n['notif_type'] as String? ?? 'info';
                             IconData icon = Icons.notifications;
@@ -203,7 +214,7 @@ class _HomeScreenState extends State<HomeScreen>
                             );
                           }
                         ),
-                        ...hp.highlights.map(
+                        ...highlights.map(
                           (hl) => _NotificationCard(
                             isDark: isDark,
                             accentColor: AppColors.error,
@@ -215,7 +226,7 @@ class _HomeScreenState extends State<HomeScreen>
                             createdAt: hl['created_at'] as String?,
                           ),
                         ),
-                        ...hp.events.map(
+                        ...events.map(
                           (ev) => _NotificationCard(
                             isDark: isDark,
                             accentColor: AppColors.warning,
@@ -245,42 +256,36 @@ class _HomeScreenState extends State<HomeScreen>
     final user = AuthService.instance.currentUser;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return Consumer<HomeProvider>(
-      builder: (context, home, _) {
-        final name = home.profile?['full_name'] ??
-            user?.userMetadata?['full_name'] ??
-            user?.userMetadata?['name'] ??
-            'Guest';
-        final firstName = name.toString().split(' ').first;
-        final avatarUrl =
-            home.profile?['avatar_url'] ?? user?.userMetadata?['avatar_url'];
-
-        return Scaffold(
-          backgroundColor: isDark ? AppColors.backgroundDark : AppColors.backgroundLight,
-          body: home.loading
-              ? const Center(child: SkeletonCardGroup(count: 4))
-              : GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onHorizontalDragEnd: (details) {
-                    if (details.primaryVelocity != null) {
-                      if (details.primaryVelocity! > 300) {
-                        Navigator.pushNamed(context, '/settings');
-                      } else if (details.primaryVelocity! < -300) {
-                        Navigator.pushNamed(context, '/entities');
-                      }
-                    }
-                  },
-                  child: Stack(
+    return Scaffold(
+      backgroundColor: isDark ? AppColors.backgroundDark : AppColors.backgroundLight,
+      body: Selector<HomeProvider, bool>(
+        selector: (_, home) => home.loading,
+        builder: (context, isLoading, _) {
+          if (isLoading) {
+            return const Center(child: SkeletonCardGroup(count: 4));
+          }
+          return GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onHorizontalDragEnd: (details) {
+              if (details.primaryVelocity != null) {
+                if (details.primaryVelocity! > 300) {
+                  Navigator.pushNamed(context, '/settings');
+                } else if (details.primaryVelocity! < -300) {
+                  Navigator.pushNamed(context, '/entities');
+                }
+              }
+            },
+            child: Stack(
+              children: [
+                // Animated ambient background (replaces static mesh gradient)
+                AnimatedAmbientBackground(
+                  isDark: isDark,
+                  scrollController: _homeScrollCtrl,
+                ),
+                SafeArea(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Animated ambient background (replaces static mesh gradient)
-                      AnimatedAmbientBackground(
-                        isDark: isDark,
-                        scrollController: _homeScrollCtrl,
-                      ),
-                      SafeArea(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
                         // --- FIXED HEADER ---
                         Padding(
                           padding: const EdgeInsets.symmetric(
@@ -290,43 +295,48 @@ class _HomeScreenState extends State<HomeScreen>
                                 MainAxisAlignment.spaceBetween,
                             children: [
                               // Avatar with accent border
-                              Semantics(
-                                label: 'Profile settings',
-                                button: true,
-                                child: GestureDetector(
-                                  onTap: () => Navigator.pushNamed(
-                                      context, '/settings'),
-                                  child: Container(
-                                    width: 48,
-                                    height: 48,
-                                    decoration: BoxDecoration(
-                                      shape: BoxShape.circle,
-                                      border: Border.all(
-                                        color: Theme.of(context).colorScheme.primary,
-                                        width: 2,
+                              Selector<HomeProvider, String?>(
+                                selector: (_, home) =>
+                                    home.profile?['avatar_url'] as String? ??
+                                    user?.userMetadata?['avatar_url'] as String?,
+                                builder: (context, avatarUrl, _) => Semantics(
+                                  label: 'Profile settings',
+                                  button: true,
+                                  child: GestureDetector(
+                                    onTap: () => Navigator.pushNamed(
+                                        context, '/settings'),
+                                    child: Container(
+                                      width: 48,
+                                      height: 48,
+                                      decoration: BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        border: Border.all(
+                                          color: Theme.of(context).colorScheme.primary,
+                                          width: 2,
+                                        ),
                                       ),
-                                    ),
-                                    child: ClipOval(
-                                      child: avatarUrl != null
-                                          ? CachedNetworkImage(
-                                              imageUrl: avatarUrl,
-                                              fit: BoxFit.cover,
-                                              placeholder: (_, __) =>
-                                                  Container(
-                                                      color: AppColors
-                                                          .surfaceDark),
-                                            )
-                                          : Container(
-                                              color: isDark
-                                                  ? AppColors.surfaceDark
-                                                  : Colors.grey.shade200,
-                                              child: Icon(
-                                                Icons.person,
+                                      child: ClipOval(
+                                        child: avatarUrl != null
+                                            ? CachedNetworkImage(
+                                                imageUrl: avatarUrl,
+                                                fit: BoxFit.cover,
+                                                placeholder: (_, __) =>
+                                                    Container(
+                                                        color: AppColors
+                                                            .surfaceDark),
+                                              )
+                                            : Container(
                                                 color: isDark
-                                                    ? Colors.white54
-                                                    : Colors.grey,
+                                                    ? AppColors.surfaceDark
+                                                    : Colors.grey.shade200,
+                                                child: Icon(
+                                                  Icons.person,
+                                                  color: isDark
+                                                      ? Colors.white54
+                                                      : Colors.grey,
+                                                ),
                                               ),
-                                            ),
+                                      ),
                                     ),
                                   ),
                                 ),
@@ -337,91 +347,103 @@ class _HomeScreenState extends State<HomeScreen>
                                   child: Center(
                                     child: SingleChildScrollView(
                                       scrollDirection: Axis.horizontal,
-                                      child: Consumer<GamificationProvider>(
-                                        builder: (_, gp, __) => StreakStrip(
-                                          streak: gp.currentStreak,
-                                          totalXp: gp.totalXp,
-                                          level: gp.level,
-                                          streakFreezes: gp.streakFreezes,
-                                          skillTierEmoji: gp.skillTierEmoji,
-                                          onTap: () => Navigator.pushNamed(context, '/game-center'),
+                                      child: Selector<GamificationProvider,
+                                          (int, int, int, int, String)>(
+                                        selector: (_, gp) => (
+                                          gp.currentStreak,
+                                          gp.totalXp,
+                                          gp.level,
+                                          gp.streakFreezes,
+                                          gp.skillTierEmoji,
                                         ),
+                                        builder: (context, gpData, __) {
+                                          final (streak, totalXp, level,
+                                              streakFreezes, skillTierEmoji) =
+                                              gpData;
+                                          return StreakStrip(
+                                            streak: streak,
+                                            totalXp: totalXp,
+                                            level: level,
+                                            streakFreezes: streakFreezes,
+                                            skillTierEmoji: skillTierEmoji,
+                                            onTap: () => Navigator.pushNamed(
+                                                context, '/game-center'),
+                                          );
+                                        },
                                       ),
                                     ),
                                   ),
                                 ),
                               ),
-                              Semantics(
-                                label: 'Notifications',
-                                button: true,
-                                child: GestureDetector(
-                                  onTap: () =>
-                                      _showNotificationsPanel(context),
-                                  child: Stack(
-                                    children: [
-                                      Container(
-                                        width: 40,
-                                        height: 40,
-                                        decoration: BoxDecoration(
-                                          shape: BoxShape.circle,
-                                          border: Border.all(
-                                            color: Theme.of(context).colorScheme.primary,
-                                            width: 2,
-                                          ),
-                                          color: isDark
-                                              ? AppColors.glassWhite
-                                              : Colors.grey.shade100,
-                                        ),
-                                        child: Icon(
-                                          Icons.notifications_outlined,
-                                          color: Theme.of(context).colorScheme.primary,
-                                        ),
-                                      ),
-                                      if (home.unreadNotifications > 0 ||
-                                          home.highlights.isNotEmpty)
-                                        Positioned(
-                                          top: 0,
-                                          right: 0,
-                                          child: Container(
-                                            width:
-                                                home.unreadNotifications >
-                                                        9
-                                                    ? 16
-                                                    : 10,
-                                            height: 10,
+                              Selector<HomeProvider, (int, bool)>(
+                                selector: (_, home) => (
+                                  home.unreadNotifications,
+                                  home.highlights.isNotEmpty,
+                                ),
+                                builder: (context, notifData, _) {
+                                  final (unread, hasHighlights) = notifData;
+                                  return Semantics(
+                                    label: 'Notifications',
+                                    button: true,
+                                    child: GestureDetector(
+                                      onTap: () =>
+                                          _showNotificationsPanel(context),
+                                      child: Stack(
+                                        children: [
+                                          Container(
+                                            width: 40,
+                                            height: 40,
                                             decoration: BoxDecoration(
-                                              color: AppColors.error,
                                               shape: BoxShape.circle,
                                               border: Border.all(
-                                                color: isDark
-                                                    ? AppColors.surfaceDark
-                                                    : Colors.grey.shade100,
+                                                color: Theme.of(context).colorScheme.primary,
                                                 width: 2,
                                               ),
+                                              color: isDark
+                                                  ? AppColors.glassWhite
+                                                  : Colors.grey.shade100,
                                             ),
-                                            child: home
-                                                        .unreadNotifications >
-                                                    0
-                                                ? Center(
-                                                    child: Text(
-                                                      '${home.unreadNotifications}',
-                                                      style:
-                                                          const TextStyle(
-                                                        fontSize: 6,
-                                                        color:
-                                                            Colors.white,
-                                                        fontWeight:
-                                                            FontWeight
-                                                                .w800,
-                                                      ),
-                                                    ),
-                                                  )
-                                                : null,
+                                            child: Icon(
+                                              Icons.notifications_outlined,
+                                              color: Theme.of(context).colorScheme.primary,
+                                            ),
                                           ),
-                                        ),
-                                    ],
-                                  ),
-                                ),
+                                          if (unread > 0 || hasHighlights)
+                                            Positioned(
+                                              top: 0,
+                                              right: 0,
+                                              child: Container(
+                                                width: unread > 9 ? 16 : 10,
+                                                height: 10,
+                                                decoration: BoxDecoration(
+                                                  color: AppColors.error,
+                                                  shape: BoxShape.circle,
+                                                  border: Border.all(
+                                                    color: isDark
+                                                        ? AppColors.surfaceDark
+                                                        : Colors.grey.shade100,
+                                                    width: 2,
+                                                  ),
+                                                ),
+                                                child: unread > 0
+                                                    ? Center(
+                                                        child: Text(
+                                                          '$unread',
+                                                          style: const TextStyle(
+                                                            fontSize: 6,
+                                                            color: Colors.white,
+                                                            fontWeight: FontWeight.w800,
+                                                          ),
+                                                        ),
+                                                      )
+                                                    : null,
+                                              ),
+                                            ),
+                                        ],
+                                      ),
+                                    ),
+                                  );
+                                },
                               ),
                             ],
                           ),
@@ -437,30 +459,37 @@ class _HomeScreenState extends State<HomeScreen>
                                 child: Padding(
                                   padding: const EdgeInsets.fromLTRB(
                                       20, 12, 20, 8),
-                                  child: Consumer<GamificationProvider>(
-                                    builder: (_, gp, __) => Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Row(
-                                          children: [
-                                            Expanded(
-                                              child: Text(
-                                                _getGreeting(),
-                                                style: GoogleFonts.manrope(
-                                                  fontSize: 28,
-                                                  fontWeight: FontWeight.w800,
-                                                  color: isDark
-                                                      ? Colors.white
-                                                      : AppColors.slate900,
-                                                  height: 1.2,
-                                                ),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        children: [
+                                          Expanded(
+                                            child: Text(
+                                              _getGreeting(),
+                                              style: GoogleFonts.manrope(
+                                                fontSize: 28,
+                                                fontWeight: FontWeight.w800,
+                                                color: isDark
+                                                    ? Colors.white
+                                                    : AppColors.slate900,
+                                                height: 1.2,
                                               ),
                                             ),
+                                          ),
 
-                                          ],
-                                        ),
-                                        ShaderMask(
+                                        ],
+                                      ),
+                                      Selector<HomeProvider, String>(
+                                        selector: (_, home) {
+                                          final name = home.profile?['full_name'] as String? ??
+                                              user?.userMetadata?['full_name'] as String? ??
+                                              user?.userMetadata?['name'] as String? ??
+                                              'Guest';
+                                          return name.split(' ').first;
+                                        },
+                                        builder: (context, firstName, _) => ShaderMask(
                                           shaderCallback: (bounds) =>
                                               LinearGradient(
                                             colors: [
@@ -478,8 +507,8 @@ class _HomeScreenState extends State<HomeScreen>
                                             ),
                                           ),
                                         ),
-                                      ],
-                                    ),
+                                      ),
+                                    ],
                                   ),
                                 ),
                               ),
@@ -502,34 +531,31 @@ class _HomeScreenState extends State<HomeScreen>
                                 child: Padding(
                                   padding: const EdgeInsets.fromLTRB(
                                       16, 16, 16, 8),
-                                  child: Consumer<ConnectionService>(
-                                    builder: (context,
-                                        connectionService, child) {
-                                      final isConnected =
-                                          connectionService.isConnected;
-                                      return GestureDetector(
+                                  child: Selector<ConnectionService, bool>(
+                                    selector: (_, cs) => cs.isConnected,
+                                    builder: (context, isConnected, __) =>
+                                        GestureDetector(
+                                      onTap: () {
+                                        if (isConnected) {
+                                          Navigator.pushNamed(
+                                              context, '/new-session');
+                                        } else {
+                                          _showNotConnectedDialog(context);
+                                        }
+                                      },
+                                      child: _EntityOrb(
+                                        isConnected: isConnected,
+                                        breatheAnimation: _breatheCtrl,
                                         onTap: () {
                                           if (isConnected) {
                                             Navigator.pushNamed(
                                                 context, '/new-session');
                                           } else {
-                                            _showNotConnectedDialog(
-                                                context);
+                                            _showNotConnectedDialog(context);
                                           }
                                         },
-                                        child: _EntityOrb(
-                                            isConnected: isConnected,
-                                            breatheAnimation: _breatheCtrl,
-                                            onTap: () {
-                                              if (isConnected) {
-                                                Navigator.pushNamed(context, '/new-session');
-                                              } else {
-                                                _showNotConnectedDialog(context);
-                                              }
-                                            },
-                                        ),
-                                      );
-                                    },
+                                      ),
+                                    ),
                                   ),
                                 ),
                               ),
@@ -629,156 +655,141 @@ class _HomeScreenState extends State<HomeScreen>
 
                               // --- RECENT INSIGHTS ---
                               SliverToBoxAdapter(
-                                child: Padding(
-                                  padding: const EdgeInsets.fromLTRB(
-                                      16, 16, 16, 4),
-                                  child: Row(
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      Text(
-                                        'Recent Insights',
-                                        style: GoogleFonts.manrope(
-                                          fontSize: 17,
-                                          fontWeight: FontWeight.w700,
-                                          color: isDark
-                                              ? Colors.white
-                                              : AppColors.slate900,
-                                        ),
-                                      ),
-                                      Row(
-                                        children: [
-                                          if (home.insightsLoaded &&
-                                              (home.events.isNotEmpty ||
-                                                  home.highlights.isNotEmpty ||
-                                                  home.notifications.isNotEmpty))
-                                            GestureDetector(
-                                              onTap: () => Navigator.pushNamed(
-                                                  context, '/insights'),
-                                              child: Text(
-                                                'See All',
+                                child: Selector<HomeProvider,
+                                    (bool, List<Map<String, dynamic>>, List<Map<String, dynamic>>, List<Map<String, dynamic>>)>(
+                                  selector: (_, home) => (
+                                    home.insightsLoaded,
+                                    home.events,
+                                    home.highlights,
+                                    home.notifications,
+                                  ),
+                                  shouldRebuild: (prev, next) =>
+                                      prev.$1 != next.$1 ||
+                                      prev.$2.length != next.$2.length ||
+                                      prev.$3.length != next.$3.length ||
+                                      prev.$4.length != next.$4.length,
+                                  builder: (context, insightData, _) {
+                                    final (insightsLoaded, events, highlights, notifications) = insightData;
+                                    return Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        // Header row
+                                        Padding(
+                                          padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
+                                          child: Row(
+                                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                            children: [
+                                              Text(
+                                                'Recent Insights',
                                                 style: GoogleFonts.manrope(
-                                                  fontSize: 13,
+                                                  fontSize: 17,
                                                   fontWeight: FontWeight.w700,
-                                                  color: Theme.of(context)
-                                                      .colorScheme
-                                                      .primary,
+                                                  color: isDark ? Colors.white : AppColors.slate900,
                                                 ),
                                               ),
-                                            ),
-                                          const SizedBox(width: 8),
-                                          GestureDetector(
-                                            onTap: home.loadInsights,
-                                            child: Icon(
-                                              Icons.refresh,
-                                              size: 18,
-                                              color: isDark
-                                                  ? AppColors.slate500
-                                                  : Colors.grey.shade400,
-                                            ),
+                                              Row(
+                                                children: [
+                                                  if (insightsLoaded &&
+                                                      (events.isNotEmpty ||
+                                                          highlights.isNotEmpty ||
+                                                          notifications.isNotEmpty))
+                                                    GestureDetector(
+                                                      onTap: () => Navigator.pushNamed(context, '/insights'),
+                                                      child: Text(
+                                                        'See All',
+                                                        style: GoogleFonts.manrope(
+                                                          fontSize: 13,
+                                                          fontWeight: FontWeight.w700,
+                                                          color: Theme.of(context).colorScheme.primary,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  const SizedBox(width: 8),
+                                                  GestureDetector(
+                                                    onTap: () => context.read<HomeProvider>().loadInsights(),
+                                                    child: Icon(
+                                                      Icons.refresh,
+                                                      size: 18,
+                                                      color: isDark ? AppColors.slate500 : Colors.grey.shade400,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ],
                                           ),
-                                        ],
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-
-                              if (!home.insightsLoaded)
-                                const SliverToBoxAdapter(
-                                  child: Padding(
-                                    padding: EdgeInsets.symmetric(
-                                        horizontal: 16, vertical: 8),
-                                    child: SkeletonCardGroup(count: 3),
-                                  ),
-                                )
-                              else if (home.events.isEmpty &&
-                                  home.highlights.isEmpty &&
-                                  home.notifications.isEmpty)
-                                SliverToBoxAdapter(
-                                  child: Padding(
-                                    padding: const EdgeInsets.fromLTRB(
-                                        16, 8, 16, 8),
-                                    child: _InsightCard(
-                                      accentColor: Theme.of(context).colorScheme.primary,
-                                      title: 'No insights yet',
-                                      badge: 'Waiting',
-                                      description:
-                                          'Start a Wingman session to generate personalized insights, events, and highlights.',
-                                      isDark: isDark,
-                                    ),
-                                  ),
-                                )
-                              else ...[
-                                ...home.events.map(
-                                  (ev) => SliverToBoxAdapter(
-                                    child: Padding(
-                                      padding:
-                                          const EdgeInsets.fromLTRB(
-                                              16, 4, 16, 4),
-                                      child: _InsightCard(
-                                        accentColor:
-                                            AppColors.warning,
-                                        title: ev['title']
-                                                as String? ??
-                                            'Event',
-                                        badge: ev['due_text']
-                                                as String? ??
-                                            'Event',
-                                        description:
-                                            ev['description']
-                                                    as String? ??
-                                                '',
-                                        isDark: isDark,
-                                        icon: Icons.event_rounded,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                ...home.highlights.map(
-                                  (hl) {
-                                    final hlType =
-                                        (hl['highlight_type'] as String? ?? '')
-                                            .toLowerCase();
-                                    final hlColor = _highlightColor(
-                                        hlType,
-                                        Theme.of(context).colorScheme.primary);
-                                    final hlIcon =
-                                        _highlightIcon(hlType);
-                                    return SliverToBoxAdapter(
-                                      child: Padding(
-                                        padding: const EdgeInsets.fromLTRB(
-                                            16, 4, 16, 4),
-                                        child: _InsightCard(
-                                          accentColor: hlColor,
-                                          title: hl['title'] as String? ??
-                                              'Highlight',
-                                          badge: _highlightBadge(hlType),
-                                          description:
-                                              hl['body'] as String? ?? '',
-                                          isDark: isDark,
-                                          icon: hlIcon,
                                         ),
-                                      ),
+                                        // Content
+                                        if (!insightsLoaded)
+                                          const Padding(
+                                            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                            child: SkeletonCardGroup(count: 3),
+                                          )
+                                        else if (events.isEmpty && highlights.isEmpty && notifications.isEmpty)
+                                          Padding(
+                                            padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                                            child: _InsightCard(
+                                              accentColor: Theme.of(context).colorScheme.primary,
+                                              title: 'No insights yet',
+                                              badge: 'Waiting',
+                                              description:
+                                                  'Start a Wingman session to generate personalized insights, events, and highlights.',
+                                              isDark: isDark,
+                                            ),
+                                          )
+                                        else
+                                          Column(
+                                            children: [
+                                              ...events.map(
+                                                (ev) => Padding(
+                                                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
+                                                  child: _InsightCard(
+                                                    accentColor: AppColors.warning,
+                                                    title: ev['title'] as String? ?? 'Event',
+                                                    badge: ev['due_text'] as String? ?? 'Event',
+                                                    description: ev['description'] as String? ?? '',
+                                                    isDark: isDark,
+                                                    icon: Icons.event_rounded,
+                                                  ),
+                                                ),
+                                              ),
+                                              ...highlights.map(
+                                                (hl) {
+                                                  final hlType = (hl['highlight_type'] as String? ?? '').toLowerCase();
+                                                  final hlColor = _highlightColor(hlType, Theme.of(context).colorScheme.primary);
+                                                  final hlIcon = _highlightIcon(hlType);
+                                                  return Padding(
+                                                    padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
+                                                    child: _InsightCard(
+                                                      accentColor: hlColor,
+                                                      title: hl['title'] as String? ?? 'Highlight',
+                                                      badge: _highlightBadge(hlType),
+                                                      description: hl['body'] as String? ?? '',
+                                                      isDark: isDark,
+                                                      icon: hlIcon,
+                                                    ),
+                                                  );
+                                                },
+                                              ),
+                                              ...notifications.map(
+                                                (tn) => Padding(
+                                                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
+                                                  child: _InsightCard(
+                                                    accentColor: Theme.of(context).colorScheme.primary,
+                                                    title: tn['title'] as String? ?? 'Notification',
+                                                    badge: 'Update',
+                                                    description: tn['body'] as String? ?? '',
+                                                    isDark: isDark,
+                                                    icon: Icons.notifications_active_outlined,
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                      ],
                                     );
                                   },
                                 ),
-                                ...home.notifications.map(
-                                  (tn) => SliverToBoxAdapter(
-                                    child: Padding(
-                                      padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
-                                      child: _InsightCard(
-                                        accentColor: Theme.of(context).colorScheme.primary,
-                                        title: tn['title'] as String? ?? 'Notification',
-                                        badge: 'Update',
-                                        description: tn['body'] as String? ?? '',
-                                        isDark: isDark,
-                                        icon: Icons.notifications_active_outlined,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ],
+                              ),
 
                               const SliverToBoxAdapter(
                                   child: SizedBox(height: 30)),
@@ -788,11 +799,11 @@ class _HomeScreenState extends State<HomeScreen>
                       ],
                     ),
                   ),
-                    ],
-                  ),
-                ),
-        );
-      },
+              ],
+            ),
+          );
+        },
+      ),
     );
   }
 
