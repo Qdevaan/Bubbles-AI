@@ -12,7 +12,6 @@ import '../services/deepgram_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/connection_service.dart';
 import '../providers/session_provider.dart';
-import '../providers/settings_provider.dart';
 import '../widgets/chat_bubble.dart';
 import '../widgets/feedback_dialog.dart';
 
