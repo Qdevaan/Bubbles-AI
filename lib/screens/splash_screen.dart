@@ -1,5 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import '../theme/design_tokens.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -127,7 +128,7 @@ class _SplashScreenState extends State<SplashScreen> {
 
     _hasNavigated = true;
     // Once the bar finishes filling to 1.0, navigate
-    Navigator.of(context).pushReplacementNamed(_targetRoute!);
+    context.go(_targetRoute!);
   }
 
   Future<void> _showSettingsDialog({

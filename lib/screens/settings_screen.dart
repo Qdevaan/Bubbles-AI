@@ -1,5 +1,6 @@
 ﻿import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../theme/design_tokens.dart';
@@ -29,9 +30,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       context.read<AppCacheService>().invalidateAll();
       await AuthService.instance.signOut();
       if (mounted) {
-        Navigator.of(
-          context,
-        ).pushNamedAndRemoveUntil('/login', (Route<dynamic> route) => false);
+        context.go('/login');
       }
     } catch (e) {
       if (mounted) {
@@ -193,7 +192,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                   ),
                                 ),
                                 onTap: () =>
-                                    Navigator.pushNamed(context, AppRoutes.subscription),
+                                    context.push(AppRoutes.subscription),
                               ),
                             ],
                           ),
@@ -272,7 +271,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                     color: AppColors.textMuted,
                                   ),
                                 ),
-                                                                  onTap: () => Navigator.pushNamed(context, AppRoutes.language),
+                                                                  onTap: () => context.push(AppRoutes.language),
                                 ),
                                 TileDivider(isDark: isDark),
                                 Consumer<SettingsProvider>(
@@ -398,7 +397,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                 icon: Icons.storage_outlined,
                                 title: 'Data Management',
                                 onTap: () =>
-                                    Navigator.pushNamed(context, AppRoutes.data),
+                                    context.push(AppRoutes.data),
                               ),
                               TileDivider(isDark: isDark),
                               SettingsTile(
@@ -410,7 +409,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                 icon: Icons.lock_outline,
                                 title: 'Permissions',
                                 onTap: () =>
-                                    Navigator.pushNamed(context, AppRoutes.permissions),
+                                    context.push(AppRoutes.permissions),
                               ),
                             ],
                           ),
@@ -455,7 +454,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                 icon: Icons.info_outline_rounded,
                                 title: 'About Bubbles',
                                 onTap: () =>
-                                    Navigator.pushNamed(context, '/about'),
+                                    context.push('/about'),
                               ),
                               TileDivider(isDark: isDark),
                               SettingsTile(

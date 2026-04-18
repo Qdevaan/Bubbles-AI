@@ -1,5 +1,6 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -71,7 +72,7 @@ class AppDrawer extends StatelessWidget {
                   isDark: isDark,
                   onTap: () {
                     Navigator.pop(context);
-                    Navigator.pushNamed(context, '/new-session');
+                    context.push('/new-session');
                   },
                 ),
                 const SizedBox(height: 4),
@@ -81,7 +82,7 @@ class AppDrawer extends StatelessWidget {
                   isDark: isDark,
                   onTap: () {
                     Navigator.pop(context);
-                    Navigator.pushNamed(context, '/consultant');
+                    context.push('/consultant');
                   },
                 ),
                 const SizedBox(height: 4),
@@ -91,7 +92,7 @@ class AppDrawer extends StatelessWidget {
                   isDark: isDark,
                   onTap: () {
                     Navigator.pop(context);
-                    Navigator.pushNamed(context, '/sessions');
+                    context.push('/sessions');
                   },
                 ),
                 const SizedBox(height: 4),
@@ -101,7 +102,7 @@ class AppDrawer extends StatelessWidget {
                   isDark: isDark,
                   onTap: () {
                     Navigator.pop(context);
-                    Navigator.pushNamed(context, '/graph-explorer');
+                    context.push('/graph-explorer');
                   },
                 ),
                 Padding(
@@ -133,7 +134,7 @@ class AppDrawer extends StatelessWidget {
                     ),
                     onTap: () {
                       Navigator.pop(context);
-                      Navigator.pushNamed(context, '/connections');
+                      context.push('/connections');
                     },
                   ),
                 ),
@@ -144,7 +145,7 @@ class AppDrawer extends StatelessWidget {
                   isDark: isDark,
                   onTap: () {
                     Navigator.pop(context);
-                    Navigator.pushNamed(context, '/settings');
+                    context.push('/settings');
                   },
                 ),
                 const SizedBox(height: 4),
@@ -154,7 +155,7 @@ class AppDrawer extends StatelessWidget {
                   isDark: isDark,
                   onTap: () {
                     Navigator.pop(context);
-                    Navigator.pushNamed(context, '/about');
+                    context.push('/about');
                   },
                 ),
               ],

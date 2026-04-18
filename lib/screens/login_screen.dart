@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -179,7 +180,7 @@ class _LoginScreenState extends State<LoginScreen> {
     }
     
     if (mounted) {
-      Navigator.pushReplacementNamed(context, isComplete ? '/home' : '/profile-completion');
+      context.go(isComplete ? '/home' : '/profile-completion');
     }
   }
 
@@ -525,7 +526,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                         ),
                         GestureDetector(
-                          onTap: () => Navigator.pushNamed(context, '/signup'),
+                          onTap: () => context.push('/signup'),
                           child: Text(
                             'Sign Up',
                             style: GoogleFonts.manrope(

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../main.dart';
+import '../routes/app_router.dart';
 import '../services/voice_assistant_service.dart';
 import '../theme/design_tokens.dart';
 import 'glass_morphism.dart';
@@ -61,9 +61,9 @@ class _VoiceOverlayState extends State<VoiceOverlay>
         final nav = assistant.consumePendingNavigation();
         if (nav != null) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
-            BubblesApp.navigatorKey.currentState?.pushNamed(
+            AppRouter.router.push(
               nav['route'] as String,
-              arguments: nav['args'],
+              extra: nav['args'],
             );
           });
         }

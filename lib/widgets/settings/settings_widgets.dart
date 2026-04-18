@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -107,7 +108,7 @@ class ProfileTileState extends State<ProfileTile> {
 
     return GestureDetector(
       onTap: () async {
-        await Navigator.pushNamed(context, '/profile-completion');
+        await context.push('/profile-completion');
         _loadProfile();
       },
       child: Padding(

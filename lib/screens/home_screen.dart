@@ -1,6 +1,7 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 
@@ -269,9 +270,9 @@ class _HomeScreenState extends State<HomeScreen>
             onHorizontalDragEnd: (details) {
               if (details.primaryVelocity != null) {
                 if (details.primaryVelocity! > 300) {
-                  Navigator.pushNamed(context, '/settings');
+                  context.push('/settings');
                 } else if (details.primaryVelocity! < -300) {
-                  Navigator.pushNamed(context, '/entities');
+                  context.push('/entities');
                 }
               }
             },
@@ -303,8 +304,7 @@ class _HomeScreenState extends State<HomeScreen>
                                   label: 'Profile settings',
                                   button: true,
                                   child: GestureDetector(
-                                    onTap: () => Navigator.pushNamed(
-                                        context, '/settings'),
+                                    onTap: () => context.push('/settings'),
                                     child: Container(
                                       width: 48,
                                       height: 48,
@@ -366,8 +366,7 @@ class _HomeScreenState extends State<HomeScreen>
                                             level: level,
                                             streakFreezes: streakFreezes,
                                             skillTierEmoji: skillTierEmoji,
-                                            onTap: () => Navigator.pushNamed(
-                                                context, '/game-center'),
+                                            onTap: () => context.push('/game-center'),
                                           );
                                         },
                                       ),
@@ -537,8 +536,7 @@ class _HomeScreenState extends State<HomeScreen>
                                         GestureDetector(
                                       onTap: () {
                                         if (isConnected) {
-                                          Navigator.pushNamed(
-                                              context, '/new-session');
+                                          context.push('/new-session');
                                         } else {
                                           _showNotConnectedDialog(context);
                                         }
@@ -548,8 +546,7 @@ class _HomeScreenState extends State<HomeScreen>
                                         breatheAnimation: _breatheCtrl,
                                         onTap: () {
                                           if (isConnected) {
-                                            Navigator.pushNamed(
-                                                context, '/new-session');
+                                            context.push('/new-session');
                                           } else {
                                             _showNotConnectedDialog(context);
                                           }
@@ -592,10 +589,7 @@ class _HomeScreenState extends State<HomeScreen>
                                               .withAlpha(51),
                                           title: 'Consultant AI',
                                           subtitle: 'Strategy & advice',
-                                          onTap: () =>
-                                              Navigator.pushNamed(
-                                                  context,
-                                                  '/consultant'),
+                                          onTap: () => context.push('/consultant'),
                                         ),
                                       ),
                                       const SizedBox(width: 12),
@@ -608,9 +602,7 @@ class _HomeScreenState extends State<HomeScreen>
                                               .withAlpha(51),
                                           title: 'History',
                                           subtitle: 'Past sessions',
-                                          onTap: () =>
-                                              Navigator.pushNamed(
-                                                  context, '/sessions'),
+                                          onTap: () => context.push('/sessions'),
                                         ),
                                       ),
                                     ],
@@ -630,9 +622,7 @@ class _HomeScreenState extends State<HomeScreen>
                                           iconBg: Colors.deepPurple.withAlpha(51),
                                           title: 'Roleplay Mode',
                                           subtitle: 'Practice with personas',
-                                          onTap: () =>
-                                              Navigator.pushNamed(
-                                                  context, '/roleplay-setup'),
+                                          onTap: () => context.push('/roleplay-setup'),
                                         ),
                                       ),
                                       const SizedBox(width: 12),
@@ -643,9 +633,7 @@ class _HomeScreenState extends State<HomeScreen>
                                           iconBg: AppColors.xpGold.withAlpha(51),
                                           title: 'Game Center',
                                           subtitle: 'Quests & Achievements',
-                                          onTap: () =>
-                                              Navigator.pushNamed(
-                                                  context, '/game-center'),
+                                          onTap: () => context.push('/game-center'),
                                         ),
                                       ),
                                     ],
@@ -694,7 +682,7 @@ class _HomeScreenState extends State<HomeScreen>
                                                           highlights.isNotEmpty ||
                                                           notifications.isNotEmpty))
                                                     GestureDetector(
-                                                      onTap: () => Navigator.pushNamed(context, '/insights'),
+                                                      onTap: () => context.push('/insights'),
                                                       child: Text(
                                                         'See All',
                                                         style: GoogleFonts.manrope(
@@ -867,7 +855,7 @@ class _HomeScreenState extends State<HomeScreen>
                       TextButton(
                         onPressed: () {
                           Navigator.pop(ctx);
-                          Navigator.pushNamed(context, '/connections');
+                          context.push('/connections');
                         },
                         style: TextButton.styleFrom(
                           backgroundColor: Theme.of(context).colorScheme.primary.withAlpha(38),

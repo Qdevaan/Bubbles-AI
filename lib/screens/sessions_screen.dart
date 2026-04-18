@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
@@ -869,10 +870,9 @@ class _GenericSessionDetailState extends State<GenericSessionDetail> {
                     IconButton(
                       icon: const Icon(Icons.analytics_outlined, size: 22),
                       tooltip: 'View Report',
-                      onPressed: () => Navigator.pushNamed(
-                        context,
+                      onPressed: () => context.push(
                         AppRoutes.sessionAnalytics,
-                        arguments: {
+                        extra: {
                           'sessionId': widget.sessionId,
                           'sessionTitle': widget.title,
                         },

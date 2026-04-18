@@ -5,6 +5,7 @@ import 'dart:async';
 
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:http/http.dart' as http;
@@ -230,7 +231,7 @@ class _ConsultantScreenState extends State<ConsultantScreen>
                 TextButton(
                   onPressed: () {
                     Navigator.pop(ctx);
-                    Navigator.pushNamed(context, '/connections');
+                    context.push('/connections');
                   },
                   style: TextButton.styleFrom(
                     backgroundColor: Theme.of(
@@ -711,8 +712,7 @@ class _ConsultantScreenState extends State<ConsultantScreen>
                         : Semantics(
                             label: 'Not connected to server. Tap to connect.',
                             child: GestureDetector(
-                              onTap: () =>
-                                  Navigator.pushNamed(context, '/connections'),
+                              onTap: () => context.push('/connections'),
                               child: Container(
                                 width: double.infinity,
                                 color: AppColors.error.withAlpha(31),
