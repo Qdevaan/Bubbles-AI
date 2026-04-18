@@ -198,13 +198,26 @@ class _LoginScreenState extends State<LoginScreen> {
           padding: EdgeInsets.only(
             bottom: MediaQuery.of(ctx).viewInsets.bottom,
           ),
-          child: GlassDialog(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text(
-                  'Reset Password',
+          child: GlassBottomSheet(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 36,
+                      height: 4,
+                      margin: const EdgeInsets.only(bottom: 16),
+                      decoration: BoxDecoration(
+                        color: isDark ? AppColors.glassBorder : Colors.grey.shade300,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  Text(
+                    'Reset Password',
                   style: GoogleFonts.manrope(
                     fontSize: 18,
                     fontWeight: FontWeight.w700,
@@ -279,7 +292,8 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
         ),
       ),
-    );
+    ),
+  );
   }
 
   Future<void> _loginWithEmail() async {

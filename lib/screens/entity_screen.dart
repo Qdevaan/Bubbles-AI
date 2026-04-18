@@ -11,6 +11,7 @@ import '../services/auth_service.dart';
 import '../theme/design_tokens.dart';
 import '../widgets/glass_morphism.dart';
 import '../widgets/tags_bottom_sheet.dart';
+import '../widgets/skeleton_loader.dart';
 import '../providers/tags_provider.dart';
 
 /// Displays the user's knowledge graph entities (people, places, orgs, etc.)
@@ -460,7 +461,10 @@ class _EntityScreenState extends State<EntityScreen> {
               // ---- List ----
               Expanded(
                 child: _loading
-                    ? const Center(child: CircularProgressIndicator())
+                    ? const Padding(
+                        padding: EdgeInsets.all(16),
+                        child: SkeletonCardGroup(count: 5),
+                      )
                     : _error != null
                     ? _ErrorView(
                         error: _error!,
@@ -982,9 +986,12 @@ class _EntityCardState extends State<_EntityCard> {
                   ],
 
                   // Delete + Ask AI + Tags actions
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerRight,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
                       TextButton.icon(
                         onPressed: _saving ? null : () => _editEntity(context),
                         icon: _saving
@@ -1068,6 +1075,7 @@ class _EntityCardState extends State<_EntityCard> {
                         ),
                       ),
                     ],
+                  ),
                   ),
                 ],
               ),

@@ -13,6 +13,7 @@ class SettingsProvider with ChangeNotifier {
   static const String _consultantToneKey = 'default_consultant_tone';
   static const String _alwaysPromptKey = 'always_prompt_for_tone';
   static const String _localeKey = 'app_locale';
+  static const String _quickActionsStyleKey = 'quick_actions_style';
 
   Locale _locale = const Locale('en');
   Locale get locale => _locale;
@@ -20,6 +21,7 @@ class SettingsProvider with ChangeNotifier {
   String _defaultLiveTone = 'casual';
   String _defaultConsultantTone = 'casual';
   bool _alwaysPromptForTone = false;
+  String _quickActionsStyle = 'grid'; // 'list', 'grid', or 'icons'
 
   bool _pushHighlights = true;
   bool _pushEvents = true;
@@ -41,6 +43,7 @@ class SettingsProvider with ChangeNotifier {
   String get defaultLiveTone => _defaultLiveTone;
   String get defaultConsultantTone => _defaultConsultantTone;
   bool get alwaysPromptForTone => _alwaysPromptForTone;
+  String get quickActionsStyle => _quickActionsStyle;
   bool get pushHighlights => _pushHighlights;
   bool get pushEvents => _pushEvents;
   bool get pushWeeklyDigest => _pushWeeklyDigest;
@@ -66,6 +69,7 @@ class SettingsProvider with ChangeNotifier {
     _defaultLiveTone = prefs.getString(_liveToneKey) ?? 'casual';
     _defaultConsultantTone = prefs.getString(_consultantToneKey) ?? 'casual';
     _alwaysPromptForTone = prefs.getBool(_alwaysPromptKey) ?? false;
+    _quickActionsStyle = prefs.getString(_quickActionsStyleKey) ?? 'grid';
 
     _pushHighlights = prefs.getBool('push_highlights') ?? true;
     _pushEvents = prefs.getBool('push_events') ?? true;
@@ -191,6 +195,14 @@ class SettingsProvider with ChangeNotifier {
     await prefs.setBool(_alwaysPromptKey, value);
     notifyListeners();
     _logSettingsChange('always_prompt_for_tone', value);
+  }
+
+  Future<void> setQuickActionsStyle(String style) async {
+    _quickActionsStyle = style;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_quickActionsStyleKey, style);
+    notifyListeners();
+    _logSettingsChange('quick_actions_style', style);
   }
 
   Future<void> setDefaultLiveTone(String tone) async {

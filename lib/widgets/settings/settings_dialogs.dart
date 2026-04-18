@@ -694,6 +694,96 @@ void showConsultantTonePicker(
   );
 }
 
+/// Shows a quick actions layout style picker dialog.
+void showQuickActionsStylePicker(
+  BuildContext context,
+  SettingsProvider settingsProvider,
+) {
+  final isDark = Theme.of(context).brightness == Brightness.dark;
+  // Map internal string values to display titles
+  final styleOptions = {
+    'list': 'List (One in a line)',
+    'grid': 'Grid (Two in a line)',
+    'icons': 'Icons (App-like)',
+  };
+
+  showDialog(
+    context: context,
+    builder: (ctx) => GlassDialog(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.primary.withAlpha(26),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: Theme.of(context).colorScheme.primary.withAlpha(51),
+                  ),
+                ),
+                child: Icon(
+                  Icons.grid_view_rounded,
+                  color: Theme.of(context).colorScheme.primary,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'Quick Actions Layout',
+                  style: GoogleFonts.manrope(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                    color: isDark ? Colors.white : AppColors.slate900,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          ...styleOptions.entries.map((entry) {
+            final styleKey = entry.key;
+            final styleName = entry.value;
+            final isSelected =
+                settingsProvider.quickActionsStyle == styleKey;
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: _buildToneOption(
+                context: context,
+                title: styleName,
+                isSelected: isSelected,
+                isDark: isDark,
+                onTap: () {
+                  settingsProvider.setQuickActionsStyle(styleKey);
+                  Navigator.pop(ctx);
+                },
+              ),
+            );
+          }).toList(),
+          const SizedBox(height: 16),
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: Text(
+                'Cancel',
+                style: GoogleFonts.manrope(
+                  fontWeight: FontWeight.w700,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
 /// Helper widget to build tone option rows.
 Widget _buildToneOption({
   required BuildContext context,
