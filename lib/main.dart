@@ -74,8 +74,8 @@ Future<void> main() async {
 
   // Initialize Supabase using environment variables
   await Supabase.initialize(
-    url: supabaseUrl.isNotEmpty ? supabaseUrl : dotenv.env['SUPABASE_URL'] ?? '',
-    anonKey: supabaseAnonKey.isNotEmpty ? supabaseAnonKey : dotenv.env['SUPABASE_ANON_KEY'] ?? '',
+    url: supabaseUrl.isNotEmpty ? supabaseUrl : dotenv.get('SUPABASE_URL', fallback: ''),
+    anonKey: supabaseAnonKey.isNotEmpty ? supabaseAnonKey : dotenv.get('SUPABASE_ANON_KEY', fallback: ''),
   );
 
   // Set up global error handling
