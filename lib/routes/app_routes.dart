@@ -27,4 +27,5 @@ class AppRoutes {
   static const language    = '/settings/language';
   static const permissions = '/settings/permissions';
   static const data        = '/settings/data';
+  static const updatePassword = '/update-password';
 }

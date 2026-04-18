@@ -1,5 +1,7 @@
+import 'dart:async';
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import '../routes/app_routes.dart';
 import '../theme/design_tokens.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -22,11 +24,24 @@ class _SplashScreenState extends State<SplashScreen> {
   String _loadingText = 'Loading...';
   String? _targetRoute;
   bool _hasNavigated = false;
+  StreamSubscription<AuthState>? _authSub;
 
   @override
   void initState() {
     super.initState();
+    _authSub = Supabase.instance.client.auth.onAuthStateChange.listen((data) {
+      if (data.event == AuthChangeEvent.passwordRecovery && !_hasNavigated) {
+        _hasNavigated = true;
+        Navigator.of(context).pushReplacementNamed(AppRoutes.updatePassword);
+      }
+    });
     _startInitialization();
+  }
+
+  @override
+  void dispose() {
+    _authSub?.cancel();
+    super.dispose();
   }
 
   Future<void> _startInitialization() async {

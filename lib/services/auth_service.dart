@@ -106,6 +106,15 @@ class AuthService {
     }
   }
 
+  /// Updates the authenticated user's password (used after password reset flow).
+  Future<void> updatePassword(String newPassword) async {
+    try {
+      await _client.auth.updateUser(UserAttributes(password: newPassword));
+    } catch (e) {
+      throw _handleAuthError(e);
+    }
+  }
+
   /// Sign out the current user and CLEAR local cache.
   Future<void> signOut() async {
     try {
