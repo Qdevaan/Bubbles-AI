@@ -1,7 +1,8 @@
-﻿import 'dart:async';
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
 import '../theme/design_tokens.dart';
 import '../services/app_cache_service.dart';
@@ -23,6 +24,27 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen> {
   bool _isLoggingOut = false;
+  bool _notificationsGranted = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkNotificationPermission();
+  }
+
+  Future<void> _checkNotificationPermission() async {
+    final status = await Permission.notification.status;
+    if (mounted) setState(() => _notificationsGranted = status.isGranted);
+  }
+
+  Future<void> _toggleNotifications(bool _) async {
+    if (_notificationsGranted) {
+      await openAppSettings();
+    } else {
+      final status = await Permission.notification.request();
+      if (mounted) setState(() => _notificationsGranted = status.isGranted);
+    }
+  }
 
   Future<void> _logout() async {
     setState(() => _isLoggingOut = true);
@@ -45,9 +67,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
       if (mounted) setState(() => _isLoggingOut = false);
     }
   }
-
-  void _showComingSoon(BuildContext context, String feature) =>
-      showComingSoon(context, feature);
 
   void _showContactSheet(BuildContext context, bool isDark) =>
       showContactSheet(context, isDark);
@@ -427,11 +446,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                   iconColor: const Color(0xFFF43F5E),
                                   icon: Icons.notifications_outlined,
                                   title: 'Push Notifications',
-                                  value: true,
-                                  onChanged: (_) => _showComingSoon(
-                                    context,
-                                    'Push Notifications',
-                                  ),
+                                  value: _notificationsGranted,
+                                  onChanged: _toggleNotifications,
                                 ),
                               ],
                             ),

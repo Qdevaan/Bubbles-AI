@@ -1,5 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -535,6 +536,7 @@ class _HomeScreenState extends State<HomeScreen>
                                     builder: (context, isConnected, __) =>
                                         GestureDetector(
                                       onTap: () {
+                                        HapticFeedback.mediumImpact();
                                         if (isConnected) {
                                           context.push('/new-session');
                                         } else {
@@ -545,6 +547,7 @@ class _HomeScreenState extends State<HomeScreen>
                                         isConnected: isConnected,
                                         breatheAnimation: _breatheCtrl,
                                         onTap: () {
+                                          HapticFeedback.mediumImpact();
                                           if (isConnected) {
                                             context.push('/new-session');
                                           } else {

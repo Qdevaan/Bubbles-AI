@@ -1,5 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../theme/design_tokens.dart';
 
@@ -30,7 +31,7 @@ class AppButton extends StatelessWidget {
         label: label,
         enabled: !loading,
         child: GestureDetector(
-          onTap: loading ? null : onTap,
+          onTap: loading ? null : () { HapticFeedback.lightImpact(); onTap(); },
           child: ClipRRect(
             borderRadius: BorderRadius.circular(AppRadius.full),
             child: BackdropFilter(

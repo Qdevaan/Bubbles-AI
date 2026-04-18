@@ -57,7 +57,6 @@ flutter:
   uses-material-design: true
   generate: true
   assets:
-    - env/.env
     - assets/logos/
     - assets/text/
     - assets/wake_word/

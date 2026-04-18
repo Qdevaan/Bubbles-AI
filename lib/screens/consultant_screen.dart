@@ -5,6 +5,7 @@ import 'dart:async';
 
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -266,6 +267,7 @@ class _ConsultantScreenState extends State<ConsultantScreen>
     final text = _controller.text.trim();
     final chat = _chat;
     if (text.isEmpty || chat.loading || chat.loadingChat) return;
+    HapticFeedback.lightImpact();
 
     final conn = Provider.of<ConnectionService>(context, listen: false);
     if (!conn.isConnected) {

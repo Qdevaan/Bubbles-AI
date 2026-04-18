@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -63,11 +64,30 @@ Future<void> main() async {
     }
   });
 
-  runApp(const BubblesApp());
+  // Pre-load theme prefs so first frame renders with correct theme (no flash).
+  final prefs = await SharedPreferences.getInstance();
+  final int? savedMode = prefs.getInt('theme_mode_pref');
+  final int? savedColor = prefs.getInt('theme_seed_color');
+  final ThemeMode initialThemeMode =
+      savedMode != null ? ThemeMode.values[savedMode] : ThemeMode.system;
+  final Color? initialSeedColor =
+      savedColor != null ? Color(savedColor) : null;
+
+  runApp(BubblesApp(
+    initialThemeMode: initialThemeMode,
+    initialSeedColor: initialSeedColor,
+  ));
 }
 
 class BubblesApp extends StatelessWidget {
-  const BubblesApp({super.key});
+  final ThemeMode initialThemeMode;
+  final Color? initialSeedColor;
+
+  const BubblesApp({
+    super.key,
+    this.initialThemeMode = ThemeMode.system,
+    this.initialSeedColor,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -92,8 +112,11 @@ class BubblesApp extends StatelessWidget {
           update: (context, api, previous) => previous!..updateApiService(api),
         ),
 
-        // 4. Theme Provider
-        ChangeNotifierProvider(create: (context) => ThemeProvider()),
+        // 4. Theme Provider — receives pre-loaded values to avoid first-frame flash
+        ChangeNotifierProvider(create: (_) => ThemeProvider(
+          initialThemeMode: initialThemeMode,
+          initialSeedColor: initialSeedColor,
+        )),
 
           // 4.5. Settings Provider
           ChangeNotifierProvider(create: (context) => SettingsProvider()),
