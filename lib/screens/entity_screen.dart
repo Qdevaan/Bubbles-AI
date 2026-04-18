@@ -1,4 +1,5 @@
-import 'dart:ui';
+
+import '../services/app_cache_service.dart';
 import 'package:flutter/material.dart';
 import 'dart:async';
 import 'package:google_fonts/google_fonts.dart';
@@ -25,10 +26,6 @@ class EntityScreen extends StatefulWidget {
 class _EntityScreenState extends State<EntityScreen> {
   Timer? _debounceTimer;
   final _supabase = Supabase.instance.client;
-
-  // Static cache — entities survive widget re-creation so re-opening is instant.
-  static List<Map<String, dynamic>>? _cachedEntities;
-  static String? _cacheUserId;
 
   List<Map<String, dynamic>> _entities = [];
   bool _loading = true;
@@ -64,8 +61,10 @@ class _EntityScreenState extends State<EntityScreen> {
   void initState() {
     super.initState();
     final uid = AuthService.instance.currentUser?.id;
-    if (_cachedEntities != null && _cacheUserId == uid) {
-      _entities = List.from(_cachedEntities!);
+    // context.read is safe in initState() — AppCacheService is a root provider (listen: false)
+    final cache = context.read<AppCacheService>();
+    if (cache.entities != null && cache.cacheUserId == uid) {
+      _entities = List.from(cache.entities!);
       _loading = false;
     } else {
       _loadEntities();
@@ -73,6 +72,7 @@ class _EntityScreenState extends State<EntityScreen> {
   }
 
   Future<void> _loadEntities() async {
+    context.read<AppCacheService>().invalidateEntities();
     setState(() {
       _loading = true;
       _error = null;
@@ -158,8 +158,7 @@ class _EntityScreenState extends State<EntityScreen> {
       }).toList();
 
       if (!mounted) return;
-      _cachedEntities = enriched;
-      _cacheUserId = AuthService.instance.currentUser?.id;
+      context.read<AppCacheService>().setEntities(enriched, user.id);
       setState(() {
         _entities = enriched;
         _loading = false;
@@ -1209,6 +1208,14 @@ class _ErrorView extends StatelessWidget {
     required this.isDark,
   });
 
+  String _getLaymanError(String err) {
+    final lower = err.toLowerCase();
+    if (lower.contains('socketexception') || lower.contains('failed host lookup') || lower.contains('clientexception')) {
+      return 'Network is unreachable. Please check your internet connection.';
+    }
+    return err;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Center(
@@ -1228,7 +1235,7 @@ class _ErrorView extends StatelessWidget {
             ),
             const SizedBox(height: 6),
             Text(
-              error,
+              _getLaymanError(error),
               style: GoogleFonts.manrope(
                 fontSize: 12,
                 color: AppColors.textMuted,

@@ -1,20 +1,16 @@
-﻿import 'dart:async';
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
-import 'package:cached_network_image/cached_network_image.dart';
-import 'package:record/record.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
-
 import '../theme/design_tokens.dart';
+import '../services/app_cache_service.dart';
 import '../services/auth_service.dart';
-import '../services/api_service.dart';
 import '../services/connection_service.dart';
 import '../services/voice_assistant_service.dart';
 import '../providers/theme_provider.dart';
 import '../providers/settings_provider.dart';
+import '../routes/app_routes.dart';
 import '../widgets/settings/settings_widgets.dart';
 import '../widgets/settings/settings_dialogs.dart';
 
@@ -27,10 +23,32 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen> {
   bool _isLoggingOut = false;
+  bool _notificationsGranted = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkNotificationPermission();
+  }
+
+  Future<void> _checkNotificationPermission() async {
+    final status = await Permission.notification.status;
+    if (mounted) setState(() => _notificationsGranted = status.isGranted);
+  }
+
+  Future<void> _toggleNotifications(bool _) async {
+    if (_notificationsGranted) {
+      await openAppSettings();
+    } else {
+      final status = await Permission.notification.request();
+      if (mounted) setState(() => _notificationsGranted = status.isGranted);
+    }
+  }
 
   Future<void> _logout() async {
     setState(() => _isLoggingOut = true);
     try {
+      context.read<AppCacheService>().invalidateAll();
       await AuthService.instance.signOut();
       if (mounted) {
         Navigator.of(
@@ -197,7 +215,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                   ),
                                 ),
                                 onTap: () =>
-                                    _showComingSoon(context, 'Subscription'),
+                                    Navigator.pushNamed(context, AppRoutes.subscription),
                               ),
                             ],
                           ),
@@ -276,7 +294,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                     color: AppColors.textMuted,
                                   ),
                                 ),
-                                                                  onTap: () => _showComingSoon(context, 'Language'),
+                                                                  onTap: () => Navigator.pushNamed(context, AppRoutes.language),
                                 ),
                                 TileDivider(isDark: isDark),
                                 Consumer<SettingsProvider>(
@@ -402,7 +420,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                 icon: Icons.storage_outlined,
                                 title: 'Data Management',
                                 onTap: () =>
-                                    _showComingSoon(context, 'Data Management'),
+                                    Navigator.pushNamed(context, AppRoutes.data),
                               ),
                               TileDivider(isDark: isDark),
                               SettingsTile(
@@ -414,7 +432,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                 icon: Icons.lock_outline,
                                 title: 'Permissions',
                                 onTap: () =>
-                                    _showComingSoon(context, 'Permissions'),
+                                    Navigator.pushNamed(context, AppRoutes.permissions),
                               ),
                             ],
                           ),
@@ -432,11 +450,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                   iconColor: const Color(0xFFF43F5E),
                                   icon: Icons.notifications_outlined,
                                   title: 'Push Notifications',
-                                  value: true,
-                                  onChanged: (_) => _showComingSoon(
-                                    context,
-                                    'Push Notifications',
-                                  ),
+                                  value: _notificationsGranted,
+                                  onChanged: _toggleNotifications,
                                 ),
                               ],
                             ),

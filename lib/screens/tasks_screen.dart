@@ -8,14 +8,14 @@ class _FeatureFlagScreen extends StatelessWidget {
   final String title;
   final String subtitle;
   final IconData icon;
-  final Color accentColor;
+  final Color? accentColor;
   final List<String> upcomingFeatures;
 
   const _FeatureFlagScreen({
     required this.title,
     required this.subtitle,
     required this.icon,
-    required this.accentColor,
+    this.accentColor,
     this.upcomingFeatures = const [],
   });
 
@@ -23,6 +23,7 @@ class _FeatureFlagScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
+    final accent = accentColor ?? cs.primary;
 
     return Scaffold(
       backgroundColor: cs.surface,
@@ -47,16 +48,16 @@ class _FeatureFlagScreen extends StatelessWidget {
                   shape: BoxShape.circle,
                   gradient: RadialGradient(
                     colors: [
-                      accentColor.withOpacity(0.3),
-                      accentColor.withOpacity(0.05),
+                      accent.withOpacity(0.3),
+                      accent.withOpacity(0.05),
                     ],
                   ),
                   border: Border.all(
-                    color: accentColor.withOpacity(0.4),
+                    color: accent.withOpacity(0.4),
                     width: 1.5,
                   ),
                 ),
-                child: Icon(icon, size: 52, color: accentColor),
+                child: Icon(icon, size: 52, color: accent),
               )
                   .animate(onPlay: (c) => c.repeat(reverse: true))
                   .scaleXY(end: 1.05, duration: 2000.ms, curve: Curves.easeInOut),
@@ -67,14 +68,14 @@ class _FeatureFlagScreen extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
                 decoration: BoxDecoration(
-                  color: accentColor.withOpacity(0.15),
+                  color: accent.withOpacity(0.15),
                   borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: accentColor.withOpacity(0.4)),
+                  border: Border.all(color: accent.withOpacity(0.4)),
                 ),
                 child: Text(
                   'COMING SOON',
                   style: theme.textTheme.labelSmall?.copyWith(
-                    color: accentColor,
+                    color: accent,
                     fontWeight: FontWeight.bold,
                     letterSpacing: 2,
                   ),
@@ -127,7 +128,7 @@ class _FeatureFlagScreen extends StatelessWidget {
                           height: 8,
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            color: accentColor,
+                            color: accent,
                           ),
                         ),
                         const SizedBox(width: 12),
@@ -289,7 +290,8 @@ class SubscriptionScreen extends StatelessWidget {
   Widget build(BuildContext context) => const _FeatureFlagScreen(
         title: 'Bubbles Pro',
         icon: Icons.workspace_premium_rounded,
-        accentColor: Color(0xFFFFD700),
+        // Uses Theme.of(context).colorScheme.primary automatically —
+        // changes when user picks a new accent color in Settings.
         subtitle:
             'Unlock unlimited sessions, priority model access, and advanced '
             'analytics with Bubbles Pro. Early supporters will receive '

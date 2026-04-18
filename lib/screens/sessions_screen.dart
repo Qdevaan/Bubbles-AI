@@ -1,8 +1,6 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart';
 
 import '../theme/design_tokens.dart';
@@ -14,6 +12,7 @@ import '../providers/tags_provider.dart';
 import '../services/api_service.dart';
 import '../routes/app_routes.dart';
 import '../services/auth_service.dart';
+import '../services/sessions_service.dart';
 
 enum _SortOrder { newestFirst, oldestFirst }
 
@@ -341,24 +340,14 @@ class LiveSessionsList extends StatefulWidget {
 }
 
 class _LiveSessionsListState extends State<LiveSessionsList> {
-  final _supabase = Supabase.instance.client;
   late final Stream<List<Map<String, dynamic>>> _sessionsStream;
 
   @override
   void initState() {
     super.initState();
-    final userId = _supabase.auth.currentUser?.id;
+    final userId = AuthService.instance.currentUserId;
     if (userId != null) {
-      _sessionsStream = _supabase
-          .from('sessions')
-          .stream(primaryKey: ['id'])
-          .eq('user_id', userId)
-          .order('created_at', ascending: false)
-          .map(
-            (data) => List<Map<String, dynamic>>.from(
-              data,
-            ).where((s) => s['mode'] == 'live_wingman').toList(),
-          );
+      _sessionsStream = SessionsService.instance.streamLiveSessions(userId);
     } else {
       _sessionsStream = const Stream.empty();
     }
@@ -546,22 +535,15 @@ class ConsultantHistoryList extends StatefulWidget {
 }
 
 class _ConsultantHistoryListState extends State<ConsultantHistoryList> {
-  final _supabase = Supabase.instance.client;
   late final Future<List<Map<String, dynamic>>> _sessionsFuture;
 
   @override
   void initState() {
     super.initState();
-    final userId = _supabase.auth.currentUser?.id;
+    final userId = AuthService.instance.currentUserId;
     if (userId != null) {
-      _sessionsFuture = _supabase
-          .from('sessions')
-          .select()
-          .eq('user_id', userId)
-          .eq('mode', 'consultant')
-          .order('created_at', ascending: false)
-          .limit(50)
-          .then((data) => List<Map<String, dynamic>>.from(data));
+      _sessionsFuture =
+          SessionsService.instance.fetchConsultantSessions(userId);
     } else {
       _sessionsFuture = Future.value([]);
     }
@@ -788,12 +770,10 @@ class _GenericSessionDetailState extends State<GenericSessionDetail> {
   @override
   void initState() {
     super.initState();
-    _logsFuture = Supabase.instance.client
-        .from(widget.isConsultant ? 'consultant_logs' : 'session_logs')
-        .select()
-        .eq('session_id', widget.sessionId)
-        .order('created_at', ascending: true)
-        .then((data) => List<Map<String, dynamic>>.from(data));
+    _logsFuture = SessionsService.instance.fetchSessionLogs(
+      sessionId: widget.sessionId,
+      isConsultant: widget.isConsultant,
+    );
     WidgetsBinding.instance.addPostFrameCallback((_) => _loadTags());
   }
 
@@ -969,7 +949,7 @@ class _GenericSessionDetailState extends State<GenericSessionDetail> {
                                       initialValue: _feedbackMap[log['id'] as String? ?? ''],
                                       onRate: (val) {
                                         setState(() => _feedbackMap[log['id'] as String] = val);
-                                        final userId = AuthService.instance.currentUser?.id ?? '';
+                                        final userId = AuthService.instance.currentUserId ?? '';
                                         context.read<ApiService>().saveFeedback(
                                           userId: userId,
                                           sessionId: widget.sessionId,
@@ -1027,7 +1007,7 @@ class _GenericSessionDetailState extends State<GenericSessionDetail> {
                                     currentValue: _feedbackMap[log['id'] as String? ?? ''],
                                     onFeedback: (val) {
                                       setState(() => _feedbackMap[log['id'] as String] = val);
-                                      final userId = AuthService.instance.currentUser?.id ?? '';
+                                      final userId = AuthService.instance.currentUserId ?? '';
                                       context.read<ApiService>().saveFeedback(
                                         userId: userId,
                                         sessionId: widget.sessionId,

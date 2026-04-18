@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'services/connection_service.dart';
@@ -10,6 +11,7 @@ import 'services/voice_assistant_service.dart';
 import 'services/wake_word_service.dart';
 import 'services/analytics_service.dart';
 import 'services/device_service.dart';
+import 'services/app_cache_service.dart';
 import 'providers/theme_provider.dart';
 import 'providers/settings_provider.dart';
 import 'providers/consultant_provider.dart';
@@ -31,7 +33,8 @@ import 'screens/settings_screen.dart';
 import 'screens/entity_screen.dart';
 import 'screens/session_analytics_screen.dart';
 import 'screens/roleplay_setup_screen.dart';
-import 'screens/quests_screen.dart';
+import 'screens/game_center_screen.dart';
+import 'providers/gamification_provider.dart';
 import 'screens/graph_explorer_screen.dart';
 import 'screens/health_dashboard_screen.dart';
 import 'screens/expense_tracker_screen.dart';
@@ -41,6 +44,10 @@ import 'screens/trips_planner_screen.dart';
 import 'screens/integrations_hub_screen.dart';
 import 'screens/subscription_screen.dart';
 import 'screens/insights_screen.dart';
+import 'screens/language_screen.dart';
+import 'screens/permissions_screen.dart';
+import 'screens/data_management_screen.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'providers/tags_provider.dart';
 import 'providers/profile_provider.dart';
 import 'providers/health_finance_provider.dart';
@@ -87,19 +94,41 @@ Future<void> main() async {
     }
   });
 
-  runApp(const BubblesApp());
+  // Pre-load theme prefs so first frame renders with correct theme (no flash).
+  final prefs = await SharedPreferences.getInstance();
+  final int? savedMode = prefs.getInt('theme_mode_pref');
+  final int? savedColor = prefs.getInt('theme_seed_color');
+  final ThemeMode initialThemeMode =
+      savedMode != null ? ThemeMode.values[savedMode] : ThemeMode.system;
+  final Color? initialSeedColor =
+      savedColor != null ? Color(savedColor) : null;
+
+  runApp(BubblesApp(
+    initialThemeMode: initialThemeMode,
+    initialSeedColor: initialSeedColor,
+  ));
 }
 
 class BubblesApp extends StatelessWidget {
   static final GlobalKey<NavigatorState> navigatorKey =
       GlobalKey<NavigatorState>();
 
-  const BubblesApp({super.key});
+  final ThemeMode initialThemeMode;
+  final Color? initialSeedColor;
+
+  const BubblesApp({
+    super.key,
+    this.initialThemeMode = ThemeMode.system,
+    this.initialSeedColor,
+  });
 
   @override
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
+        // 0. App Cache Service (Global app state cache)
+        ChangeNotifierProvider(create: (_) => AppCacheService()),
+
         // 1. Connection Service (Base)
         ChangeNotifierProvider(create: (context) => ConnectionService()),
 
@@ -117,7 +146,10 @@ class BubblesApp extends StatelessWidget {
         ),
 
         // 4. Theme Provider
-        ChangeNotifierProvider(create: (context) => ThemeProvider()),
+        ChangeNotifierProvider(create: (_) => ThemeProvider(
+          initialThemeMode: initialThemeMode,
+          initialSeedColor: initialSeedColor,
+        )),
 
           // 4.5. Settings Provider
           ChangeNotifierProvider(create: (context) => SettingsProvider()),
@@ -160,14 +192,18 @@ class BubblesApp extends StatelessWidget {
         // 14. Tasks & Events Provider
         ChangeNotifierProvider(create: (_) => TaskEventProvider()),
 
-        // 15. IoT Provider
-        ChangeNotifierProvider(create: (_) => IoTManagerProvider()),
-
-        // 16. Enterprise & Subscriptions Provider
+        // 15. Enterprise & Subscriptions Provider
         ChangeNotifierProvider(create: (_) => EnterpriseProvider()),
+
+        // 16. Gamification Provider (depends on ApiService)
+        ChangeNotifierProxyProvider<ApiService, GamificationProvider>(
+          create: (context) =>
+              GamificationProvider(Provider.of<ApiService>(context, listen: false)),
+          update: (context, api, previous) => previous!,
+        ),
       ],
-      child: Consumer<ThemeProvider>(
-        builder: (context, themeProvider, child) {
+      child: Consumer2<ThemeProvider, SettingsProvider>(
+        builder: (context, themeProvider, settingsProvider, child) {
           return MaterialApp(
             navigatorKey: BubblesApp.navigatorKey,
             navigatorObservers: [_AnalyticsNavigatorObserver()],
@@ -176,6 +212,19 @@ class BubblesApp extends StatelessWidget {
 
             // Theme Mode: Follows stored settings (System/Light/Dark)
             themeMode: themeProvider.themeMode,
+
+            // Locale
+            locale: settingsProvider.locale,
+            supportedLocales: const [
+              Locale('en'),
+              Locale('ur'),
+              Locale('ar'),
+            ],
+            localizationsDelegates: const [
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+            ],
 
             // Light Theme Configuration
             theme: themeProvider.lightTheme,
@@ -284,7 +333,9 @@ class BubblesApp extends StatelessWidget {
               AppRoutes.roleplaySetup: (context) =>
                   const AuthGuard(child: RoleplaySetupScreen()),
               AppRoutes.quests: (context) =>
-                  const AuthGuard(child: QuestsScreen()),
+                  const AuthGuard(child: GameCenterScreen()),
+              AppRoutes.gameCenter: (context) =>
+                  const AuthGuard(child: GameCenterScreen()),
               AppRoutes.graphExplorer: (context) =>
                   const AuthGuard(child: GraphExplorerScreen()),
               AppRoutes.insights: (context) =>
@@ -295,14 +346,24 @@ class BubblesApp extends StatelessWidget {
                   const AuthGuard(child: ExpenseTrackerScreen()),
               AppRoutes.tasks: (context) => 
                   const AuthGuard(child: TasksScreen()),
-              AppRoutes.smartHome: (context) =>
-                  const AuthGuard(child: SmartHomeDashboardScreen()),
+              AppRoutes.smartHome: (context) => AuthGuard(
+                child: ChangeNotifierProvider(
+                  create: (_) => IoTManagerProvider(),
+                  child: const SmartHomeDashboardScreen(),
+                ),
+              ),
               AppRoutes.tripsPlanner: (context) =>
                   const AuthGuard(child: TripsPlannerScreen()),
               AppRoutes.integrations: (context) =>
                   const AuthGuard(child: IntegrationsHubScreen()),
               AppRoutes.subscription: (context) =>
                   const AuthGuard(child: SubscriptionScreen()),
+              AppRoutes.language: (context) =>
+                  const AuthGuard(child: LanguageScreen()),
+              AppRoutes.permissions: (context) =>
+                  const AuthGuard(child: PermissionsScreen()),
+              AppRoutes.data: (context) =>
+                  const AuthGuard(child: DataManagementScreen()),
             },
           );
         },

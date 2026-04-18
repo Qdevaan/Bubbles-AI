@@ -4,6 +4,8 @@ import '../theme/design_tokens.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:provider/provider.dart';
+import '../providers/settings_provider.dart';
 import '../services/auth_service.dart';
 import '../utils/permissions_util.dart';
 import '../widgets/glass_morphism.dart';
@@ -104,6 +106,11 @@ class _SplashScreenState extends State<SplashScreen> {
 
       if (mounted) {
         await PermissionsUtil.requestStartupPermissions(context);
+        try {
+          if (mounted) {
+            await Provider.of<SettingsProvider>(context, listen: false).loadSettings();
+          }
+        } catch (_) {}
       }
 
       _targetRoute = isComplete ? '/home' : '/profile-completion';
@@ -151,10 +158,10 @@ class _SplashScreenState extends State<SplashScreen> {
                       Expanded(
                         child: Text(
                           title,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
-                            color: Colors.white,
+                            color: isDark ? Colors.white : AppColors.slate900,
                           ),
                         ),
                       ),

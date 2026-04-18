@@ -12,6 +12,10 @@ class SettingsProvider with ChangeNotifier {
   static const String _liveToneKey = 'default_live_tone';
   static const String _consultantToneKey = 'default_consultant_tone';
   static const String _alwaysPromptKey = 'always_prompt_for_tone';
+  static const String _localeKey = 'app_locale';
+
+  Locale _locale = const Locale('en');
+  Locale get locale => _locale;
 
   String _defaultLiveTone = 'casual';
   String _defaultConsultantTone = 'casual';
@@ -53,11 +57,11 @@ class SettingsProvider with ChangeNotifier {
   bool get dataSharingOptIn => _dataSharingOptIn;
 
   SettingsProvider() {
-    _loadSettings();
+    loadSettings();
   }
 
   // ── Load: SharedPreferences first, then Supabase overrides ────────────────
-  Future<void> _loadSettings() async {
+  Future<void> loadSettings() async {
     final prefs = await SharedPreferences.getInstance();
     _defaultLiveTone = prefs.getString(_liveToneKey) ?? 'casual';
     _defaultConsultantTone = prefs.getString(_consultantToneKey) ?? 'casual';
@@ -78,6 +82,9 @@ class SettingsProvider with ChangeNotifier {
     _transcriptionLanguage = prefs.getString('transcription_language') ?? 'en-US';
     _enableNsfwFilter = prefs.getBool('enable_nsfw_filter') ?? true;
     _dataSharingOptIn = prefs.getBool('data_sharing_opt_in') ?? false;
+
+    final localeCode = prefs.getString(_localeKey) ?? 'en';
+    _locale = Locale(localeCode);
 
     notifyListeners();
 
@@ -328,5 +335,13 @@ class SettingsProvider with ChangeNotifier {
     notifyListeners();
     _upsertUserSettings({'data_sharing_opt_in': val});
     _logSettingsChange('data_sharing_opt_in', val);
+  }
+
+  Future<void> setLocale(Locale locale) async {
+    _locale = locale;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_localeKey, locale.languageCode);
+    notifyListeners();
+    _logSettingsChange('app_locale', locale.languageCode);
   }
 }

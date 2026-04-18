@@ -3,20 +3,12 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import 'package:web_socket_channel/io.dart';
 
 class DeepgramService extends ChangeNotifier {
-  // CONFIG — loaded from environment variables
-  static String get _apiKey => dotenv.env['DEEPGRAM_API_KEY'] ?? '';
-  // encoding=linear16 is required — without it Deepgram cannot decode raw PCM
-  static const String _wsUrl =
-      "wss://api.deepgram.com/v1/listen?smart_format=true&diarize=true&model=nova-2"
-      "&encoding=linear16&sample_rate=16000&channels=1";
-
   // STATE
   bool _isConnected = false;
   bool get isConnected => _isConnected;
@@ -48,36 +40,40 @@ class DeepgramService extends ChangeNotifier {
   static const int _maxReconnectAttempts = 3;
   bool _intentionalDisconnect = false;
 
-  Future<void> connect() async {
+  Future<void> connect({
+    required String serverUrl,
+    required String jwt,
+  }) async {
     if (_isConnected) return;
     _intentionalDisconnect = false;
     _reconnectAttempts = 0;
 
-    if (_apiKey.isEmpty) {
-      debugPrint("❌ DeepgramService: No API key found in .env");
+    if (serverUrl.isEmpty || jwt.isEmpty) {
+      debugPrint("❌ DeepgramService: serverUrl or jwt is empty");
       return;
     }
 
+    // Convert http(s) base URL to ws(s)
+    final wsBase = serverUrl
+        .replaceFirst('https://', 'wss://')
+        .replaceFirst('http://', 'ws://');
+    final wsUrl = '$wsBase/v1/stt/stream'
+        '?token=$jwt'
+        '&smart_format=true&diarize=true&model=nova-2'
+        '&encoding=linear16&sample_rate=16000&channels=1';
+
     try {
-      // 1. Check Permissions
       if (!await _recorder.hasPermission()) {
         debugPrint("❌ DeepgramService: No microphone permission");
         return;
       }
 
-      // 2. Connect WebSocket with Auth Header
-      _channel = IOWebSocketChannel.connect(
-        Uri.parse(_wsUrl),
-        headers: {'Authorization': 'Token $_apiKey'},
-      );
-
+      _channel = IOWebSocketChannel.connect(Uri.parse(wsUrl));
       await _channel!.ready;
-      debugPrint("✅ DeepgramService: WebSocket Connected");
+      debugPrint("✅ DeepgramService: WebSocket Connected via backend proxy");
       _isConnected = true;
       notifyListeners();
 
-      // 3. Start Audio Stream
-      // Using AAC LC which is generally supported for streaming
       final stream = await _recorder.startStream(
         const RecordConfig(
           encoder: AudioEncoder.pcm16bits,
@@ -86,7 +82,6 @@ class DeepgramService extends ChangeNotifier {
         ),
       );
 
-      // 4. Send Audio to WebSocket and buffer locally for recording
       _audioBuffer.clear();
       _isMuted = false;
       _audioStreamSubscription = stream.listen((data) {
@@ -96,18 +91,15 @@ class DeepgramService extends ChangeNotifier {
         }
       });
 
-      // 5. Listen for Transcripts
       _channel!.stream.listen(
-        (message) {
-          _handleMessage(message);
-        },
+        (message) => _handleMessage(message),
         onError: (error) {
           debugPrint("❌ DeepgramService: WebSocket Error: $error");
-          _attemptReconnect();
+          _attemptReconnect(serverUrl: serverUrl, jwt: jwt);
         },
         onDone: () {
           debugPrint("⚠️ DeepgramService: WebSocket Closed");
-          _attemptReconnect();
+          _attemptReconnect(serverUrl: serverUrl, jwt: jwt);
         },
       );
     } catch (e) {
@@ -255,7 +247,7 @@ class DeepgramService extends ChangeNotifier {
     return b.buffer.asUint8List();
   }
 
-  void _attemptReconnect() {
+  void _attemptReconnect({required String serverUrl, required String jwt}) {
     if (_intentionalDisconnect) return;
     if (_reconnectAttempts >= _maxReconnectAttempts) {
       debugPrint("❌ DeepgramService: Max reconnect attempts reached");
@@ -269,7 +261,7 @@ class DeepgramService extends ChangeNotifier {
     final delay = Duration(seconds: _reconnectAttempts * 2);
     debugPrint("🔄 DeepgramService: Reconnecting in ${delay.inSeconds}s (attempt $_reconnectAttempts)");
     Future.delayed(delay, () {
-      if (!_intentionalDisconnect) connect();
+      if (!_intentionalDisconnect) connect(serverUrl: serverUrl, jwt: jwt);
     });
   }
 }

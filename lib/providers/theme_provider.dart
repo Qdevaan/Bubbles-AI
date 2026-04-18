@@ -16,21 +16,9 @@ class ThemeProvider extends ChangeNotifier {
   Color get seedColor => _seedColor;
   ThemeMode get themeMode => _themeMode;
 
-  ThemeProvider() {
-    _loadTheme();
-  }
-
-  Future<void> _loadTheme() async {
-    final prefs = await SharedPreferences.getInstance();
-    final int? colorValue = prefs.getInt(_colorKey);
-    if (colorValue != null) {
-      _seedColor = Color(colorValue);
-    }
-    final int? modeValue = prefs.getInt(_themeModeKey);
-    if (modeValue != null) {
-      _themeMode = ThemeMode.values[modeValue];
-    }
-    notifyListeners();
+  ThemeProvider({ThemeMode? initialThemeMode, Color? initialSeedColor}) {
+    if (initialThemeMode != null) _themeMode = initialThemeMode;
+    if (initialSeedColor != null) _seedColor = initialSeedColor;
     _loadFromSupabase();
   }
 

@@ -57,6 +57,21 @@ class AppColors {
   static const Color orange = Color(0xFFF97316);
   static const Color purple = Color(0xFFA855F7);
   static const Color amber = Color(0xFFF59E0B);
+
+  // Gamification colors
+  static const Color xpGold = Color(0xFFFFD700);
+  static const Color xpGoldDark = Color(0xFFDAA520);
+  static const Color streakFire = Color(0xFFFF6B35);
+  static const Color streakFireGlow = Color(0xFFFF9500);
+  static const Color levelBadge = Color(0xFF7C3AED);
+  static const Color achievementGlow = Color(0xFFFBBF24);
+
+  // Mood colors
+  static const Color moodGreat = Color(0xFF22C55E);
+  static const Color moodGood = Color(0xFF86EFAC);
+  static const Color moodNeutral = Color(0xFFFBBF24);
+  static const Color moodLow = Color(0xFFFB923C);
+  static const Color moodTough = Color(0xFFEF4444);
 }
 
 class AppRadius {
@@ -84,6 +99,12 @@ class AppDurations {
   static const Duration dialog = Duration(milliseconds: 300);
   static const Duration tooltip = Duration(milliseconds: 200);
   static const Duration pageTransition = Duration(milliseconds: 350);
+
+  // Gamification
+  static const Duration celebration = Duration(milliseconds: 1200);
+  static const Duration xpCountUp = Duration(milliseconds: 800);
+  static const Duration levelUp = Duration(milliseconds: 2000);
+  static const Duration breathe = Duration(milliseconds: 4000);
 }
 
 class AppTypography {

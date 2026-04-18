@@ -4,14 +4,13 @@ import 'dart:io';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:speech_to_text/speech_to_text.dart';
 import 'package:speech_to_text/speech_recognition_result.dart';
 import 'package:http/http.dart' as http;
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'auth_service.dart';
+import 'user_settings_service.dart';
 import 'connection_service.dart';
 import 'wake_word_service.dart';
 
@@ -44,9 +43,8 @@ class VoiceAssistantService extends ChangeNotifier {
   final SpeechToText _stt = SpeechToText();
   bool _sttInitialized = false;
 
-  // ── Deepgram Aura TTS (replaces flutter_tts) ──
+  // ── Deepgram Aura TTS (proxied through backend) ──
   final AudioPlayer _audioPlayer = AudioPlayer();
-  String _deepgramApiKey = '';
 
   // ── State ──
   VoiceAssistantState _state = VoiceAssistantState.idle;
@@ -129,46 +127,19 @@ class VoiceAssistantService extends ChangeNotifier {
 
   Future<void> _loadFromSupabase() async {
     try {
-      final user = AuthService.instance.currentUser;
-      if (user == null) return;
-      final row = await Supabase.instance.client
-          .from('user_settings')
-          .select('voice_mode')
-          .eq('user_id', user.id)
-          .maybeSingle();
-      if (row != null && row['voice_mode'] != null) {
-        final modeStr = row['voice_mode'] as String;
-        VoiceMode? matchedMode;
-        for (var vm in VoiceMode.values) {
-          if (vm.name == modeStr) {
-            matchedMode = vm;
-            break;
-          }
-        }
-        if (matchedMode != null && matchedMode != _voiceMode) {
-          _voiceMode = matchedMode;
-          notifyListeners();
-          final prefs = await SharedPreferences.getInstance();
-          await prefs.setInt(_voiceModeKey, _voiceMode.index);
-        }
-      }
+      final userId = AuthService.instance.currentUserId;
+      if (userId == null) return;
+      // voice_mode column was removed from user_settings; local SharedPreferences
+      // is the source of truth. UserSettingsService is available here for any
+      // future per-user settings that need server-side persistence.
+      await UserSettingsService.instance.fetchSettings(userId);
     } catch (e) {
       debugPrint('VoiceAssistantService._loadFromSupabase: $e');
     }
   }
 
   Future<void> _upsertVoiceMode(VoiceMode mode) async {
-    try {
-      final user = AuthService.instance.currentUser;
-      if (user == null) return;
-      await Supabase.instance.client.from('user_settings').upsert({
-        'user_id': user.id,
-        'voice_mode': mode.name,
-        'updated_at': DateTime.now().toUtc().toIso8601String(),
-      });
-    } catch (e) {
-      debugPrint('VoiceAssistantService._upsertVoiceMode: $e');
-    }
+    // Disabled Supabase sync: 'voice_mode' column has been removed.
   }
 
   Future<void> _initSTT() async {
@@ -183,14 +154,7 @@ class VoiceAssistantService extends ChangeNotifier {
   }
 
   void _initDeepgramTTS() {
-    _deepgramApiKey = dotenv.env['DEEPGRAM_API_KEY'] ?? '';
-    if (_deepgramApiKey.isEmpty) {
-      debugPrint(
-        '⚠️ Deepgram: No DEEPGRAM_API_KEY found in .env — TTS will not work',
-      );
-    } else {
-      debugPrint('🔊 Deepgram Aura TTS initialized');
-    }
+    debugPrint('🔊 Deepgram Aura TTS initialized (backend proxy)');
 
     // When audio finishes playing, return to idle and restart wake word
     _audioPlayer.onPlayerComplete.listen((_) {
@@ -419,16 +383,18 @@ class VoiceAssistantService extends ChangeNotifier {
 
   // ─── Deepgram Aura TTS ──────────────────────────────
 
-  /// Speaks text using Deepgram Aura TTS API.
-  /// Sends text to Deepgram, receives MP3 audio bytes, and plays them.
+  /// Speaks text using the backend TTS proxy (which forwards to Deepgram Aura).
+  /// Sends text to the backend, receives MP3 audio bytes, and plays them.
   Future<void> _speak(String text) async {
     _lastResponse = text;
     _setState(VoiceAssistantState.speaking);
     notifyListeners();
 
-    // If no API key, fall back silently (the text is still shown in overlay)
-    if (_deepgramApiKey.isEmpty) {
-      debugPrint('⚠️ Deepgram TTS: No API key, skipping audio playback');
+    final serverUrl = _connectionService.serverUrl;
+    final jwt = AuthService.instance.accessToken ?? '';
+
+    if (serverUrl.isEmpty || jwt.isEmpty) {
+      debugPrint('⚠️ Deepgram TTS: serverUrl or jwt is empty, skipping audio playback');
       Future.delayed(const Duration(seconds: 2), () {
         _setState(VoiceAssistantState.idle);
         if (_isActive && _isWakeWordEnabled) {
@@ -440,19 +406,17 @@ class VoiceAssistantService extends ChangeNotifier {
 
     try {
       debugPrint(
-        '🔊 Deepgram TTS: Requesting audio with model=$_deepgramModel',
+        '🔊 Deepgram TTS: Requesting audio via backend proxy (model=$_deepgramModel)',
       );
 
       final response = await http
           .post(
-            Uri.parse(
-              'https://api.deepgram.com/v1/speak?model=$_deepgramModel',
-            ),
+            Uri.parse('$serverUrl/v1/tts'),
             headers: {
-              'Authorization': 'Token $_deepgramApiKey',
+              'Authorization': 'Bearer $jwt',
               'Content-Type': 'application/json',
             },
-            body: jsonEncode({'text': text}),
+            body: jsonEncode({'text': text, 'model': _deepgramModel}),
           )
           .timeout(const Duration(seconds: 15));
 
@@ -470,7 +434,6 @@ class VoiceAssistantService extends ChangeNotifier {
         debugPrint(
           '❌ Deepgram TTS error: ${response.statusCode} ${response.body}',
         );
-        // Still return to idle on error
         _setState(VoiceAssistantState.idle);
         if (_isActive && _isWakeWordEnabled) {
           _wakeWordService.startListening();

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import '../routes/app_routes.dart';
+import '../services/auth_service.dart';
 
 class AuthGuard extends StatefulWidget {
   final Widget child;
@@ -21,7 +21,7 @@ class _AuthGuardState extends State<AuthGuard> {
 
   void _checkAuth() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final session = Supabase.instance.client.auth.currentSession;
+      final session = AuthService.instance.currentSession;
       if (widget.requireAuth && session == null) {
         Navigator.of(context).pushReplacementNamed(AppRoutes.login);
       } else if (!widget.requireAuth && session != null) {

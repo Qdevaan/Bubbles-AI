@@ -38,8 +38,15 @@ class _RoleplaySetupScreenState extends State<RoleplaySetupScreen> {
     } catch (e) {
       if (mounted) {
         setState(() => _isLoading = false);
+        
+        String errStr = e.toString().toLowerCase();
+        String displayMsg = 'Failed to load entities: $e';
+        if (errStr.contains('socketexception') || errStr.contains('failed host lookup') || errStr.contains('clientexception')) {
+          displayMsg = 'Network is unreachable. Please check your internet connection.';
+        }
+        
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to load entities: $e')),
+          SnackBar(content: Text(displayMsg)),
         );
       }
     }
