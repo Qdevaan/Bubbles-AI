@@ -2,7 +2,6 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
@@ -150,7 +149,8 @@ class _DataManagementScreenState extends State<DataManagementScreen> {
                         }
                         await AuthService.instance.signOut();
                         if (ctx.mounted) {
-                          ctx.go('/login');
+                          Navigator.of(ctx).pushNamedAndRemoveUntil(
+                              '/login', (_) => false);
                         }
                       } catch (e) {
                         setDialogState(() {

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../theme/design_tokens.dart';
@@ -55,10 +54,14 @@ class _RoleplaySetupScreenState extends State<RoleplaySetupScreen> {
 
   void _startRoleplay() {
     if (_selectedEntityId == null) return;
-    context.push('/new-session', extra: {
-      'targetEntityId': _selectedEntityId,
-      'targetEntityName': _selectedEntityName,
-    });
+    Navigator.pushNamed(
+      context, 
+      '/new-session', 
+      arguments: {
+        'targetEntityId': _selectedEntityId,
+        'targetEntityName': _selectedEntityName,
+      },
+    );
   }
 
   @override

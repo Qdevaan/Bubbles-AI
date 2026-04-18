@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../services/auth_service.dart';
@@ -25,7 +24,9 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
       // Ideally, you might want to call _authService.refreshSession() if available.
 
       if (_authService.isEmailVerified) {
-        context.go('/profile-completion');
+        Navigator.of(
+          context,
+        ).pushNamedAndRemoveUntil('/profile-completion', (route) => false);
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(

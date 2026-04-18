@@ -6,7 +6,6 @@ import 'dart:async';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:http/http.dart' as http;
@@ -232,7 +231,7 @@ class _ConsultantScreenState extends State<ConsultantScreen>
                 TextButton(
                   onPressed: () {
                     Navigator.pop(ctx);
-                    context.push('/connections');
+                    Navigator.pushNamed(context, '/connections');
                   },
                   style: TextButton.styleFrom(
                     backgroundColor: Theme.of(
@@ -264,10 +263,10 @@ class _ConsultantScreenState extends State<ConsultantScreen>
 
   // -- Send message (delegates streaming to provider) --
   void _sendMessage() {
+    HapticFeedback.lightImpact();
     final text = _controller.text.trim();
     final chat = _chat;
     if (text.isEmpty || chat.loading || chat.loadingChat) return;
-    HapticFeedback.lightImpact();
 
     final conn = Provider.of<ConnectionService>(context, listen: false);
     if (!conn.isConnected) {
@@ -714,7 +713,8 @@ class _ConsultantScreenState extends State<ConsultantScreen>
                         : Semantics(
                             label: 'Not connected to server. Tap to connect.',
                             child: GestureDetector(
-                              onTap: () => context.push('/connections'),
+                              onTap: () =>
+                                  Navigator.pushNamed(context, '/connections'),
                               child: Container(
                                 width: double.infinity,
                                 color: AppColors.error.withAlpha(31),

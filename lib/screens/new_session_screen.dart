@@ -1,7 +1,6 @@
 import 'dart:math';
 import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 
@@ -21,14 +20,7 @@ import '../widgets/feedback_dialog.dart';
 //  Business logic managed by SessionProvider; animations stay local.
 // ============================================================================
 class NewSessionScreen extends StatefulWidget {
-  final String? targetEntityId;
-  final String? targetEntityName;
-
-  const NewSessionScreen({
-    super.key,
-    this.targetEntityId,
-    this.targetEntityName,
-  });
+  const NewSessionScreen({super.key});
 
   @override
   State<NewSessionScreen> createState() => _NewSessionScreenState();
@@ -92,7 +84,9 @@ class _NewSessionScreenState extends State<NewSessionScreen>
     final api = Provider.of<ApiService>(context, listen: false);
     final user = AuthService.instance.currentUser;
 
-    final targetEntityId = widget.targetEntityId;
+    // Retrieve arguments
+    final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+    final targetEntityId = args?['targetEntityId'] as String?;
 
     if (user == null) {
       if (mounted) {
@@ -368,8 +362,8 @@ class _NewSessionScreenState extends State<NewSessionScreen>
               Expanded(
                 child: Center(
                   child: Text(
-                    widget.targetEntityName != null
-                        ? 'Roleplay: ${widget.targetEntityName}'
+                    (ModalRoute.of(context)?.settings.arguments as Map?)?['targetEntityName'] != null
+                        ? 'Roleplay: ${(ModalRoute.of(context)!.settings.arguments as Map)['targetEntityName']}'
                         : 'Live Wingman',
                     style: GoogleFonts.manrope(
                       fontSize: 20,
@@ -485,7 +479,8 @@ class _NewSessionScreenState extends State<NewSessionScreen>
                               ),
                             ),
                             TextButton(
-                              onPressed: () => context.push('/connections'),
+                              onPressed: () =>
+                                  Navigator.pushNamed(context, '/connections'),
                               child: Text(
                                 'Fix',
                                 style: GoogleFonts.manrope(

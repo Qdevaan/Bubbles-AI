@@ -2,7 +2,6 @@ import 'dart:async';
 import '../theme/design_tokens.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../services/auth_service.dart';
@@ -40,7 +39,7 @@ class _SignupScreenState extends State<SignupScreen> {
     ) {
       if (data.event == AuthChangeEvent.signedIn && data.session != null) {
         if (!_isEmailLoading && mounted) {
-          context.go('/home');
+          Navigator.pushReplacementNamed(context, '/home');
         }
       }
     });
@@ -93,7 +92,7 @@ class _SignupScreenState extends State<SignupScreen> {
         _passCtrl.text,
       );
       if (!mounted) return;
-      context.push('/verify-email');
+      Navigator.pushNamed(context, '/verify-email');
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
