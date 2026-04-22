@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import '../services/auth_service.dart';
 import '../services/api_service.dart';
 import '../services/connection_service.dart';
+import '../repositories/graph_repository.dart';
 import '../widgets/animated_background.dart';
 
 Color _colorForType(String? type) {
@@ -91,14 +92,12 @@ class _GraphExplorerScreenState extends State<GraphExplorerScreen>
     super.dispose();
   }
 
-  Future<void> _loadGraph() async {
+  Future<void> _loadGraph({bool swr = false}) async {
     setState(() {
-      _isLoading = true;
+      _isLoading = !swr;
       _errorMessage = null;
     });
 
-    final apiService = context.read<ApiService>();
-    final connService = context.read<ConnectionService>();
     final userId = AuthService.instance.currentUser?.id ?? '';
     if (userId.isEmpty) {
       setState(() {
@@ -108,22 +107,16 @@ class _GraphExplorerScreenState extends State<GraphExplorerScreen>
       return;
     }
 
-    if (!connService.isConnected) {
-      setState(() {
-        _isLoading = false;
-        _errorMessage =
-            'Not connected to server. Check your connection and retry.';
-      });
-      return;
-    }
-
     try {
-      final data = await apiService.getGraphExport(userId);
+      final repo = context.read<GraphRepository>();
+      final result = await repo.getGraphExport(userId, forceRefresh: !swr);
+      final data = result.data;
+      
       if (data == null) {
+        if (swr) return; // Keep existing if SWR failed
         setState(() {
           _isLoading = false;
-          _errorMessage =
-              'Could not load graph data. The server may be unreachable — tap Retry.';
+          _errorMessage = 'Could not load graph data.';
         });
         return;
       }
@@ -163,13 +156,12 @@ class _GraphExplorerScreenState extends State<GraphExplorerScreen>
 
       setState(() {
         _controller = controller;
-        _rawNodes =
-            nodesData.map((n) => Map<String, dynamic>.from(n)).toList();
-        _rawLinks =
-            linksData.map((l) => Map<String, dynamic>.from(l)).toList();
+        _rawNodes = nodesData.map((n) => Map<String, dynamic>.from(n)).toList();
+        _rawLinks = linksData.map((l) => Map<String, dynamic>.from(l)).toList();
         _isLoading = false;
       });
     } catch (e) {
+      if (swr) return;
       setState(() {
         _isLoading = false;
         _errorMessage = 'Failed to load graph: $e';

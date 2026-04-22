@@ -88,3 +88,8 @@ Documentation/
 
 .claude/
 docs/
+graphify-out/
+.graphify_ast.json
+.graphify_cached.json
+.graphify_detect.json
+.graphify_uncached.txt

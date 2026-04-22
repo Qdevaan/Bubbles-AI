@@ -2,12 +2,16 @@ import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/auth_service.dart';
 import '../services/analytics_service.dart';
+import '../repositories/home_repository.dart';
 
 /// Dedicated state manager for the HomeScreen.
 /// Fetches events, highlights and notifications; subscribes to Realtime
 /// inserts on both the `highlights` and `notifications` tables (schema_v2).
 class HomeProvider extends ChangeNotifier {
   final SupabaseClient _supabase = Supabase.instance.client;
+
+  HomeRepository? _repository;
+  void setRepository(HomeRepository repo) => _repository = repo;
 
   Map<String, dynamic>? _profile;
   Map<String, dynamic>? get profile => _profile;
@@ -103,6 +107,9 @@ class HomeProvider extends ChangeNotifier {
             _highlights.insert(0, record);
             _unreadNotifications++;
             notifyListeners();
+            if (_repository != null) {
+              _repository!.updateHighlightsCache(user.id, record);
+            }
           },
         )
         .subscribe();
@@ -128,6 +135,9 @@ class HomeProvider extends ChangeNotifier {
             _notifications.insert(0, record);
             _unreadNotifications++;
             notifyListeners();
+            if (_repository != null) {
+              _repository!.updateNotificationsCache(user.id, record);
+            }
           },
         )
         .subscribe();
@@ -143,41 +153,20 @@ class HomeProvider extends ChangeNotifier {
   Future<void> loadInsights() async {
     final user = AuthService.instance.currentUser;
     if (user == null) return;
-    try {
-      final eventsRes = await _supabase
-          .from('events')
-          .select('title, due_text, description, created_at')
-          .eq('user_id', user.id)
-          .order('created_at', ascending: false)
-          .limit(5);
 
-      final highlightsRes = await _supabase
-          .from('highlights')
-          .select('title, body, highlight_type, created_at')
-          .eq('user_id', user.id)
-          .eq('is_resolved', false)
-          .order('created_at', ascending: false)
-          .limit(5);
+    if (_repository == null) return;
 
-      // Load unread notifications
-      final notifRes = await _supabase
-          .from('notifications')
-          .select('id, title, body, notif_type, is_read, created_at')
-          .eq('user_id', user.id)
-          .eq('is_read', false)
-          .order('created_at', ascending: false)
-          .limit(20);
+    final results = await Future.wait([
+      _repository!.getEvents(user.id, forceRefresh: false),
+      _repository!.getHighlights(user.id, forceRefresh: false),
+      _repository!.getNotifications(user.id, forceRefresh: false),
+    ]);
 
-      _events = List<Map<String, dynamic>>.from(eventsRes);
-      _highlights = List<Map<String, dynamic>>.from(highlightsRes);
-      _notifications = List<Map<String, dynamic>>.from(notifRes);
-      _insightsLoaded = true;
-      notifyListeners();
-    } catch (e) {
-      debugPrint('Error loading insights: $e');
-      _insightsLoaded = true;
-      notifyListeners();
-    }
+    _events = results[0].data ?? [];
+    _highlights = results[1].data ?? [];
+    _notifications = results[2].data ?? [];
+    _insightsLoaded = true;
+    notifyListeners();
   }
 
   @override

@@ -6,6 +6,8 @@ import 'package:provider/provider.dart';
 import '../services/app_cache_service.dart';
 import '../services/auth_service.dart';
 import '../services/insights_service.dart';
+import '../repositories/insights_repository.dart';
+import '../cache/cache_constants.dart';
 import '../theme/design_tokens.dart';
 import '../widgets/glass_morphism.dart';
 import '../widgets/animated_background.dart';
@@ -46,21 +48,8 @@ class _InsightsScreenState extends State<InsightsScreen>
   void initState() {
     super.initState();
     _tabController = TabController(length: _tabs.length, vsync: this);
-    final uid = AuthService.instance.currentUserId;
-    if (uid == null) {
-      setState(() { _loading = false; });
-      return;
-    }
-    // context.read is safe in initState() — AppCacheService is a root provider (listen: false)
-    final cache = context.read<AppCacheService>();
-    if (cache.events != null && cache.cacheUserId == uid) {
-      _events        = List.from(cache.events!);
-      _highlights    = List.from(cache.highlights!);
-      _notifications = List.from(cache.notifications!);
-      _loading = false;
-    } else {
-      _load();
-    }
+    
+    _load(swr: true);
   }
 
   @override
@@ -73,37 +62,30 @@ class _InsightsScreenState extends State<InsightsScreen>
 
   // ── Load ─────────────────────────────────────────────────────────────────
 
-  Future<void> _load() async {
-    // Capture cache reference before any await — safe with root provider
-    final cache = context.read<AppCacheService>();
-    cache.invalidateInsights();
-    setState(() { _loading = true; _error = null; });
+  Future<void> _load({bool swr = false}) async {
+    final repo = context.read<InsightsRepository>();
     final uid = AuthService.instance.currentUserId;
     if (uid == null) {
       setState(() { _loading = false; _error = 'please_login'; });
       return;
     }
+
+    setState(() { _loading = !swr; _error = null; });
     try {
-      final events        = await InsightsService.instance.fetchEvents(uid);
-      final highlights    = await InsightsService.instance.fetchHighlights(uid);
-      final notifications = await InsightsService.instance.fetchNotifications(uid);
+      final results = await Future.wait([
+        repo.getEvents(uid, forceRefresh: !swr),
+        repo.getHighlights(uid, forceRefresh: !swr),
+        repo.getNotifications(uid, forceRefresh: !swr),
+      ]);
 
       if (!mounted) return;
-      _events        = events;
-      _highlights    = highlights;
-      _notifications = notifications;
-
-      // Populate cache
-      cache.setInsights(
-        events: _events,
-        highlights: _highlights,
-        notifications: _notifications,
-        userId: uid,
-      );
-
-      setState(() { _loading = false; });
+      setState(() {
+        _events = results[0].data ?? [];
+        _highlights = results[1].data ?? [];
+        _notifications = results[2].data ?? [];
+        _loading = false;
+      });
     } catch (e) {
-      debugPrint('InsightsScreen._load error: $e');
       if (!mounted) return;
       setState(() { _loading = false; _error = 'load_failed'; });
     }
@@ -112,8 +94,13 @@ class _InsightsScreenState extends State<InsightsScreen>
   // ── Delete ───────────────────────────────────────────────────────────────
 
   Future<void> _deleteItem(_InsightItem item) async {
+    final uid = AuthService.instance.currentUserId;
+    if (uid == null) return;
+    final repo = context.read<InsightsRepository>();
+
     try {
-      await InsightsService.instance.deleteItem(item.table, item.id);
+      await repo.deleteItem(item.table, item.id, uid);
+      if (!mounted) return;
       setState(() {
         switch (item.table) {
           case 'events':        _events.removeWhere((e) => e['id'] == item.id);
@@ -121,16 +108,7 @@ class _InsightsScreenState extends State<InsightsScreen>
           case 'notifications': _notifications.removeWhere((e) => e['id'] == item.id);
         }
       });
-      // Keep cache in sync — called after setState so lists are updated
-      final uid = AuthService.instance.currentUserId;
-      if (uid != null && mounted) {
-        context.read<AppCacheService>().setInsights(
-          events: _events,
-          highlights: _highlights,
-          notifications: _notifications,
-          userId: uid,
-        );
-      }
+      
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -343,13 +321,15 @@ class _InsightsScreenState extends State<InsightsScreen>
       }
       // Keep cache in sync after edit
       final editUid = AuthService.instance.currentUserId;
-      if (editUid != null && mounted) {
-        context.read<AppCacheService>().setInsights(
-          events: _events,
-          highlights: _highlights,
-          notifications: _notifications,
-          userId: editUid,
-        );
+      if (editUid != null) {
+        final repo = context.read<InsightsRepository>();
+        if (item.table == 'events') {
+          repo.l1.deleteGeneric(CacheKeys.insightsEvents(editUid));
+          await repo.l2.delete(CacheKeys.insightsEvents(editUid));
+        } else if (item.table == 'highlights') {
+          repo.l1.deleteGeneric(CacheKeys.insightsHighlights(editUid));
+          await repo.l2.delete(CacheKeys.insightsHighlights(editUid));
+        }
       }
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

@@ -3,6 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/auth_service.dart';
 import '../services/analytics_service.dart';
+import '../repositories/settings_repository.dart';
 
 /// Manages user preferences with dual persistence:
 ///  - SharedPreferences for offline/instant reads
@@ -14,6 +15,9 @@ class SettingsProvider with ChangeNotifier {
   static const String _alwaysPromptKey = 'always_prompt_for_tone';
   static const String _localeKey = 'app_locale';
   static const String _quickActionsStyleKey = 'quick_actions_style';
+
+  SettingsRepository? _repository;
+  void setRepository(SettingsRepository repo) => _repository = repo;
 
   Locale _locale = const Locale('en');
   Locale get locale => _locale;
@@ -65,35 +69,69 @@ class SettingsProvider with ChangeNotifier {
 
   // ── Load: SharedPreferences first, then Supabase overrides ────────────────
   Future<void> loadSettings() async {
-    final prefs = await SharedPreferences.getInstance();
-    _defaultLiveTone = prefs.getString(_liveToneKey) ?? 'casual';
-    _defaultConsultantTone = prefs.getString(_consultantToneKey) ?? 'casual';
-    _alwaysPromptForTone = prefs.getBool(_alwaysPromptKey) ?? false;
-    _quickActionsStyle = prefs.getString(_quickActionsStyleKey) ?? 'grid';
+    final user = AuthService.instance.currentUser;
+    
+    // Repository-first approach (Offline-first with SWR)
+    if (user != null && _repository != null) {
+      final settings = await _repository!.loadSettings(user.id);
+      _applySettingsMap(settings);
+    } else {
+      // Fallback for Guest mode or initialization before repository is ready
+      final prefs = await SharedPreferences.getInstance();
+      _defaultLiveTone = prefs.getString(_liveToneKey) ?? 'casual';
+      _defaultConsultantTone = prefs.getString(_consultantToneKey) ?? 'casual';
+      _alwaysPromptForTone = prefs.getBool(_alwaysPromptKey) ?? false;
+      _quickActionsStyle = prefs.getString(_quickActionsStyleKey) ?? 'grid';
 
-    _pushHighlights = prefs.getBool('push_highlights') ?? true;
-    _pushEvents = prefs.getBool('push_events') ?? true;
-    _pushWeeklyDigest = prefs.getBool('push_weekly_digest') ?? true;
-    _pushReminders = prefs.getBool('push_reminders') ?? true;
+      _pushHighlights = prefs.getBool('push_highlights') ?? true;
+      _pushEvents = prefs.getBool('push_events') ?? true;
+      _pushWeeklyDigest = prefs.getBool('push_weekly_digest') ?? true;
+      _pushReminders = prefs.getBool('push_reminders') ?? true;
 
-    _fontSize = prefs.getString('font_size') ?? 'medium';
-    _voiceAssistantName = prefs.getString('voice_assistant_name') ?? 'Bubbles';
-    _assistantVoiceId = prefs.getString('assistant_voice_id');
-    _speechRate = prefs.getDouble('speech_rate') ?? 1.0;
-    _pitch = prefs.getDouble('pitch') ?? 1.0;
-    _hapticFeedback = prefs.getBool('haptic_feedback') ?? true;
-    _autoPlayAudio = prefs.getBool('auto_play_audio') ?? true;
-    _transcriptionLanguage = prefs.getString('transcription_language') ?? 'en-US';
-    _enableNsfwFilter = prefs.getBool('enable_nsfw_filter') ?? true;
-    _dataSharingOptIn = prefs.getBool('data_sharing_opt_in') ?? false;
+      _fontSize = prefs.getString('font_size') ?? 'medium';
+      _voiceAssistantName = prefs.getString('voice_assistant_name') ?? 'Bubbles';
+      _assistantVoiceId = prefs.getString('assistant_voice_id');
+      _speechRate = prefs.getDouble('speech_rate') ?? 1.0;
+      _pitch = prefs.getDouble('pitch') ?? 1.0;
+      _hapticFeedback = prefs.getBool('haptic_feedback') ?? true;
+      _autoPlayAudio = prefs.getBool('auto_play_audio') ?? true;
+      _transcriptionLanguage = prefs.getString('transcription_language') ?? 'en-US';
+      _enableNsfwFilter = prefs.getBool('enable_nsfw_filter') ?? true;
+      _dataSharingOptIn = prefs.getBool('data_sharing_opt_in') ?? false;
 
-    final localeCode = prefs.getString(_localeKey) ?? 'en';
-    _locale = Locale(localeCode);
+      final localeCode = prefs.getString(_localeKey) ?? 'en';
+      _locale = Locale(localeCode);
+    }
 
     notifyListeners();
+  }
 
-    // Overlay with remote values if available
-    await _loadFromSupabase();
+  void _applySettingsMap(Map<String, dynamic> settings) {
+    if (settings['assistant_persona'] != null) {
+      final persona = settings['assistant_persona'] as String;
+      _defaultLiveTone = persona;
+      _defaultConsultantTone = persona;
+    }
+    if (settings['font_size'] != null) _fontSize = settings['font_size'];
+    if (settings['voice_assistant_name'] != null) _voiceAssistantName = settings['voice_assistant_name'];
+    if (settings['assistant_voice_id'] != null) _assistantVoiceId = settings['assistant_voice_id'];
+    if (settings['speech_rate'] != null) _speechRate = (settings['speech_rate'] as num).toDouble();
+    if (settings['pitch'] != null) _pitch = (settings['pitch'] as num).toDouble();
+    if (settings['haptic_feedback'] != null) _hapticFeedback = settings['haptic_feedback'];
+    if (settings['auto_play_audio'] != null) _autoPlayAudio = settings['auto_play_audio'];
+    if (settings['transcription_language'] != null) _transcriptionLanguage = settings['transcription_language'];
+    if (settings['enable_nsfw_filter'] != null) _enableNsfwFilter = settings['enable_nsfw_filter'];
+    if (settings['data_sharing_opt_in'] != null) _dataSharingOptIn = settings['data_sharing_opt_in'];
+    
+    // Non-synced/local only
+    if (settings[_alwaysPromptKey] != null) _alwaysPromptForTone = settings[_alwaysPromptKey];
+    if (settings[_quickActionsStyleKey] != null) _quickActionsStyle = settings[_quickActionsStyleKey];
+    if (settings[_localeKey] != null) _locale = Locale(settings[_localeKey]);
+    
+    if (settings['push_highlights'] != null) _pushHighlights = settings['push_highlights'];
+    if (settings['push_events'] != null) _pushEvents = settings['push_events'];
+    if (settings['push_weekly_digest'] != null) _pushWeeklyDigest = settings['push_weekly_digest'];
+    if (settings['push_reminders'] != null) _pushReminders = settings['push_reminders'];
   }
 
   Future<void> _loadFromSupabase() async {
@@ -107,64 +145,46 @@ class SettingsProvider with ChangeNotifier {
           .maybeSingle();
       if (row == null) return;
 
-      final prefs = await SharedPreferences.getInstance();
+      final Map<String, dynamic> updates = {};
+      if (row['assistant_persona'] != null) updates['assistant_persona'] = row['assistant_persona'];
+      if (row['font_size'] != null) updates['font_size'] = row['font_size'];
+      if (row['voice_assistant_name'] != null) updates['voice_assistant_name'] = row['voice_assistant_name'];
+      if (row['assistant_voice_id'] != null) updates['assistant_voice_id'] = row['assistant_voice_id'];
+      if (row['speech_rate'] != null) updates['speech_rate'] = row['speech_rate'];
+      if (row['pitch'] != null) updates['pitch'] = row['pitch'];
+      if (row['haptic_feedback'] != null) updates['haptic_feedback'] = row['haptic_feedback'];
+      if (row['auto_play_audio'] != null) updates['auto_play_audio'] = row['auto_play_audio'];
+      if (row['transcription_language'] != null) updates['transcription_language'] = row['transcription_language'];
+      if (row['enable_nsfw_filter'] != null) updates['enable_nsfw_filter'] = row['enable_nsfw_filter'];
+      if (row['data_sharing_opt_in'] != null) updates['data_sharing_opt_in'] = row['data_sharing_opt_in'];
 
-      // Sync all schema columns to local prefs
-      if (row['assistant_persona'] != null) {
-        final persona = row['assistant_persona'] as String;
-        _defaultLiveTone = persona;
-        _defaultConsultantTone = persona;
-        await prefs.setString(_liveToneKey, _defaultLiveTone);
-        await prefs.setString(_consultantToneKey, _defaultConsultantTone);
-      }
-      if (row['font_size'] != null) {
-        _fontSize = row['font_size'] as String;
-        await prefs.setString('font_size', _fontSize);
-      }
-      if (row['voice_assistant_name'] != null) {
-        _voiceAssistantName = row['voice_assistant_name'] as String;
-        await prefs.setString('voice_assistant_name', _voiceAssistantName);
-      }
-      if (row['assistant_voice_id'] != null) {
-        _assistantVoiceId = row['assistant_voice_id'] as String;
-        await prefs.setString('assistant_voice_id', _assistantVoiceId!);
-      }
-      if (row['speech_rate'] != null) {
-        _speechRate = (row['speech_rate'] as num).toDouble();
-        await prefs.setDouble('speech_rate', _speechRate);
-      }
-      if (row['pitch'] != null) {
-        _pitch = (row['pitch'] as num).toDouble();
-        await prefs.setDouble('pitch', _pitch);
-      }
-      if (row['haptic_feedback'] != null) {
-        _hapticFeedback = row['haptic_feedback'] as bool;
-        await prefs.setBool('haptic_feedback', _hapticFeedback);
-      }
-      if (row['auto_play_audio'] != null) {
-        _autoPlayAudio = row['auto_play_audio'] as bool;
-        await prefs.setBool('auto_play_audio', _autoPlayAudio);
-      }
-      if (row['transcription_language'] != null) {
-        _transcriptionLanguage = row['transcription_language'] as String;
-        await prefs.setString('transcription_language', _transcriptionLanguage);
-      }
-      if (row['enable_nsfw_filter'] != null) {
-        _enableNsfwFilter = row['enable_nsfw_filter'] as bool;
-        await prefs.setBool('enable_nsfw_filter', _enableNsfwFilter);
-      }
-      if (row['data_sharing_opt_in'] != null) {
-        _dataSharingOptIn = row['data_sharing_opt_in'] as bool;
-        await prefs.setBool('data_sharing_opt_in', _dataSharingOptIn);
-      }
-
+      _applySettingsMap(updates);
       notifyListeners();
     } catch (e) {
       debugPrint('SettingsProvider._loadFromSupabase: $e');
     }
   }
 
-  // ── Upsert helper ─────────────────────────────────────────────────────────
+  // ── Write helper ──────────────────────────────────────────────────────────
+  Future<void> _updateSetting(String key, dynamic value, {Map<String, dynamic>? remoteUpdates}) async {
+    final user = AuthService.instance.currentUser;
+    if (user != null && _repository != null) {
+      await _repository!.writeSetting(user.id, key, value);
+      if (remoteUpdates != null) {
+        await _upsertUserSettings(remoteUpdates);
+      }
+    } else {
+      // Offline/Guest fallback
+      final prefs = await SharedPreferences.getInstance();
+      if (value is bool) await prefs.setBool(key, value);
+      else if (value is String) await prefs.setString(key, value);
+      else if (value is double) await prefs.setDouble(key, value);
+      if (remoteUpdates != null) await _upsertUserSettings(remoteUpdates);
+    }
+    notifyListeners();
+    _logSettingsChange(key, value);
+  }
+
   Future<void> _upsertUserSettings(Map<String, dynamic> updates) async {
     try {
       final user = AuthService.instance.currentUser;
@@ -179,7 +199,6 @@ class SettingsProvider with ChangeNotifier {
     }
   }
 
-  /// Helper to log a settings change to audit_log
   void _logSettingsChange(String key, dynamic value) {
     AnalyticsService.instance.logAction(
       action: 'settings_changed',
@@ -191,169 +210,98 @@ class SettingsProvider with ChangeNotifier {
   // ── Setters ───────────────────────────────────────────────────────────────
   Future<void> setAlwaysPromptForTone(bool value) async {
     _alwaysPromptForTone = value;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_alwaysPromptKey, value);
-    notifyListeners();
-    _logSettingsChange('always_prompt_for_tone', value);
+    await _updateSetting(_alwaysPromptKey, value);
   }
 
   Future<void> setQuickActionsStyle(String style) async {
     _quickActionsStyle = style;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_quickActionsStyleKey, style);
-    notifyListeners();
-    _logSettingsChange('quick_actions_style', style);
+    await _updateSetting(_quickActionsStyleKey, style);
   }
 
   Future<void> setDefaultLiveTone(String tone) async {
     _defaultLiveTone = tone;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_liveToneKey, tone);
-    notifyListeners();
-    _upsertUserSettings({'assistant_persona': tone});
-    _logSettingsChange('default_live_tone', tone);
+    _defaultConsultantTone = tone;
+    await _updateSetting(_liveToneKey, tone, remoteUpdates: {'assistant_persona': tone});
   }
 
   Future<void> setDefaultConsultantTone(String tone) async {
     _defaultConsultantTone = tone;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_consultantToneKey, tone);
-    notifyListeners();
-    _upsertUserSettings({'assistant_persona': tone});
-    _logSettingsChange('default_consultant_tone', tone);
+    _defaultLiveTone = tone;
+    await _updateSetting(_consultantToneKey, tone, remoteUpdates: {'assistant_persona': tone});
   }
 
   Future<void> setPushHighlights(bool val) async {
     _pushHighlights = val;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('push_highlights', val);
-    notifyListeners();
-    _logSettingsChange('push_highlights', val);
+    await _updateSetting('push_highlights', val);
   }
 
   Future<void> setPushEvents(bool val) async {
     _pushEvents = val;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('push_events', val);
-    notifyListeners();
-    _logSettingsChange('push_events', val);
+    await _updateSetting('push_events', val);
   }
 
   Future<void> setPushWeeklyDigest(bool val) async {
     _pushWeeklyDigest = val;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('push_weekly_digest', val);
-    notifyListeners();
-    _logSettingsChange('push_weekly_digest', val);
+    await _updateSetting('push_weekly_digest', val);
   }
 
   Future<void> setPushReminders(bool val) async {
     _pushReminders = val;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('push_reminders', val);
-    notifyListeners();
-    _logSettingsChange('push_reminders', val);
+    await _updateSetting('push_reminders', val);
   }
 
   Future<void> setFontSize(String size) async {
     _fontSize = size;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('font_size', size);
-    notifyListeners();
-    _upsertUserSettings({'font_size': size});
-    _logSettingsChange('font_size', size);
+    await _updateSetting('font_size', size, remoteUpdates: {'font_size': size});
   }
 
   Future<void> setVoiceAssistantName(String name) async {
     _voiceAssistantName = name;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('voice_assistant_name', name);
-    notifyListeners();
-    _upsertUserSettings({'voice_assistant_name': name});
-    _logSettingsChange('voice_assistant_name', name);
+    await _updateSetting('voice_assistant_name', name, remoteUpdates: {'voice_assistant_name': name});
   }
 
   Future<void> setAssistantVoiceId(String? id) async {
     _assistantVoiceId = id;
-    final prefs = await SharedPreferences.getInstance();
-    if (id != null) {
-      await prefs.setString('assistant_voice_id', id);
-    } else {
-      await prefs.remove('assistant_voice_id');
-    }
-    notifyListeners();
-    _upsertUserSettings({'assistant_voice_id': id});
-    _logSettingsChange('assistant_voice_id', id);
+    await _updateSetting('assistant_voice_id', id, remoteUpdates: {'assistant_voice_id': id});
   }
 
   Future<void> setSpeechRate(double rate) async {
     _speechRate = rate;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setDouble('speech_rate', rate);
-    notifyListeners();
-    _upsertUserSettings({'speech_rate': rate});
-    _logSettingsChange('speech_rate', rate);
+    await _updateSetting('speech_rate', rate, remoteUpdates: {'speech_rate': rate});
   }
 
   Future<void> setPitch(double p) async {
     _pitch = p;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setDouble('pitch', p);
-    notifyListeners();
-    _upsertUserSettings({'pitch': p});
-    _logSettingsChange('pitch', p);
+    await _updateSetting('pitch', p, remoteUpdates: {'pitch': p});
   }
 
   Future<void> setHapticFeedback(bool val) async {
     _hapticFeedback = val;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('haptic_feedback', val);
-    notifyListeners();
-    _upsertUserSettings({'haptic_feedback': val});
-    _logSettingsChange('haptic_feedback', val);
+    await _updateSetting('haptic_feedback', val, remoteUpdates: {'haptic_feedback': val});
   }
 
   Future<void> setAutoPlayAudio(bool val) async {
     _autoPlayAudio = val;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('auto_play_audio', val);
-    notifyListeners();
-    _upsertUserSettings({'auto_play_audio': val});
-    _logSettingsChange('auto_play_audio', val);
+    await _updateSetting('auto_play_audio', val, remoteUpdates: {'auto_play_audio': val});
   }
 
   Future<void> setTranscriptionLanguage(String lang) async {
     _transcriptionLanguage = lang;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('transcription_language', lang);
-    notifyListeners();
-    _upsertUserSettings({'transcription_language': lang});
-    _logSettingsChange('transcription_language', lang);
+    await _updateSetting('transcription_language', lang, remoteUpdates: {'transcription_language': lang});
   }
 
   Future<void> setEnableNsfwFilter(bool val) async {
     _enableNsfwFilter = val;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('enable_nsfw_filter', val);
-    notifyListeners();
-    _upsertUserSettings({'enable_nsfw_filter': val});
-    _logSettingsChange('enable_nsfw_filter', val);
+    await _updateSetting('enable_nsfw_filter', val, remoteUpdates: {'enable_nsfw_filter': val});
   }
 
   Future<void> setDataSharingOptIn(bool val) async {
     _dataSharingOptIn = val;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('data_sharing_opt_in', val);
-    notifyListeners();
-    _upsertUserSettings({'data_sharing_opt_in': val});
-    _logSettingsChange('data_sharing_opt_in', val);
+    await _updateSetting('data_sharing_opt_in', val, remoteUpdates: {'data_sharing_opt_in': val});
   }
 
   Future<void> setLocale(Locale locale) async {
     _locale = locale;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_localeKey, locale.languageCode);
-    notifyListeners();
-    _logSettingsChange('app_locale', locale.languageCode);
+    await _updateSetting(_localeKey, locale.languageCode);
   }
 }

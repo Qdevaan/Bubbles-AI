@@ -3,6 +3,8 @@ import 'dart:io';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart'; // Import this
 import 'analytics_service.dart';
+import '../repositories/profile_repository.dart';
+import '../cache/persistent_cache_service.dart';
 
 class AuthService {
   // Singleton Pattern
@@ -10,6 +12,9 @@ class AuthService {
   static final AuthService instance = AuthService._internal();
 
   final SupabaseClient _client = Supabase.instance.client;
+
+  ProfileRepository? _profileRepository;
+  void setProfileRepository(ProfileRepository repo) => _profileRepository = repo;
 
   // Key for storing profile data in SharedPreferences
   static const String _profileCacheKey = 'cached_user_profile';
@@ -118,13 +123,25 @@ class AuthService {
   /// Sign out the current user and CLEAR local cache.
   Future<void> signOut() async {
     try {
+      final userId = currentUserId;
       AnalyticsService.instance.logAction(
         action: 'user_logout',
         entityType: 'auth',
       );
       await AnalyticsService.instance.flushNow();
+
+      // 1. Clear user-scoped cache across all layers (L1 and L2)
+      if (userId != null) {
+        await PersistentCacheService.instance.purgeUserScope(userId);
+        if (_profileRepository != null) {
+          _profileRepository!.l1.purgeUserScope(userId);
+        }
+      }
+
+      // 2. Supabase sign out
       await _client.auth.signOut();
-      // Clear the locally saved profile so the next user doesn't see it
+
+      // Clear legacy cache if repository not active
       final prefs = await SharedPreferences.getInstance();
       await prefs.remove(_profileCacheKey);
     } catch (e) {
@@ -153,44 +170,15 @@ class AuthService {
   // ---------------------------------------------------------------------------
 
   /// Fetches the user's profile.
-  /// Logic:
-  /// 1. Check Local Storage. If data exists, return it immediately (Fast!).
-  /// 2. If no local data, fetch from Supabase.
-  /// 3. Save Supabase result to Local Storage for next time.
   Future<Map<String, dynamic>?> getProfile({bool forceRefresh = false}) async {
-    try {
-      final user = currentUser;
-      if (user == null) return null;
+    final user = currentUser;
+    if (user == null) return null;
 
-      final prefs = await SharedPreferences.getInstance();
-
-      // 1. Return Local Cache if available and we aren't forcing a refresh
-      if (!forceRefresh && prefs.containsKey(_profileCacheKey)) {
-        final jsonString = prefs.getString(_profileCacheKey);
-        if (jsonString != null) {
-          // Decode JSON string back to Map
-          return jsonDecode(jsonString) as Map<String, dynamic>;
-        }
-      }
-
-      // 2. Fetch from Supabase (Network Call)
-      final data = await _client
-          .from('profiles')
-          .select()
-          .eq('id', user.id)
-          .maybeSingle();
-
-      // 3. Save to Local Storage
-      if (data != null) {
-        await prefs.setString(_profileCacheKey, jsonEncode(data));
-      }
-
-      return data;
-    } catch (e) {
-      // If network fails but we have cache, we could try returning cache here too,
-      // but for now, we just return null or rethrow.
-      return null;
+    if (_profileRepository != null) {
+      final result = await _profileRepository!.getProfile(user.id, forceRefresh: forceRefresh);
+      return result.data;
     }
+    return null;
   }
 
   /// Inserts or updates the user's profile data AND updates local cache.
@@ -218,24 +206,12 @@ class AuthService {
       // Remove nulls so we don't wipe out existing data with nulls
       updates.removeWhere((key, value) => value == null);
 
-      // 1. Send to Supabase
-      await _client.from('profiles').upsert(updates);
-
-      // 2. Update Local Cache immediately
-      // We merge the new updates with whatever we already had locally
-      final prefs = await SharedPreferences.getInstance();
-      Map<String, dynamic> currentCache = {};
-
-      if (prefs.containsKey(_profileCacheKey)) {
-        final jsonString = prefs.getString(_profileCacheKey);
-        if (jsonString != null) {
-          currentCache = jsonDecode(jsonString) as Map<String, dynamic>;
-        }
+      if (_profileRepository != null) {
+        await _profileRepository!.upsertProfile(user.id, updates);
+      } else {
+        // Fallback if repository is not initialized
+        await _client.from('profiles').upsert(updates);
       }
-
-      // Merge new updates into current cache
-      final newCache = {...currentCache, ...updates};
-      await prefs.setString(_profileCacheKey, jsonEncode(newCache));
 
       // Mark profile as done in onboarding_progress
       await updateOnboardingProgress({'profile_done': true});

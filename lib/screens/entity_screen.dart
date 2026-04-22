@@ -8,6 +8,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../services/api_service.dart';
 import '../services/auth_service.dart';
+import '../repositories/entity_repository.dart';
 import '../theme/design_tokens.dart';
 import '../widgets/glass_morphism.dart';
 import '../widgets/tags_bottom_sheet.dart';
@@ -61,115 +62,28 @@ class _EntityScreenState extends State<EntityScreen> {
   @override
   void initState() {
     super.initState();
-    final uid = AuthService.instance.currentUser?.id;
-    // context.read is safe in initState() — AppCacheService is a root provider (listen: false)
-    final cache = context.read<AppCacheService>();
-    if (cache.entities != null && cache.cacheUserId == uid) {
-      _entities = List.from(cache.entities!);
-      _loading = false;
-    } else {
-      _loadEntities();
-    }
+    _loadEntities(swr: true);
   }
 
-  Future<void> _loadEntities() async {
-    context.read<AppCacheService>().invalidateEntities();
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
+  Future<void> _loadEntities({bool swr = false}) async {
     final user = AuthService.instance.currentUser;
     if (user == null) {
-      setState(() {
-        _loading = false;
-        _error = 'Not logged in.';
-      });
+      setState(() { _loading = false; _error = 'Not logged in.'; });
       return;
     }
+
+    setState(() { _loading = !swr; _error = null; });
     try {
-      // Fetch entities with their attributes as a joined query
-      final entRes = await _supabase
-          .from('entities')
-          .select(
-            'id, display_name, canonical_name, entity_type, description, mention_count, last_seen_at',
-          )
-          .eq('user_id', user.id)
-          .order('mention_count', ascending: false)
-          .limit(100);
-
-      // Fetch attributes separately, then attach client-side
-      final attRes = await _supabase
-          .from('entity_attributes')
-          .select('entity_id, attribute_key, attribute_value');
-
-      // Fetch relations
-      final relRes = await _supabase
-          .from('entity_relations')
-          .select('source_id, target_id, relation')
-          .eq('user_id', user.id);
-
-      // Fetch tags
-      final tagRes = await _supabase
-          .from('entity_tags')
-          .select('entity_id, tags(id, name, color)')
-          .eq('user_id', user.id);
-
-      // Build attribute map
-      final Map<String, List<Map<String, String>>> attrMap = {};
-      for (final a in (attRes as List)) {
-        final eid = a['entity_id'] as String;
-        attrMap.putIfAbsent(eid, () => []);
-        attrMap[eid]!.add({
-          'key': a['attribute_key'] as String,
-          'value': a['attribute_value'] as String,
-        });
-      }
-
-      // Build relation map (source_id -> list of {relation, target_name})
-      final relList = relRes as List;
-      final entityNameMap = <String, String>{};
-      for (final e in (entRes as List)) {
-        entityNameMap[e['id'] as String] = e['display_name'] as String;
-      }
-      final Map<String, List<Map<String, String>>> relMap = {};
-      for (final r in relList) {
-        final src = r['source_id'] as String;
-        final tgt = entityNameMap[r['target_id']] ?? r['target_id'] as String;
-        final rel = r['relation'] as String;
-        relMap.putIfAbsent(src, () => []);
-        relMap[src]!.add({'relation': rel, 'target': tgt});
-      }
-
-      // Build tag map
-      final Map<String, List<Map<String, dynamic>>> tagMap = {};
-      for (final t in (tagRes as List)) {
-        final eid = t['entity_id'] as String;
-        tagMap.putIfAbsent(eid, () => []);
-        tagMap[eid]!.add(t['tags'] as Map<String, dynamic>);
-      }
-
-      final enriched = entRes.map<Map<String, dynamic>>((e) {
-        final id = e['id'] as String;
-        return {
-          ...e,
-          'attributes': attrMap[id] ?? [],
-          'relations': relMap[id] ?? [],
-          'tags': tagMap[id] ?? [],
-        };
-      }).toList();
-
+      final repo = context.read<EntityRepository>();
+      final result = await repo.getEntities(user.id, forceRefresh: !swr);
       if (!mounted) return;
-      context.read<AppCacheService>().setEntities(enriched, user.id);
       setState(() {
-        _entities = enriched;
+        _entities = result.data ?? [];
         _loading = false;
       });
     } catch (e) {
       if (!mounted) return;
-      setState(() {
-        _loading = false;
-        _error = e.toString();
-      });
+      setState(() { _loading = false; _error = e.toString(); });
     }
   }
 
@@ -241,21 +155,11 @@ class _EntityScreenState extends State<EntityScreen> {
 
     if (confirm != true) return;
 
+    final user = AuthService.instance.currentUser;
+    if (user == null) return;
+
     try {
-      // Cascade: delete attributes and relations first (if no DB cascade set)
-      await _supabase
-          .from('entity_attributes')
-          .delete()
-          .eq('entity_id', entityId);
-      await _supabase
-          .from('entity_relations')
-          .delete()
-          .eq('source_id', entityId);
-      await _supabase
-          .from('entity_relations')
-          .delete()
-          .eq('target_id', entityId);
-      await _supabase.from('entities').delete().eq('id', entityId);
+      await context.read<EntityRepository>().deleteEntity(entityId, user.id);
 
       setState(() {
         _entities.removeWhere((e) => e['id'] == entityId);

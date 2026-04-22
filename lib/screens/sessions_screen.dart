@@ -13,6 +13,7 @@ import '../services/api_service.dart';
 import '../routes/app_routes.dart';
 import '../services/auth_service.dart';
 import '../services/sessions_service.dart';
+import '../repositories/sessions_repository.dart';
 
 enum _SortOrder { newestFirst, oldestFirst }
 
@@ -535,17 +536,30 @@ class ConsultantHistoryList extends StatefulWidget {
 }
 
 class _ConsultantHistoryListState extends State<ConsultantHistoryList> {
-  late final Future<List<Map<String, dynamic>>> _sessionsFuture;
+  List<Map<String, dynamic>> _sessions = [];
+  bool _loading = true;
 
   @override
   void initState() {
     super.initState();
+    _loadSessions(swr: true);
+  }
+
+  Future<void> _loadSessions({bool swr = false}) async {
     final userId = AuthService.instance.currentUserId;
-    if (userId != null) {
-      _sessionsFuture =
-          SessionsService.instance.fetchConsultantSessions(userId);
-    } else {
-      _sessionsFuture = Future.value([]);
+    if (userId == null) return;
+
+    final repo = context.read<SessionsRepository>();
+    try {
+      final result = await repo.getConsultantSessions(userId, forceRefresh: !swr);
+      if (mounted) {
+        setState(() {
+          _sessions = result.data ?? [];
+          _loading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) setState(() => _loading = false);
     }
   }
 
@@ -553,160 +567,143 @@ class _ConsultantHistoryListState extends State<ConsultantHistoryList> {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return FutureBuilder<List<Map<String, dynamic>>>(
-      future: _sessionsFuture,
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        }
-        var sessions = snapshot.data ?? [];
+    if (_loading) return const Center(child: CircularProgressIndicator());
+    var sessions = _sessions;
 
-        // Apply search
-        if (widget.searchQuery.isNotEmpty) {
-          sessions = sessions.where((s) {
-            final title = (s['title'] ?? '').toString().toLowerCase();
-            return title.contains(widget.searchQuery);
-          }).toList();
-        }
+    // Apply search
+    if (widget.searchQuery.isNotEmpty) {
+      sessions = sessions.where((s) {
+        final title = (s['title'] ?? '').toString().toLowerCase();
+        return title.contains(widget.searchQuery);
+      }).toList();
+    }
 
-        // Apply sort
-        sessions = List.from(sessions);
-        switch (widget.sortOrder) {
-          case _SortOrder.newestFirst:
-            sessions.sort(
-              (a, b) => (b['created_at'] as String).compareTo(
-                a['created_at'] as String,
-              ),
-            );
-          case _SortOrder.oldestFirst:
-            sessions.sort(
-              (a, b) => (a['created_at'] as String).compareTo(
-                b['created_at'] as String,
-              ),
-            );
-        }
+    // Apply sort
+    sessions = List.from(sessions);
+    switch (widget.sortOrder) {
+      case _SortOrder.newestFirst:
+        sessions.sort(
+          (a, b) => (b['created_at'] as String).compareTo(
+            a['created_at'] as String,
+          ),
+        );
+      case _SortOrder.oldestFirst:
+        sessions.sort(
+          (a, b) => (a['created_at'] as String).compareTo(
+            b['created_at'] as String,
+          ),
+        );
+    }
 
-        if (sessions.isEmpty) {
-          return _buildEmptyState(
-            'No consultant chats yet',
-            Icons.chat_bubble_outline,
-          );
-        }
+    if (sessions.isEmpty) {
+      return _buildEmptyState(
+        'No consultant chats yet',
+        Icons.chat_bubble_outline,
+      );
+    }
 
-        return ListView.builder(
-          shrinkWrap: widget.shrinkwrap,
-          physics: widget.shrinkwrap
-              ? const NeverScrollableScrollPhysics()
-              : null,
-          padding: widget.shrinkwrap
-              ? EdgeInsets.zero
-              : const EdgeInsets.all(16),
-          itemCount: sessions.length,
-          itemBuilder: (context, index) {
-            final session = sessions[index];
-            final date = DateTime.parse(session['created_at']).toLocal();
-            final formattedDate = DateFormat('MMM d, h:mm a').format(date);
-            final title = session['title'] ?? 'Consultant Chat';
+    return ListView.builder(
+      shrinkWrap: widget.shrinkwrap,
+      physics: widget.shrinkwrap ? const NeverScrollableScrollPhysics() : null,
+      padding: widget.shrinkwrap ? EdgeInsets.zero : const EdgeInsets.all(16),
+      itemCount: sessions.length,
+      itemBuilder: (context, index) {
+        final session = sessions[index];
+        final date = DateTime.parse(session['created_at']).toLocal();
+        final formattedDate = DateFormat('MMM d, h:mm a').format(date);
+        final title = session['title'] ?? 'Consultant Chat';
 
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 10),
-              child: GestureDetector(
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => GenericSessionDetail(
-                        isConsultant: true,
-                        sessionId: session['id'],
-                        title: title,
-                      ),
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 10),
+          child: GestureDetector(
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => GenericSessionDetail(
+                    isConsultant: true,
+                    sessionId: session['id'],
+                    title: title,
+                  ),
+                ),
+              );
+            },
+            child: GlassPanel(
+              padding: const EdgeInsets.all(16),
+              borderRadius: AppRadius.xxl,
+              child: Row(
+                children: [
+                  Container(
+                    width: 42,
+                    height: 42,
+                    decoration: BoxDecoration(
+                      color: Colors.purple.withAlpha(38),
+                      borderRadius: BorderRadius.circular(10),
                     ),
-                  );
-                },
-                child: GlassPanel(
-                  padding: const EdgeInsets.all(16),
-                  borderRadius: AppRadius.xxl,
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 42,
-                        height: 42,
-                        decoration: BoxDecoration(
-                          color: Colors.purple.withAlpha(38),
-                          borderRadius: BorderRadius.circular(10),
+                    child: const Icon(
+                      Icons.psychology_outlined,
+                      color: Colors.purple,
+                      size: 22,
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          title,
+                          style: GoogleFonts.manrope(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                            color: isDark ? Colors.white : AppColors.slate900,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
-                        child: const Icon(
-                          Icons.psychology_outlined,
-                          color: Colors.purple,
-                          size: 22,
-                        ),
-                      ),
-                      const SizedBox(width: 14),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                        const SizedBox(height: 4),
+                        Row(
                           children: [
-                            Text(
-                              title,
-                              style: GoogleFonts.manrope(
-                                fontSize: 15,
-                                fontWeight: FontWeight.w700,
-                                color: isDark
-                                    ? Colors.white
-                                    : AppColors.slate900,
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 2,
                               ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
+                              decoration: BoxDecoration(
+                                color: Colors.purple.withAlpha(38),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(
+                                'Consultant',
+                                style: GoogleFonts.manrope(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.purple,
+                                ),
+                              ),
                             ),
-                            const SizedBox(height: 4),
-                            Row(
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                    vertical: 2,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: Colors.purple.withAlpha(38),
-                                    borderRadius: BorderRadius.circular(6),
-                                  ),
-                                  child: Text(
-                                    'Consultant',
-                                    style: GoogleFonts.manrope(
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w600,
-                                      color: Colors.purple,
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                Text(
-                                  formattedDate,
-                                  style: GoogleFonts.manrope(
-                                    fontSize: 12,
-                                    color: isDark
-                                        ? AppColors.slate400
-                                        : AppColors.slate500,
-                                  ),
-                                ),
-                              ],
+                            const SizedBox(width: 8),
+                            Text(
+                              formattedDate,
+                              style: GoogleFonts.manrope(
+                                fontSize: 12,
+                                color: isDark ? AppColors.slate400 : AppColors.slate500,
+                              ),
                             ),
                           ],
                         ),
-                      ),
-                      Icon(
-                        Icons.chevron_right,
-                        color: isDark
-                            ? AppColors.slate500
-                            : Colors.grey.shade400,
-                        size: 20,
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
+                  Icon(
+                    Icons.chevron_right,
+                    color: isDark ? AppColors.slate500 : Colors.grey.shade400,
+                    size: 20,
+                  ),
+                ],
               ),
-            );
-          },
+            ),
+          ),
         );
       },
     );
@@ -763,18 +760,34 @@ class GenericSessionDetail extends StatefulWidget {
 }
 
 class _GenericSessionDetailState extends State<GenericSessionDetail> {
-  late final Future<List<Map<String, dynamic>>> _logsFuture;
+  List<Map<String, dynamic>> _logs = [];
+  bool _loading = true;
   final Map<String, int> _feedbackMap = {};
   List<Map<String, dynamic>> _sessionTags = [];
 
   @override
   void initState() {
     super.initState();
-    _logsFuture = SessionsService.instance.fetchSessionLogs(
-      sessionId: widget.sessionId,
-      isConsultant: widget.isConsultant,
-    );
+    _loadLogs(swr: true);
     WidgetsBinding.instance.addPostFrameCallback((_) => _loadTags());
+  }
+
+  Future<void> _loadLogs({bool swr = false}) async {
+    final userId = AuthService.instance.currentUserId;
+    if (userId == null) return;
+
+    final repo = context.read<SessionsRepository>();
+    try {
+      final result = await repo.getSessionLogs(widget.sessionId, widget.isConsultant, userId, forceRefresh: !swr);
+      if (mounted) {
+        setState(() {
+          _logs = result.data ?? [];
+          _loading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) setState(() => _loading = false);
+    }
   }
 
   Future<void> _loadTags() async {
@@ -882,13 +895,12 @@ class _GenericSessionDetailState extends State<GenericSessionDetail> {
               ),
             ),
             Expanded(
-              child: FutureBuilder<List<Map<String, dynamic>>>(
-                future: _logsFuture,
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
+              child: Builder(
+                builder: (context) {
+                  if (_loading) {
                     return const Center(child: CircularProgressIndicator());
                   }
-                  final logs = snapshot.data ?? [];
+                  final logs = _logs;
 
                   if (logs.isEmpty) {
                     return Center(

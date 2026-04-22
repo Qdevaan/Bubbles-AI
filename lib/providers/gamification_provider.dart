@@ -1,13 +1,17 @@
 import 'package:flutter/foundation.dart';
 import '../services/api_service.dart';
 import '../services/auth_service.dart';
+import '../repositories/gamification_repository.dart';
 
 /// Centralized gamification state for the entire app.
 /// Consumed by the Game Center, Home Screen streak strip, and XP ring.
 class GamificationProvider extends ChangeNotifier {
   final ApiService _api;
+  GamificationRepository? _repository;
 
   GamificationProvider(this._api);
+
+  void setRepository(GamificationRepository repo) => _repository = repo;
 
   // ── Profile data ──────────────────────────────────────────────────────────
   int _totalXp = 0;
@@ -149,47 +153,37 @@ class GamificationProvider extends ChangeNotifier {
     final userId = AuthService.instance.currentUser?.id;
     if (userId == null || userId.isEmpty) return;
 
+    if (_repository == null) return;
     _profileLoading = true;
     notifyListeners();
 
     try {
-      final data = await _api.getGamification(userId);
-      if (data == null) {
-        _profileLoading = false;
-        notifyListeners();
-        return;
+      final result = await _repository!.getGamification(userId, forceRefresh: false);
+      final data = result.data;
+      if (data != null && data.isNotEmpty) {
+        final oldLevel = _level;
+        _totalXp = (data['xp'] as num?)?.toInt() ?? 0;
+        _level = (data['level'] as num?)?.toInt() ?? 1;
+        _xpCurrentLevel = (data['xp_current_level'] as num?)?.toInt() ?? 0;
+        _xpNextLevel = (data['xp_next_level'] as num?)?.toInt() ?? 100;
+        _xpToNextLevel = (data['xp_to_next_level'] as num?)?.toInt() ?? 100;
+        _xpProgressPct = (data['xp_progress_pct'] as num?)?.toDouble() ?? 0.0;
+        _currentStreak = (data['current_streak'] as num?)?.toInt() ?? 0;
+        _longestStreak = (data['longest_streak'] as num?)?.toInt() ?? 0;
+        _streakFreezes = (data['streak_freezes'] as num?)?.toInt() ?? 0;
+        _lastActiveDate = data['last_active_date'] as String?;
+        _badges = List<Map<String, dynamic>>.from(data['badges'] ?? []);
+        _recentXp = List<Map<String, dynamic>>.from(data['recent_xp'] ?? []);
+        final statsRaw = data['stats'] as Map<String, dynamic>?;
+        if (statsRaw != null) {
+          _stats = statsRaw.map((k, v) => MapEntry(k, (v as num?)?.toInt() ?? 0));
+        }
+        if (oldLevel > 0 && _level > oldLevel) _levelUpTriggered = true;
       }
-
-      final oldLevel = _level;
-
-      _totalXp = (data['xp'] as num?)?.toInt() ?? 0;
-      _level = (data['level'] as num?)?.toInt() ?? 1;
-      _xpCurrentLevel = (data['xp_current_level'] as num?)?.toInt() ?? 0;
-      _xpNextLevel = (data['xp_next_level'] as num?)?.toInt() ?? 100;
-      _xpToNextLevel = (data['xp_to_next_level'] as num?)?.toInt() ?? 100;
-      _xpProgressPct = (data['xp_progress_pct'] as num?)?.toDouble() ?? 0.0;
-      _currentStreak = (data['current_streak'] as num?)?.toInt() ?? 0;
-      _longestStreak = (data['longest_streak'] as num?)?.toInt() ?? 0;
-      _streakFreezes = (data['streak_freezes'] as num?)?.toInt() ?? 0;
-      _lastActiveDate = data['last_active_date'] as String?;
-
-      _badges = List<Map<String, dynamic>>.from(data['badges'] ?? []);
-      _recentXp = List<Map<String, dynamic>>.from(data['recent_xp'] ?? []);
-
-      final statsRaw = data['stats'] as Map<String, dynamic>?;
-      if (statsRaw != null) {
-        _stats = statsRaw.map((k, v) => MapEntry(k, (v as num?)?.toInt() ?? 0));
-      }
-
-      // Detect level-up for celebration
-      if (oldLevel > 0 && _level > oldLevel) {
-        _levelUpTriggered = true;
-      }
-
       _profileLoading = false;
       notifyListeners();
     } catch (e) {
-      debugPrint('GamificationProvider.loadProfile error: $e');
+      debugPrint('GamificationProvider.loadProfile repo error: $e');
       _profileLoading = false;
       notifyListeners();
     }
@@ -199,26 +193,22 @@ class GamificationProvider extends ChangeNotifier {
     final userId = AuthService.instance.currentUser?.id;
     if (userId == null || userId.isEmpty) return;
 
+    if (_repository == null) return;
     _questsLoading = true;
     notifyListeners();
-
     try {
-      final data = await _api.getQuests(userId);
-      if (data == null) {
-        _questsLoading = false;
-        notifyListeners();
-        return;
+      final result = await _repository!.getQuests(userId, forceRefresh: false);
+      final data = result.data;
+      if (data != null && data.isNotEmpty) {
+        _dailyQuests = List<Map<String, dynamic>>.from(data['quests'] ?? []);
+        _dailyResetAt = data['daily_reset_at'] as String?;
+        _completedToday = (data['total_completed_today'] as num?)?.toInt() ?? 0;
+        _totalQuestsToday = (data['total_quests_today'] as num?)?.toInt() ?? 0;
       }
-
-      _dailyQuests = List<Map<String, dynamic>>.from(data['quests'] ?? []);
-      _dailyResetAt = data['daily_reset_at'] as String?;
-      _completedToday = (data['total_completed_today'] as num?)?.toInt() ?? 0;
-      _totalQuestsToday = (data['total_quests_today'] as num?)?.toInt() ?? 0;
-
       _questsLoading = false;
       notifyListeners();
     } catch (e) {
-      debugPrint('GamificationProvider.loadQuests error: $e');
+      debugPrint('GamificationProvider.loadQuests repo error: $e');
       _questsLoading = false;
       notifyListeners();
     }
@@ -229,19 +219,21 @@ class GamificationProvider extends ChangeNotifier {
     final userId = AuthService.instance.currentUser?.id;
     if (userId == null || userId.isEmpty) return;
 
+    if (_repository == null) return;
     try {
-      final data = await _api.getPerformanceSummary(userId);
-      if (data == null) return;
-
-      _performanceTier = data['performance_tier'] as String?;
-      _recommendedDifficulty = data['recommended_difficulty'] as String?;
-      _aiCoachingTip = data['ai_coaching_tip'] as String?;
-      _focusAreas = List<String>.from(data['focus_areas'] ?? []);
-      _weeklyScore = (data['weekly_score'] as num?)?.toDouble();
-      _scoreDelta = (data['score_delta'] as num?)?.toDouble();
-      notifyListeners();
+      final result = await _repository!.getPerformanceSummary(userId, forceRefresh: false);
+      final data = result.data;
+      if (data != null && data.isNotEmpty) {
+        _performanceTier = data['performance_tier'] as String?;
+        _recommendedDifficulty = data['recommended_difficulty'] as String?;
+        _aiCoachingTip = data['ai_coaching_tip'] as String?;
+        _focusAreas = List<String>.from(data['focus_areas'] ?? []);
+        _weeklyScore = (data['weekly_score'] as num?)?.toDouble();
+        _scoreDelta = (data['score_delta'] as num?)?.toDouble();
+        notifyListeners();
+      }
     } catch (e) {
-      debugPrint('GamificationProvider.loadPerformanceSummary error: $e');
+      debugPrint('GamificationProvider.loadPerformanceSummary repo error: $e');
     }
   }
 

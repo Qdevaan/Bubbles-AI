@@ -11,7 +11,17 @@ import 'services/voice_assistant_service.dart';
 import 'services/wake_word_service.dart';
 import 'services/analytics_service.dart';
 import 'services/device_service.dart';
+import 'services/auth_service.dart';
 import 'services/app_cache_service.dart';
+import 'cache/persistent_cache_service.dart';
+import 'repositories/profile_repository.dart';
+import 'repositories/settings_repository.dart';
+import 'repositories/home_repository.dart';
+import 'repositories/insights_repository.dart';
+import 'repositories/graph_repository.dart';
+import 'repositories/entity_repository.dart';
+import 'repositories/gamification_repository.dart';
+import 'repositories/sessions_repository.dart';
 import 'providers/theme_provider.dart';
 import 'providers/settings_provider.dart';
 import 'providers/consultant_provider.dart';
@@ -60,6 +70,9 @@ import 'routes/app_routes.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize Persistent Cache
+  await PersistentCacheService.instance.init();
 
   // Load environment variables — .env is no longer bundled as a Flutter asset
   // (to avoid leaking API keys in the APK). It still loads from the project
@@ -134,8 +147,9 @@ class BubblesApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
-        // 0. App Cache Service (Global app state cache)
+        // 0. Core Cache Layers
         ChangeNotifierProvider(create: (_) => AppCacheService()),
+        Provider.value(value: PersistentCacheService.instance),
 
         // 1. Connection Service (Base)
         ChangeNotifierProvider(create: (context) => ConnectionService()),
@@ -143,6 +157,58 @@ class BubblesApp extends StatelessWidget {
         // 2. API Service (Depends on ConnectionService)
         ProxyProvider<ConnectionService, ApiService>(
           update: (context, connection, previous) => ApiService(connection),
+        ),
+
+        // 0.5. Repositories (Domain Data Logic)
+        ProxyProvider<AppCacheService, ProfileRepository>(
+          update: (context, l1, _) {
+            final repo = ProfileRepository(l1: l1, l2: context.read<PersistentCacheService>());
+            AuthService.instance.setProfileRepository(repo);
+            return repo;
+          },
+        ),
+        ProxyProvider<AppCacheService, SettingsRepository>(
+          update: (context, l1, _) => SettingsRepository(
+            l1: l1, 
+            l2: context.read<PersistentCacheService>(),
+          ),
+        ),
+        ProxyProvider<AppCacheService, HomeRepository>(
+          update: (context, l1, _) => HomeRepository(
+            l1: l1, 
+            l2: context.read<PersistentCacheService>(),
+          ),
+        ),
+        ProxyProvider<AppCacheService, InsightsRepository>(
+          update: (context, l1, _) => InsightsRepository(
+            l1: l1, 
+            l2: context.read<PersistentCacheService>(),
+          ),
+        ),
+        ProxyProvider<AppCacheService, GraphRepository>(
+          update: (context, l1, _) => GraphRepository(
+            l1: l1, 
+            l2: context.read<PersistentCacheService>(),
+          ),
+        ),
+        ProxyProvider<AppCacheService, EntityRepository>(
+          update: (context, l1, _) => EntityRepository(
+            l1: l1, 
+            l2: context.read<PersistentCacheService>(),
+          ),
+        ),
+        ProxyProvider<ApiService, GamificationRepository>(
+          update: (context, api, _) => GamificationRepository(
+            api: api, 
+            l1: context.read<AppCacheService>(), 
+            l2: context.read<PersistentCacheService>(),
+          ),
+        ),
+        ProxyProvider<AppCacheService, SessionsRepository>(
+          update: (context, l1, _) => SessionsRepository(
+            l1: l1, 
+            l2: context.read<PersistentCacheService>(),
+          ),
         ),
 
         // 3. LiveKit Service (Depends on ApiService)
@@ -159,8 +225,11 @@ class BubblesApp extends StatelessWidget {
           initialSeedColor: initialSeedColor,
         )),
 
-          // 4.5. Settings Provider
-          ChangeNotifierProvider(create: (context) => SettingsProvider()),
+        // 4.5. Settings Provider (Depends on SettingsRepository)
+        ChangeNotifierProxyProvider<SettingsRepository, SettingsProvider>(
+          create: (context) => SettingsProvider(),
+          update: (context, repo, provider) => provider!..setRepository(repo),
+        ),
         ChangeNotifierProvider(create: (context) => DeepgramService()),
 
         // 6. Wake Word Service (Porcupine)
@@ -180,13 +249,19 @@ class BubblesApp extends StatelessWidget {
         ),
 
         // 8. Consultant Provider (chat state)
-        ChangeNotifierProvider(create: (_) => ConsultantProvider()),
+        ChangeNotifierProxyProvider<SessionsRepository, ConsultantProvider>(
+          create: (_) => ConsultantProvider(),
+          update: (context, repo, provider) => provider!..setRepository(repo),
+        ),
 
         // 9. Session Provider (live wingman state)
         ChangeNotifierProvider(create: (_) => SessionProvider()),
 
-        // 10. Home Provider (home screen data)
-        ChangeNotifierProvider(create: (_) => HomeProvider()),
+        // 10. Home Provider (Depends on HomeRepository)
+        ChangeNotifierProxyProvider<HomeRepository, HomeProvider>(
+          create: (context) => HomeProvider(),
+          update: (context, repo, provider) => provider!..setRepository(repo),
+        ),
 
         // 11. Tags Provider (schema_v2 tagging)
         ChangeNotifierProvider(create: (_) => TagsProvider()),
@@ -203,11 +278,10 @@ class BubblesApp extends StatelessWidget {
         // 15. Enterprise & Subscriptions Provider
         ChangeNotifierProvider(create: (_) => EnterpriseProvider()),
 
-        // 16. Gamification Provider (depends on ApiService)
-        ChangeNotifierProxyProvider<ApiService, GamificationProvider>(
-          create: (context) =>
-              GamificationProvider(Provider.of<ApiService>(context, listen: false)),
-          update: (context, api, previous) => previous!,
+        // 16. Gamification Provider (Depends on GamificationRepository)
+        ChangeNotifierProxyProvider<GamificationRepository, GamificationProvider>(
+          create: (context) => GamificationProvider(context.read<ApiService>()),
+          update: (context, repo, provider) => provider!..setRepository(repo),
         ),
       ],
       child: Consumer2<ThemeProvider, SettingsProvider>(
