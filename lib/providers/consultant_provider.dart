@@ -162,7 +162,8 @@ class ConsultantProvider extends ChangeNotifier {
         user.id,
         text,
         sessionId: _currentSessionId,
-        mode: tone,
+        mode: 'consultant',
+        persona: tone,
         onSessionCreated: (sid) {
           _currentSessionId = sid;
           _drawerLoaded = false;

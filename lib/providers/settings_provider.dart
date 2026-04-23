@@ -15,6 +15,7 @@ class SettingsProvider with ChangeNotifier {
   static const String _alwaysPromptKey = 'always_prompt_for_tone';
   static const String _localeKey = 'app_locale';
   static const String _quickActionsStyleKey = 'quick_actions_style';
+  static const String _enabledQuickActionsKey = 'enabled_quick_actions';
 
   SettingsRepository? _repository;
   void setRepository(SettingsRepository repo) => _repository = repo;
@@ -26,6 +27,7 @@ class SettingsProvider with ChangeNotifier {
   String _defaultConsultantTone = 'casual';
   bool _alwaysPromptForTone = false;
   String _quickActionsStyle = 'grid'; // 'list', 'grid', or 'icons'
+  List<String> _enabledQuickActions = ['consultant', 'sessions', 'roleplay', 'game-center', 'graph-explorer', 'insights'];
 
   bool _pushHighlights = true;
   bool _pushEvents = true;
@@ -48,6 +50,7 @@ class SettingsProvider with ChangeNotifier {
   String get defaultConsultantTone => _defaultConsultantTone;
   bool get alwaysPromptForTone => _alwaysPromptForTone;
   String get quickActionsStyle => _quickActionsStyle;
+  List<String> get enabledQuickActions => _enabledQuickActions;
   bool get pushHighlights => _pushHighlights;
   bool get pushEvents => _pushEvents;
   bool get pushWeeklyDigest => _pushWeeklyDigest;
@@ -79,9 +82,13 @@ class SettingsProvider with ChangeNotifier {
       // Fallback for Guest mode or initialization before repository is ready
       final prefs = await SharedPreferences.getInstance();
       _defaultLiveTone = prefs.getString(_liveToneKey) ?? 'casual';
+      if (_defaultLiveTone == 'serious') _defaultLiveTone = 'formal';
       _defaultConsultantTone = prefs.getString(_consultantToneKey) ?? 'casual';
-      _alwaysPromptForTone = prefs.getBool(_alwaysPromptKey) ?? false;
+      if (_defaultConsultantTone == 'serious') _defaultConsultantTone = 'formal';
+      _alwaysPromptForTone = prefs.getBool(_alwaysPromptKey) ?? true;
       _quickActionsStyle = prefs.getString(_quickActionsStyleKey) ?? 'grid';
+      final list = prefs.getStringList(_enabledQuickActionsKey);
+      if (list != null) _enabledQuickActions = list;
 
       _pushHighlights = prefs.getBool('push_highlights') ?? true;
       _pushEvents = prefs.getBool('push_events') ?? true;
@@ -108,7 +115,8 @@ class SettingsProvider with ChangeNotifier {
 
   void _applySettingsMap(Map<String, dynamic> settings) {
     if (settings['assistant_persona'] != null) {
-      final persona = settings['assistant_persona'] as String;
+      String persona = settings['assistant_persona'] as String;
+      if (persona == 'serious') persona = 'formal';
       _defaultLiveTone = persona;
       _defaultConsultantTone = persona;
     }
@@ -126,6 +134,7 @@ class SettingsProvider with ChangeNotifier {
     // Non-synced/local only
     if (settings[_alwaysPromptKey] != null) _alwaysPromptForTone = settings[_alwaysPromptKey];
     if (settings[_quickActionsStyleKey] != null) _quickActionsStyle = settings[_quickActionsStyleKey];
+    if (settings[_enabledQuickActionsKey] != null) _enabledQuickActions = List<String>.from(settings[_enabledQuickActionsKey]);
     if (settings[_localeKey] != null) _locale = Locale(settings[_localeKey]);
     
     if (settings['push_highlights'] != null) _pushHighlights = settings['push_highlights'];
@@ -218,15 +227,25 @@ class SettingsProvider with ChangeNotifier {
     await _updateSetting(_quickActionsStyleKey, style);
   }
 
+  Future<void> setEnabledQuickActions(List<String> actions) async {
+    _enabledQuickActions = actions;
+    // Persist locally
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(_enabledQuickActionsKey, actions);
+    if (_repository != null) {
+      final user = AuthService.instance.currentUser;
+      if (user != null) await _repository!.writeSetting(user.id, _enabledQuickActionsKey, actions);
+    }
+    notifyListeners();
+  }
+
   Future<void> setDefaultLiveTone(String tone) async {
     _defaultLiveTone = tone;
-    _defaultConsultantTone = tone;
     await _updateSetting(_liveToneKey, tone, remoteUpdates: {'assistant_persona': tone});
   }
 
   Future<void> setDefaultConsultantTone(String tone) async {
     _defaultConsultantTone = tone;
-    _defaultLiveTone = tone;
     await _updateSetting(_consultantToneKey, tone, remoteUpdates: {'assistant_persona': tone});
   }
 

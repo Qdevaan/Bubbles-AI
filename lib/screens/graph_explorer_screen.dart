@@ -70,6 +70,10 @@ class _GraphExplorerScreenState extends State<GraphExplorerScreen>
 
   _ViewMode _viewMode = _ViewMode.flat;
 
+  // ── Graph Query Engine ───────────────────────────────────────────────────
+  final TextEditingController _graphQueryController = TextEditingController();
+  bool _graphQueryLoading = false;
+
   // 3D rotation state
   double _rotX = 0.3;
   double _rotY = 0.0;
@@ -89,6 +93,7 @@ class _GraphExplorerScreenState extends State<GraphExplorerScreen>
   @override
   void dispose() {
     _autoRotateCtrl.dispose();
+    _graphQueryController.dispose();
     super.dispose();
   }
 
@@ -202,6 +207,65 @@ class _GraphExplorerScreenState extends State<GraphExplorerScreen>
     );
   }
 
+  // ── Node single-tap: entity quick reference ──────────────────────────────
+  void _onNodeTap(BuildContext context, Node<Map<String, dynamic>> node) {
+    final label = node.data['label'] as String? ?? node.data['id']?.toString() ?? 'Unknown';
+    final entityType = node.data['type'] as String? ?? 'unknown';
+    final color = _colorForType(entityType);
+    final icon = _iconForType(entityType);
+    final userId = AuthService.instance.currentUser?.id ?? '';
+    final api = context.read<ApiService>();
+    final isConnected = context.read<ConnectionService>().isConnected;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        return _EntityQuickReferenceSheet(
+          label: label,
+          entityType: entityType,
+          color: color,
+          icon: icon,
+          userId: userId,
+          api: api,
+          isConnected: isConnected,
+          onViewInEntities: () {
+            Navigator.pop(ctx);
+            Navigator.pushNamed(context, '/entities');
+          },
+        );
+      },
+    );
+  }
+
+  // ── Graph Query submission ────────────────────────────────────────────────
+  Future<void> _submitGraphQuery() async {
+    final query = _graphQueryController.text.trim();
+    if (query.isEmpty) return;
+    final userId = AuthService.instance.currentUser?.id ?? '';
+    final api = context.read<ApiService>();
+    final isConnected = context.read<ConnectionService>().isConnected;
+    if (!isConnected) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Connect to the server to query the graph.')),
+      );
+      return;
+    }
+    FocusScope.of(context).unfocus();
+    setState(() => _graphQueryLoading = true);
+    final answer = await api.askGraphQuery(userId, query);
+    if (!mounted) return;
+    setState(() => _graphQueryLoading = false);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _GraphQueryResultSheet(query: query, answer: answer, isDark: isDark),
+    );
+  }
+
   Widget _buildNodeWidget(
       BuildContext context, Node<Map<String, dynamic>> node) {
     final label = node.data['label'] as String? ??
@@ -212,6 +276,7 @@ class _GraphExplorerScreenState extends State<GraphExplorerScreen>
     final icon = _iconForType(entityType);
 
     return GestureDetector(
+      onTap: () => _onNodeTap(context, node),
       onLongPress: () => _onNodeLongPress(context, node),
       child: Tooltip(
         message: '${entityType ?? 'unknown'}: $label',
@@ -428,6 +493,19 @@ class _GraphExplorerScreenState extends State<GraphExplorerScreen>
             right: 16,
             child:
                 _EntityTypeLegend().animate().fadeIn(delay: 400.ms),
+          ),
+
+          // ── Floating Graph Query Bar ──────────────────────────────────────
+          Positioned(
+            top: 10,
+            left: 16,
+            right: 16,
+            child: _GraphQueryBar(
+              controller: _graphQueryController,
+              isLoading: _graphQueryLoading,
+              onSubmit: _submitGraphQuery,
+              isDark: isDark,
+            ).animate().fadeIn(duration: 400.ms).slideY(begin: -0.3, end: 0),
           ),
 
           // 3D drag hint
@@ -863,6 +941,371 @@ class _EntityTypeLegend extends StatelessWidget {
             ),
           );
         }).toList(),
+      ),
+    );
+  }
+}
+
+// ── Graph Query Bar ────────────────────────────────────────────────────────────
+
+class _GraphQueryBar extends StatelessWidget {
+  final TextEditingController controller;
+  final bool isLoading;
+  final VoidCallback onSubmit;
+  final bool isDark;
+
+  const _GraphQueryBar({
+    required this.controller,
+    required this.isLoading,
+    required this.onSubmit,
+    required this.isDark,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Container(
+      height: 48,
+      decoration: BoxDecoration(
+        color: isDark
+            ? const Color(0xFF1A2632).withOpacity(0.92)
+            : Colors.white.withOpacity(0.94),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: cs.primary.withOpacity(0.25), width: 1.2),
+        boxShadow: [
+          BoxShadow(
+            color: cs.primary.withOpacity(0.12),
+            blurRadius: 14,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          const SizedBox(width: 14),
+          Icon(Icons.search_rounded, size: 20, color: cs.primary),
+          const SizedBox(width: 8),
+          Expanded(
+            child: TextField(
+              controller: controller,
+              style: TextStyle(
+                fontSize: 14,
+                color: isDark ? Colors.white : const Color(0xFF0F172A),
+              ),
+              decoration: InputDecoration(
+                hintText: 'Ask anything about your graph…',
+                hintStyle: TextStyle(
+                  fontSize: 14,
+                  color: isDark
+                      ? Colors.white38
+                      : const Color(0xFF94A3B8),
+                ),
+                border: InputBorder.none,
+                isDense: true,
+                contentPadding: EdgeInsets.zero,
+              ),
+              onSubmitted: (_) => onSubmit(),
+              textInputAction: TextInputAction.search,
+            ),
+          ),
+          if (isLoading)
+            Padding(
+              padding: const EdgeInsets.only(right: 12),
+              child: SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: cs.primary,
+                ),
+              ),
+            )
+          else
+            GestureDetector(
+              onTap: onSubmit,
+              child: Container(
+                margin: const EdgeInsets.only(right: 6),
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: cs.primary,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.arrow_forward_rounded,
+                    color: Colors.white, size: 18),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Graph Query Result Sheet ───────────────────────────────────────────────────
+
+class _GraphQueryResultSheet extends StatelessWidget {
+  final String query;
+  final String answer;
+  final bool isDark;
+
+  const _GraphQueryResultSheet({
+    required this.query,
+    required this.answer,
+    required this.isDark,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return DraggableScrollableSheet(
+      initialChildSize: 0.5,
+      maxChildSize: 0.9,
+      minChildSize: 0.3,
+      builder: (_, scrollController) => Container(
+        margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+        decoration: BoxDecoration(
+          color: isDark
+              ? const Color(0xFF111827).withOpacity(0.97)
+              : Colors.white.withOpacity(0.97),
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: cs.primary.withOpacity(0.2)),
+        ),
+        child: ListView(
+          controller: scrollController,
+          padding: const EdgeInsets.all(20),
+          children: [
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: isDark ? Colors.white24 : Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: cs.primary.withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(Icons.search_rounded, color: cs.primary, size: 18),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    query,
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                      color: isDark ? Colors.white : const Color(0xFF0F172A),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: cs.primary.withOpacity(0.06),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: cs.primary.withOpacity(0.15)),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(Icons.psychology_rounded, color: cs.primary, size: 20),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      answer,
+                      style: TextStyle(
+                        fontSize: 14,
+                        height: 1.6,
+                        color: isDark ? Colors.white70 : const Color(0xFF334155),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text('Dismiss', style: TextStyle(color: cs.primary)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── Entity Quick Reference Sheet ───────────────────────────────────────────────
+
+class _EntityQuickReferenceSheet extends StatefulWidget {
+  final String label;
+  final String entityType;
+  final Color color;
+  final IconData icon;
+  final String userId;
+  final ApiService api;
+  final bool isConnected;
+  final VoidCallback onViewInEntities;
+
+  const _EntityQuickReferenceSheet({
+    required this.label,
+    required this.entityType,
+    required this.color,
+    required this.icon,
+    required this.userId,
+    required this.api,
+    required this.isConnected,
+    required this.onViewInEntities,
+  });
+
+  @override
+  State<_EntityQuickReferenceSheet> createState() =>
+      _EntityQuickReferenceSheetState();
+}
+
+class _EntityQuickReferenceSheetState
+    extends State<_EntityQuickReferenceSheet> {
+  String? _answer;
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSummary();
+  }
+
+  Future<void> _loadSummary() async {
+    if (!widget.isConnected) {
+      setState(() {
+        _answer = 'Connect to the server to get an AI summary.';
+        _loading = false;
+      });
+      return;
+    }
+    final result = await widget.api.askAboutEntity(widget.userId, widget.label);
+    if (mounted) setState(() { _answer = result; _loading = false; });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cs = Theme.of(context).colorScheme;
+
+    return DraggableScrollableSheet(
+      initialChildSize: 0.45,
+      maxChildSize: 0.85,
+      minChildSize: 0.25,
+      builder: (_, scrollController) => Container(
+        margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+        decoration: BoxDecoration(
+          color: isDark
+              ? const Color(0xFF111827).withOpacity(0.97)
+              : Colors.white.withOpacity(0.97),
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: widget.color.withOpacity(0.3)),
+        ),
+        child: ListView(
+          controller: scrollController,
+          padding: const EdgeInsets.all(20),
+          children: [
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: isDark ? Colors.white24 : Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: widget.color.withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(widget.icon, color: widget.color, size: 22),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        widget.label,
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
+                          color: isDark ? Colors.white : const Color(0xFF0F172A),
+                        ),
+                      ),
+                      Text(
+                        widget.entityType.toUpperCase(),
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: widget.color,
+                          letterSpacing: 1.2,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            if (_loading)
+              Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: CircularProgressIndicator(color: widget.color),
+                ),
+              )
+            else
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: widget.color.withOpacity(0.06),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: widget.color.withOpacity(0.15)),
+                ),
+                child: Text(
+                  _answer ?? '—',
+                  style: TextStyle(
+                    fontSize: 14,
+                    height: 1.6,
+                    color: isDark ? Colors.white70 : const Color(0xFF334155),
+                  ),
+                ),
+              ),
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              onPressed: widget.onViewInEntities,
+              icon: Icon(Icons.open_in_new_rounded, size: 16, color: cs.primary),
+              label: Text('View in Entities', style: TextStyle(color: cs.primary)),
+              style: OutlinedButton.styleFrom(
+                side: BorderSide(color: cs.primary.withOpacity(0.4)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

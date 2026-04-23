@@ -10,6 +10,7 @@ class ChatBubble extends StatelessWidget {
   final bool isUser;
   final String? speakerLabel;
   final Widget? contentWidget;
+  final bool isHighlighted;
 
   const ChatBubble({
     super.key,
@@ -17,6 +18,7 @@ class ChatBubble extends StatelessWidget {
     required this.isUser,
     this.speakerLabel,
     this.contentWidget,
+    this.isHighlighted = false,
   });
 
   @override
@@ -32,20 +34,27 @@ class ChatBubble extends StatelessWidget {
           maxWidth: MediaQuery.of(context).size.width * 0.75,
         ),
         decoration: BoxDecoration(
-          color: isUser
-              ? Colors.transparent
-              : (isDark ? AppColors.glassWhite : AppColors.slate100),
+          color: isHighlighted
+              ? Theme.of(context).colorScheme.primary.withAlpha(38)
+              : (isUser
+                  ? Colors.transparent
+                  : (isDark ? AppColors.glassWhite : AppColors.slate100)),
           borderRadius: BorderRadius.only(
             topLeft: Radius.circular(isUser ? 18 : 4),
             topRight: Radius.circular(isUser ? 4 : 18),
             bottomLeft: const Radius.circular(18),
             bottomRight: const Radius.circular(18),
           ),
-          border: isUser
+          border: isHighlighted
               ? Border.all(
-                  color: isDark ? AppColors.glassBorder : Colors.grey.shade300,
+                  color: Theme.of(context).colorScheme.primary.withAlpha(128),
+                  width: 1.5,
                 )
-              : (isDark ? Border.all(color: AppColors.glassBorder) : null),
+              : (isUser
+                  ? Border.all(
+                      color: isDark ? AppColors.glassBorder : Colors.grey.shade300,
+                    )
+                  : (isDark ? Border.all(color: AppColors.glassBorder) : null)),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,

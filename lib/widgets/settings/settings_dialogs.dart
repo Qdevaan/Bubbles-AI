@@ -616,7 +616,7 @@ void showConsultantTonePicker(
   SettingsProvider settingsProvider,
 ) {
   final isDark = Theme.of(context).brightness == Brightness.dark;
-  final toneOptions = ['Casual', 'Serious'];
+  final toneOptions = ['Casual', 'Semi-formal', 'Formal'];
 
   showDialog(
     context: context,

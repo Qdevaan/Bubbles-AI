@@ -68,6 +68,44 @@ class HomeProvider extends ChangeNotifier {
     );
   }
 
+  /// Optimistically removes a single insight card and dismisses/archives it in Supabase.
+  /// [type] must be one of: 'highlight', 'event', 'notification'
+  Future<void> dismissInsight(String id, String type) async {
+    // Optimistic removal
+    switch (type) {
+      case 'highlight':
+        _highlights.removeWhere((h) => h['id'] == id);
+      case 'event':
+        _events.removeWhere((e) => e['id'] == id);
+      case 'notification':
+        _notifications.removeWhere((n) => n['id'] == id);
+    }
+    notifyListeners();
+
+    // Persist dismissal
+    try {
+      switch (type) {
+        case 'highlight':
+          await _supabase
+              .from('highlights')
+              .update({'is_dismissed': true})
+              .eq('id', id);
+        case 'event':
+          await _supabase
+              .from('events')
+              .update({'is_dismissed': true})
+              .eq('id', id);
+        case 'notification':
+          await _supabase
+              .from('notifications')
+              .update({'is_read': true})
+              .eq('id', id);
+      }
+    } catch (e) {
+      debugPrint('dismissInsight error: $e');
+    }
+  }
+
   // ── Mark a notification as read ──────────────────────────────────────────
   Future<void> markNotificationRead(String notifId) async {
     try {

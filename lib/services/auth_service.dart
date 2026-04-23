@@ -1,5 +1,5 @@
-import 'dart:convert'; // Needed for JSON encoding/decoding
 import 'dart:io';
+import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart'; // Import this
 import 'analytics_service.dart';
@@ -178,7 +178,19 @@ class AuthService {
       final result = await _profileRepository!.getProfile(user.id, forceRefresh: forceRefresh);
       return result.data;
     }
-    return null;
+    
+    // Fallback if repository is not initialized
+    try {
+      final data = await _client
+          .from('profiles')
+          .select()
+          .eq('id', user.id)
+          .maybeSingle();
+      return data;
+    } catch (e) {
+      debugPrint('Error fetching profile fallback: $e');
+      return null;
+    }
   }
 
   /// Inserts or updates the user's profile data AND updates local cache.

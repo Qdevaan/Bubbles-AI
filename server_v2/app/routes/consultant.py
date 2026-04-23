@@ -138,6 +138,41 @@ async def ask_consultant_endpoint(
 
 
 # ══════════════════════════════════════════════════════════════════════════════
+# POST /ask  (lightweight — graph quick-reference & query engine)
+# ══════════════════════════════════════════════════════════════════════════════
+
+class _AskRequest(ConsultantRequest):
+    """Thin alias used by the graph query engine."""
+    context: str = ""  # e.g. 'knowledge_graph'
+
+
+@router.post("/ask")
+@limiter.limit("20/minute")
+async def ask_endpoint(
+    request: Request,
+    req: _AskRequest,
+    user: VerifiedUser = Depends(get_verified_user),
+):
+    """Lightweight Q&A used by the graph query bar and node quick-reference.
+    Skips session logging and gamification for a fast, conversational response."""
+    def _graph_ctx():
+        graph_svc.load_graph(req.user_id)
+        return graph_svc.find_context(req.user_id, req.question, top_k=12)
+
+    g_ctx, v_ctx = await asyncio.gather(
+        asyncio.to_thread(_graph_ctx),
+        asyncio.to_thread(vector_svc.search_memory, req.user_id, req.question),
+    )
+
+    safe_q = sanitize_input(req.question)
+    result = await brain_svc.ask_consultant(
+        req.user_id, safe_q, "", g_ctx, v_ctx,
+        session_summaries="", mode="standard", persona="consultant",
+    )
+    return {"answer": result.get("answer", ""), "model_used": result.get("model_used")}
+
+
+
 # POST /ask_consultant_stream  (SSE streaming)
 # ══════════════════════════════════════════════════════════════════════════════
 
@@ -269,6 +304,30 @@ async def ask_consultant_stream_endpoint(
             fire_and_forget(gamification_svc.increment_quest_progress(uid, "ask_consultant", 1))
             fire_and_forget(gamification_svc.increment_quest_progress(uid, "save_memory", 1))
             fire_and_forget(gamification_svc.update_streak(uid))
+
+            # AI-generated session title — only set it on first exchange (title still default)
+            try:
+                from app.database import db as _db2
+                existing = await asyncio.to_thread(
+                    lambda: _db2.table("sessions")
+                    .select("title")
+                    .eq("id", sid)
+                    .maybe_single()
+                    .execute()
+                )
+                existing_title = (existing.data or {}).get("title", "")
+                is_default_title = existing_title.startswith("Consultant 20") or not existing_title
+                if is_default_title:
+                    generated = await brain_svc.generate_title(f"Q: {question}\nA: {full_answer}")
+                    if generated:
+                        await asyncio.to_thread(
+                            lambda: _db2.table("sessions")
+                            .update({"title": generated})
+                            .eq("id", sid)
+                            .execute()
+                        )
+            except Exception as _te:
+                print(f"⚠️ Consultant title generation error: {_te}")
 
         except Exception as e:
             print(f"❌ Stream post-processing error: {e}")

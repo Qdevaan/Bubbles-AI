@@ -387,6 +387,24 @@ async def save_session_endpoint(
         session_svc.end_session, session_id, summary=summary or None
     )
 
+    # AI-generated session title (fire-and-forget)
+    async def _patch_title_save():
+        try:
+            title = await brain_svc.generate_title(
+                transcript[:600] if transcript else (summary or "")
+            )
+            if title:
+                from app.database import db as _db2
+                await asyncio.to_thread(
+                    lambda: _db2.table("sessions")
+                    .update({"title": title})
+                    .eq("id", session_id)
+                    .execute()
+                )
+        except Exception as _e:
+            print(f"⚠️ Title generation (save_session) error: {_e}")
+    asyncio.create_task(_patch_title_save())
+
     mem_content = (
         f"Session Summary: {summary}" if summary
         else f"Session Transcript: {transcript[:1000]}"
@@ -461,6 +479,24 @@ async def end_session_endpoint(
             await asyncio.to_thread(
                 session_svc.end_session, req.session_id, summary=summary or None
             )
+
+            # AI-generated session title (fire-and-forget; won't block end_session)
+            async def _patch_title_end():
+                try:
+                    title = await brain_svc.generate_title(
+                        full_transcript[:600] if full_transcript else (summary or "")
+                    )
+                    if title:
+                        from app.database import db as _db2
+                        await asyncio.to_thread(
+                            lambda: _db2.table("sessions")
+                            .update({"title": title})
+                            .eq("id", req.session_id)
+                            .execute()
+                        )
+                except Exception as _e:
+                    print(f"⚠️ Title generation (end_session) error: {_e}")
+            asyncio.create_task(_patch_title_end())
 
             if full_transcript:
                 mem_content = (

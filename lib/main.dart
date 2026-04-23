@@ -408,8 +408,10 @@ class BubblesApp extends StatelessWidget {
                   const AuthGuard(child: NewSessionScreen()),
               AppRoutes.consultant: (context) =>
                   const AuthGuard(child: ConsultantScreen()),
-              AppRoutes.sessions: (context) =>
-                  const AuthGuard(child: SessionsScreen()),
+              AppRoutes.sessions: (context) {
+                final args = ModalRoute.of(context)?.settings.arguments as Map<String, String>?;
+                return AuthGuard(child: SessionsScreen(initialSearchQuery: args?['query']));
+              },
               AppRoutes.about: (context) =>
                   const AuthGuard(child: AboutScreen()),
               AppRoutes.roleplaySetup: (context) =>

@@ -12,6 +12,7 @@ import '../services/deepgram_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/connection_service.dart';
 import '../providers/session_provider.dart';
+import '../providers/settings_provider.dart';
 import '../widgets/chat_bubble.dart';
 import '../widgets/feedback_dialog.dart';
 
@@ -34,6 +35,7 @@ class _NewSessionScreenState extends State<NewSessionScreen>
   bool _isIncognito = false;
   bool _isMultiplayer = false;
   String _selectedPersona = 'casual';
+  bool _toneInitialized = false;
   final TextEditingController _roomNameController = TextEditingController();
 
   // Animations (local only)
@@ -57,6 +59,116 @@ class _NewSessionScreenState extends State<NewSessionScreen>
       vsync: this,
       duration: const Duration(seconds: 8),
     )..repeat();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_toneInitialized) {
+      _selectedPersona = context.read<SettingsProvider>().defaultLiveTone;
+      _toneInitialized = true;
+    }
+  }
+
+  String _toneLabel(String tone) {
+    switch (tone) {
+      case 'formal':
+        return 'Formal';
+      case 'semi-formal':
+        return 'Semi-Formal';
+      default:
+        return 'Casual';
+    }
+  }
+
+  Future<bool> _pickLiveMode() async {
+    final settings = context.read<SettingsProvider>();
+    String selected = _selectedPersona;
+    bool setAsDefault = false;
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (ctx) {
+        final isDark = Theme.of(context).brightness == Brightness.dark;
+        return StatefulBuilder(
+          builder: (ctx, setModal) => GlassDialog(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Choose Live Session Mode',
+                  style: GoogleFonts.manrope(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w800,
+                    color: isDark ? Colors.white : AppColors.slate900,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                ...const ['formal', 'semi-formal', 'casual'].map((tone) {
+                  return RadioListTile<String>(
+                    value: tone,
+                    groupValue: selected,
+                    onChanged: (v) {
+                      if (v == null) return;
+                      setModal(() => selected = v);
+                    },
+                    contentPadding: EdgeInsets.zero,
+                    activeColor: Theme.of(context).colorScheme.primary,
+                    title: Text(
+                      _toneLabel(tone),
+                      style: GoogleFonts.manrope(
+                        fontWeight: FontWeight.w600,
+                        color: isDark ? Colors.white : AppColors.slate900,
+                      ),
+                    ),
+                  );
+                }),
+                CheckboxListTile(
+                  value: setAsDefault,
+                  onChanged: (v) => setModal(() => setAsDefault = v ?? false),
+                  contentPadding: EdgeInsets.zero,
+                  controlAffinity: ListTileControlAffinity.leading,
+                  title: Text(
+                    'Set as default',
+                    style: GoogleFonts.manrope(
+                      fontSize: 13,
+                      color: isDark ? AppColors.slate300 : AppColors.slate700,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(ctx, false),
+                      child: const Text('Cancel'),
+                    ),
+                    const SizedBox(width: 8),
+                    FilledButton(
+                      onPressed: () => Navigator.pop(ctx, true),
+                      child: const Text('Start'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+    if (result == true) {
+      if (setAsDefault) {
+        await settings.setDefaultLiveTone(selected);
+        await settings.setAlwaysPromptForTone(false);
+      }
+      setState(() => _selectedPersona = selected);
+      if (_session.isSessionActive) {
+        _session.changeLiveTone(selected);
+      }
+      return true;
+    }
+    return false;
   }
 
   @override
@@ -239,8 +351,22 @@ class _NewSessionScreenState extends State<NewSessionScreen>
 
           await FeedbackDialog.show(context, sessionId: completedSessionId);
 
+          await FeedbackDialog.show(context, sessionId: completedSessionId);
+
           if (mounted) {
-            Navigator.pop(context);
+            if (completedSessionId != null) {
+              Navigator.pop(context); // Close new session screen
+              Navigator.pushNamed(
+                context,
+                '/session_analytics',
+                arguments: {
+                  'sessionId': completedSessionId,
+                  'sessionTitle': 'Live Session',
+                },
+              );
+            } else {
+              Navigator.pop(context);
+            }
           }
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -252,6 +378,11 @@ class _NewSessionScreenState extends State<NewSessionScreen>
         }
       }
     } else {
+      final settings = context.read<SettingsProvider>();
+      if (settings.alwaysPromptForTone) {
+        final selected = await _pickLiveMode();
+        if (!selected) return;
+      }
       final serverUrl = context.read<ConnectionService>().serverUrl;
       final jwt = Supabase.instance.client.auth.currentSession?.accessToken ?? '';
       await _session.startSession(
@@ -657,22 +788,44 @@ class _NewSessionScreenState extends State<NewSessionScreen>
               Selector<SessionProvider, bool>(
                 selector: (_, s) => s.swapSpeakers,
                 builder: (context, swapSpeakers, _) {
-                  return IconButton(
-                    icon: Icon(
-                      swapSpeakers
-                          ? Icons.swap_horiz_rounded
-                          : Icons.compare_arrows_rounded,
-                      color: isDark ? Colors.white70 : Colors.grey,
-                    ),
-                    onPressed: () {
-                      context.read<SessionProvider>().toggleSwapSpeakers();
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text("Speakers Swapped!"),
-                          duration: Duration(milliseconds: 500),
+                  return Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        icon: Icon(
+                          Icons.tune_rounded,
+                          color: isDark ? Colors.white70 : Colors.grey,
                         ),
-                      );
-                    },
+                        tooltip: "Change Tone",
+                        onPressed: () async {
+                          final selected = await _pickLiveMode();
+                          if (selected && mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Mode set to ${_toneLabel(_selectedPersona)}'),
+                              ),
+                            );
+                          }
+                        },
+                      ),
+                      IconButton(
+                        icon: Icon(
+                          swapSpeakers
+                              ? Icons.swap_horiz_rounded
+                              : Icons.compare_arrows_rounded,
+                          color: isDark ? Colors.white70 : Colors.grey,
+                        ),
+                        onPressed: () {
+                          context.read<SessionProvider>().toggleSwapSpeakers();
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text("Speakers Swapped!"),
+                              duration: Duration(milliseconds: 500),
+                            ),
+                          );
+                        },
+                      ),
+                    ],
                   );
                 },
               ),
@@ -687,27 +840,46 @@ class _NewSessionScreenState extends State<NewSessionScreen>
             builder: (context, logs, _) {
               return logs.isEmpty
                   ? Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.graphic_eq,
-                            size: 52,
-                            color: Theme.of(
-                              context,
-                            ).colorScheme.primary.withAlpha(102),
-                          ),
-                          const SizedBox(height: 10),
-                          Text(
-                            "Listening...",
-                            style: GoogleFonts.manrope(
-                              color: isDark
-                                  ? AppColors.slate400
-                                  : AppColors.slate500,
-                              fontSize: 16,
-                            ),
-                          ),
-                        ],
+                      child: AnimatedBuilder(
+                        animation: _pulseController,
+                        builder: (_, __) {
+                          return Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Container(
+                                width: 100,
+                                height: 100,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: Theme.of(context).colorScheme.primary.withAlpha(20),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Theme.of(context).colorScheme.primary.withAlpha(
+                                          (20 + sin(_pulseController.value * 2 * pi) * 20).toInt()),
+                                      blurRadius: 40,
+                                      spreadRadius: 10,
+                                    )
+                                  ],
+                                ),
+                                child: Icon(
+                                  Icons.mic_none_rounded,
+                                  size: 40,
+                                  color: Theme.of(context).colorScheme.primary,
+                                ),
+                              ),
+                              const SizedBox(height: 24),
+                              Text(
+                                "Listening...",
+                                style: GoogleFonts.manrope(
+                                  color: isDark ? AppColors.slate400 : AppColors.slate500,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                  letterSpacing: 1.5,
+                                ),
+                              ),
+                            ],
+                          );
+                        },
                       ),
                     )
                   : ListView.builder(
@@ -749,64 +921,95 @@ class _NewSessionScreenState extends State<NewSessionScreen>
               child: Column(
             children: [
               // Suggestion box
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Theme.of(
-                    context,
-                  ).colorScheme.primary.withAlpha(isDark ? 26 : 13),
-                  borderRadius: BorderRadius.circular(AppRadius.xxl),
-                  border: Border.all(
-                    color: Theme.of(context).colorScheme.primary.withAlpha(38),
-                  ),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.auto_awesome,
-                          size: 14,
-                          color: Theme.of(context).colorScheme.primary,
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          'AI INSIGHT',
-                          style: GoogleFonts.manrope(
-                            color: Theme.of(context).colorScheme.primary,
-                            fontWeight: FontWeight.w800,
-                            fontSize: 11,
-                            letterSpacing: 1.2,
+              Selector<SessionProvider, (bool, String)>(
+                selector: (_, s) => (s.realtimeLost, s.currentSuggestion),
+                builder: (context, data, _) {
+                  final (realtimeLost, currentSuggestion) = data;
+                  final isIdle = currentSuggestion == "Listening..." || currentSuggestion == "Connecting to Deepgram...";
+                  
+                  return AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 300),
+                    transitionBuilder: (child, animation) => FadeTransition(
+                      opacity: animation,
+                      child: SlideTransition(
+                        position: Tween<Offset>(
+                          begin: const Offset(0, 0.2),
+                          end: Offset.zero,
+                        ).animate(animation),
+                        child: child,
+                      ),
+                    ),
+                    child: isIdle
+                        ? const SizedBox.shrink(key: ValueKey('idle'))
+                        : Container(
+                            key: const ValueKey('insight'),
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(16),
+                            margin: const EdgeInsets.only(bottom: 20),
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [
+                                  Theme.of(context).colorScheme.primary.withAlpha(isDark ? 40 : 20),
+                                  Theme.of(context).colorScheme.secondary.withAlpha(isDark ? 20 : 10),
+                                ],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ),
+                              borderRadius: BorderRadius.circular(AppRadius.xxl),
+                              border: Border.all(
+                                color: Theme.of(context).colorScheme.primary.withAlpha(50),
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Theme.of(context).colorScheme.primary.withAlpha(20),
+                                  blurRadius: 16,
+                                  spreadRadius: 2,
+                                  offset: const Offset(0, 4),
+                                )
+                              ],
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Icon(
+                                      Icons.auto_awesome,
+                                      size: 16,
+                                      color: Theme.of(context).colorScheme.primary,
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      'LIVE INSIGHT',
+                                      style: GoogleFonts.manrope(
+                                        color: Theme.of(context).colorScheme.primary,
+                                        fontWeight: FontWeight.w800,
+                                        fontSize: 12,
+                                        letterSpacing: 1.2,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 10),
+                                ConstrainedBox(
+                                  constraints: BoxConstraints(
+                                    maxHeight: MediaQuery.of(context).size.height * 0.25,
+                                  ),
+                                  child: SingleChildScrollView(
+                                    physics: const BouncingScrollPhysics(),
+                                    child: _buildAdviceContent(
+                                      isDark,
+                                      realtimeLost: realtimeLost,
+                                      currentSuggestion: currentSuggestion,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    ConstrainedBox(
-                      constraints: BoxConstraints(
-                        maxHeight: MediaQuery.of(context).size.height * 0.25,
-                      ),
-                      child: SingleChildScrollView(
-                        physics: const BouncingScrollPhysics(),
-                        child: Selector<SessionProvider, (bool, String)>(
-                          selector: (_, s) => (s.realtimeLost, s.currentSuggestion),
-                          builder: (context, data, _) {
-                            final (realtimeLost, currentSuggestion) = data;
-                            return _buildAdviceContent(
-                              isDark,
-                              realtimeLost: realtimeLost,
-                              currentSuggestion: currentSuggestion,
-                            );
-                          },
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+                  );
+                },
               ),
-              const SizedBox(height: 20),
 
               // Controls
               Selector<SessionProvider, bool>(
@@ -952,6 +1155,29 @@ class _NewSessionScreenState extends State<NewSessionScreen>
                               );
                             },
                           ),
+                          const SizedBox(width: 20),
+                          // Change Tone
+                          Selector<SessionProvider, String>(
+                            selector: (_, s) => s.currentLiveTone,
+                            builder: (context, currentTone, _) {
+                              return GestureDetector(
+                                onTap: () => _showTonePicker(context, isDark, currentTone),
+                                child: Container(
+                                  width: 48,
+                                  height: 48,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    color: isDark ? AppColors.glassWhite : Colors.grey.shade200,
+                                  ),
+                                  child: Icon(
+                                    Icons.tune_rounded,
+                                    color: isDark ? Colors.white54 : Colors.grey,
+                                    size: 22,
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
                         ],
                       );
                     },
@@ -964,6 +1190,68 @@ class _NewSessionScreenState extends State<NewSessionScreen>
         ),
         ),
       ],
+    );
+  }
+
+  void _showTonePicker(BuildContext context, bool isDark, String currentTone) {
+    final tones = [
+      {'id': 'casual', 'title': 'Casual & Friendly', 'icon': Icons.sentiment_satisfied_rounded},
+      {'id': 'formal', 'title': 'Formal & Professional', 'icon': Icons.work_outline_rounded},
+      {'id': 'direct', 'title': 'Direct & Concise', 'icon': Icons.bolt_rounded},
+    ];
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        return Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF1E293B) : Colors.white,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: SafeArea(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Change Assistant Tone',
+                  style: GoogleFonts.manrope(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    color: isDark ? Colors.white : AppColors.slate900,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                ...tones.map((tone) {
+                  final isSelected = currentTone == tone['id'];
+                  return ListTile(
+                    leading: Icon(tone['icon'] as IconData, color: isSelected ? Theme.of(context).colorScheme.primary : (isDark ? AppColors.slate400 : AppColors.slate500)),
+                    title: Text(
+                      tone['title'] as String,
+                      style: GoogleFonts.manrope(
+                        fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                        color: isSelected ? Theme.of(context).colorScheme.primary : (isDark ? Colors.white : AppColors.slate900),
+                      ),
+                    ),
+                    trailing: isSelected ? Icon(Icons.check_circle_rounded, color: Theme.of(context).colorScheme.primary) : null,
+                    onTap: () {
+                      context.read<SessionProvider>().changeLiveTone(tone['id'] as String);
+                      Navigator.pop(ctx);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Tone changed to ${tone['title']}'),
+                          duration: const Duration(milliseconds: 800),
+                        ),
+                      );
+                    },
+                  );
+                }),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -1153,7 +1441,7 @@ class _NewSessionScreenState extends State<NewSessionScreen>
             children: [
               Expanded(
                 child: Text(
-                  "AI Persona",
+                  "Conversation Mode",
                   style: GoogleFonts.manrope(
                     fontWeight: FontWeight.w600,
                     color: isDark ? Colors.white : AppColors.slate900,
@@ -1162,19 +1450,11 @@ class _NewSessionScreenState extends State<NewSessionScreen>
               ),
               DropdownButton<String>(
                 value: _selectedPersona,
-                items: [
-                  'casual',
-                  'formal',
-                  'business',
-                  'stoic',
-                  'aggressive_coach',
-                  'empathetic_friend',
-                  'serious'
-                ]
+                items: ['formal', 'semi-formal', 'casual']
                     .map((tone) => DropdownMenuItem(
                           value: tone,
                           child: Text(
-                            tone.replaceAll('_', ' ').toUpperCase(),
+                            _toneLabel(tone),
                             style: GoogleFonts.manrope(fontSize: 12),
                           ),
                         ))

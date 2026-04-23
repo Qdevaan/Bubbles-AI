@@ -70,6 +70,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
+  String _toneLabel(String tone) {
+    switch (tone) {
+      case 'formal':
+        return 'Formal';
+      case 'semi-formal':
+        return 'Semi-formal';
+      case 'casual':
+        return 'Casual';
+      default:
+        return 'Casual';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -270,10 +283,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                 icon: Icons.chat_bubble_outline,
                                 title: 'Live Tone',
                                 trailing: Text(
-                                  settingsProvider.defaultLiveTone[0]
-                                          .toUpperCase() +
-                                      settingsProvider.defaultLiveTone
-                                          .substring(1),
+                                  _toneLabel(settingsProvider.defaultLiveTone),
                                   style: GoogleFonts.manrope(
                                       fontSize: 13,
                                       color: AppColors.textMuted),
@@ -290,10 +300,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                 icon: Icons.person_outline,
                                 title: 'Consultant Tone',
                                 trailing: Text(
-                                  settingsProvider.defaultConsultantTone[0]
-                                          .toUpperCase() +
-                                      settingsProvider.defaultConsultantTone
-                                          .substring(1),
+                                  _toneLabel(settingsProvider.defaultConsultantTone),
                                   style: GoogleFonts.manrope(
                                       fontSize: 13,
                                       color: AppColors.textMuted),

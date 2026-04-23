@@ -109,76 +109,34 @@ class UserBubble extends StatelessWidget {
     final primary = Theme.of(context).colorScheme.primary;
     return Row(
       mainAxisAlignment: MainAxisAlignment.end,
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.end,
       children: [
         Flexible(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              // "You" label
-              Padding(
-                padding: const EdgeInsets.only(right: 4, bottom: 4),
-                child: Text(
-                  'YOU',
-                  style: GoogleFonts.manrope(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0.8,
-                    color: isDark
-                        ? AppColors.slate500
-                        : AppColors.slate400,
-                  ),
-                ),
+          child: Container(
+            constraints: BoxConstraints(
+              maxWidth: MediaQuery.of(context).size.width * 0.80,
+            ),
+            padding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 12,
+            ),
+            decoration: BoxDecoration(
+              color: isDark ? AppColors.slate800 : AppColors.slate200,
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(20),
+                topRight: Radius.circular(20),
+                bottomLeft: Radius.circular(20),
+                bottomRight: Radius.circular(4),
               ),
-              // Bubble
-              Container(
-                constraints: BoxConstraints(
-                  maxWidth: MediaQuery.of(context).size.width * 0.75,
-                ),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 12,
-                ),
-                decoration: BoxDecoration(
-                  color: primary,
-                  borderRadius: const BorderRadius.only(
-                    topLeft: Radius.circular(16),
-                    topRight: Radius.circular(3),
-                    bottomLeft: Radius.circular(16),
-                    bottomRight: Radius.circular(16),
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: primary.withAlpha(51),
-                      blurRadius: 8,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: Text(
-                  text,
-                  style: GoogleFonts.manrope(
-                    fontSize: 14,
-                    color: Colors.white,
-                    height: 1.5,
-                  ),
-                ),
+            ),
+            child: Text(
+              text,
+              style: GoogleFonts.manrope(
+                fontSize: 15,
+                color: isDark ? Colors.white : AppColors.slate900,
+                height: 1.5,
               ),
-              // Timestamp
-              if (time != null)
-                Padding(
-                  padding: const EdgeInsets.only(right: 4, top: 4),
-                  child: Text(
-                    time!,
-                    style: GoogleFonts.manrope(
-                      fontSize: 10,
-                      color: isDark
-                          ? AppColors.slate600
-                          : AppColors.slate400,
-                    ),
-                  ),
-                ),
-            ],
+            ),
           ),
         ),
       ],
@@ -204,80 +162,51 @@ class AiBubble extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // AI Avatar ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Å“ app logo
-        AppLogo(size: 32),
-        const SizedBox(width: 12),
+        // AI Avatar
+        Container(
+          margin: const EdgeInsets.only(top: 2),
+          child: AppLogo(size: 28),
+        ),
+        const SizedBox(width: 14),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // "BUBBLES AI" label
+              // No background bubble, just plain markdown
               Padding(
-                padding: const EdgeInsets.only(left: 2, bottom: 4),
-                child: Text(
-                  'BUBBLES AI',
-                  style: GoogleFonts.manrope(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0.8,
-                    color: isDark
-                        ? AppColors.slate500
-                        : AppColors.slate400,
-                  ),
-                ),
-              ),
-              // Bubble ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Å“ flat top-left corner
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: isDark
-                      ? AppColors.glassWhite
-                      : AppColors.slate200,
-                  borderRadius: const BorderRadius.only(
-                    topLeft: Radius.circular(3),
-                    topRight: Radius.circular(16),
-                    bottomLeft: Radius.circular(16),
-                    bottomRight: Radius.circular(16),
-                  ),
-                  border: isDark ? Border.all(color: AppColors.glassBorder) : null,
-                ),
+                padding: const EdgeInsets.only(top: 2),
                 child: MarkdownBody(
                   data: streaming ? '$text ▌' : text,
                   styleSheet: MarkdownStyleSheet(
                     p: GoogleFonts.manrope(
-                      fontSize: 14,
-                      color: isDark
-                          ? AppColors.slate200
-                          : AppColors.slate800,
+                      fontSize: 15,
+                      color: isDark ? AppColors.slate200 : AppColors.slate800,
                       height: 1.6,
                     ),
                     strong: GoogleFonts.manrope(
                       fontWeight: FontWeight.w700,
-                      color: primary,
+                      color: isDark ? Colors.white : AppColors.slate900,
                     ),
                     em: GoogleFonts.manrope(
                       fontStyle: FontStyle.italic,
-                      color: isDark
-                          ? AppColors.slate300
-                          : Colors.grey.shade700,
+                      color: isDark ? AppColors.slate300 : Colors.grey.shade700,
+                    ),
+                    code: GoogleFonts.firaCode(
+                      fontSize: 13,
+                      color: isDark ? AppColors.slate200 : AppColors.slate800,
+                      backgroundColor: isDark ? AppColors.slate800 : AppColors.slate200,
+                    ),
+                    codeblockPadding: const EdgeInsets.all(12),
+                    codeblockDecoration: BoxDecoration(
+                      color: isDark ? AppColors.slate900 : AppColors.slate100,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: isDark ? AppColors.glassBorder : Colors.grey.shade300,
+                      ),
                     ),
                   ),
                 ),
               ),
-              // Timestamp
-              if (time != null)
-                Padding(
-                  padding: const EdgeInsets.only(left: 2, top: 4),
-                  child: Text(
-                    time!,
-                    style: GoogleFonts.manrope(
-                      fontSize: 10,
-                      color: isDark
-                          ? AppColors.slate600
-                          : AppColors.slate400,
-                    ),
-                  ),
-                ),
             ],
           ),
         ),
@@ -297,41 +226,18 @@ class TypingIndicator extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          AppLogo(size: 32),
-          const SizedBox(width: 12),
+          Container(
+            margin: const EdgeInsets.only(top: 2),
+            child: AppLogo(size: 28),
+          ),
+          const SizedBox(width: 14),
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Padding(
-                padding: const EdgeInsets.only(left: 2, bottom: 4),
-                child: Text(
-                  'BUBBLES AI',
-                  style: GoogleFonts.manrope(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0.8,
-                    color: isDark
-                        ? AppColors.slate500
-                        : AppColors.slate400,
-                  ),
-                ),
-              ),
               Container(
                 padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
+                  horizontal: 12,
                   vertical: 14,
-                ),
-                decoration: BoxDecoration(
-                  color: isDark
-                      ? AppColors.glassWhite
-                      : AppColors.slate200,
-                  borderRadius: const BorderRadius.only(
-                    topLeft: Radius.circular(3),
-                    topRight: Radius.circular(16),
-                    bottomLeft: Radius.circular(16),
-                    bottomRight: Radius.circular(16),
-                  ),
-                  border: isDark ? Border.all(color: AppColors.glassBorder) : null,
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
@@ -434,12 +340,13 @@ class MicToggleButton extends StatelessWidget {
         onTap: onTap,
         child: AnimatedContainer(
           duration: AppDurations.normal,
-          width: 36,
-          height: 36,
-          margin: const EdgeInsets.only(right: 4),
+          width: 44,
+          height: 44,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: isActive ? primary.withAlpha(38) : Colors.transparent,
+            color: isActive 
+                ? primary.withAlpha(38) 
+                : (isDark ? Colors.white : AppColors.slate900),
             border: Border.all(
               color: isActive ? primary : Colors.transparent,
               width: 1.5,
@@ -452,7 +359,7 @@ class MicToggleButton extends StatelessWidget {
             size: 20,
             color: isActive
                 ? primary
-                : (isDark ? AppColors.slate400 : AppColors.slate500),
+                : (isDark ? AppColors.slate900 : Colors.white),
           ),
         ),
       ),

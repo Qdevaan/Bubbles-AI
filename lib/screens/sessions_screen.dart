@@ -18,15 +18,32 @@ import '../repositories/sessions_repository.dart';
 enum _SortOrder { newestFirst, oldestFirst }
 
 class SessionsScreen extends StatefulWidget {
-  const SessionsScreen({super.key});
+  final String? initialSearchQuery;
+  const SessionsScreen({super.key, this.initialSearchQuery});
 
   @override
   State<SessionsScreen> createState() => _SessionsScreenState();
 }
 
 class _SessionsScreenState extends State<SessionsScreen> {
-  int _selectedFilter = 0; // 0=All, 1=Wingman, 2=Consultant
   _SortOrder _sortOrder = _SortOrder.newestFirst;
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.initialSearchQuery != null && widget.initialSearchQuery!.isNotEmpty) {
+      _searchController.text = widget.initialSearchQuery!;
+      _searchQuery = widget.initialSearchQuery!;
+    }
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
 
   void _openSortSheet(BuildContext context, bool isDark) {
     showModalBottomSheet(
@@ -131,193 +148,166 @@ class _SessionsScreenState extends State<SessionsScreen> {
     return MeshGradientBackground(
       child: Scaffold(
         backgroundColor: Colors.transparent,
-        body: SafeArea(
-        child: Column(
-          children: [
-            // --- Header ---
-            Padding(
-              padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
-              child: Row(
-                children: [
-                  IconButton(
-                    onPressed: () => Navigator.pop(context),
-                    icon: Icon(
-                      Icons.arrow_back,
-                      color: isDark ? Colors.white : Colors.black87,
-                    ),
-                  ),
-                  Expanded(
-                    child: Center(
-                      child: Text(
-                        'History',
-                        style: GoogleFonts.manrope(
-                          fontSize: 20,
-                          fontWeight: FontWeight.w800,
-                          color: isDark
-                              ? Colors.white
-                              : AppColors.slate900,
+        body: DefaultTabController(
+          length: 2,
+          child: SafeArea(
+            child: Column(
+              children: [
+                // --- Header ---
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
+                  child: Row(
+                    children: [
+                      IconButton(
+                        onPressed: () => Navigator.pop(context),
+                        icon: Icon(
+                          Icons.arrow_back,
+                          color: isDark ? Colors.white : Colors.black87,
                         ),
+                      ),
+                      Expanded(
+                        child: Center(
+                          child: Text(
+                            'History',
+                            style: GoogleFonts.manrope(
+                              fontSize: 20,
+                              fontWeight: FontWeight.w800,
+                              color: isDark ? Colors.white : AppColors.slate900,
+                            ),
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        tooltip: 'Sort',
+                        onPressed: () => _openSortSheet(context, isDark),
+                        icon: Icon(
+                          Icons.sort_rounded,
+                          color: _sortOrder != _SortOrder.newestFirst
+                              ? primary
+                              : (isDark
+                                    ? AppColors.slate300
+                                    : Colors.grey.shade700),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                // --- Search ---
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 10, 16, 8),
+                  child: TextField(
+                    controller: _searchController,
+                    onChanged: (value) =>
+                        setState(() => _searchQuery = value.trim().toLowerCase()),
+                    style: GoogleFonts.manrope(
+                      fontSize: 14,
+                      color: isDark ? Colors.white : AppColors.slate900,
+                    ),
+                    decoration: InputDecoration(
+                      hintText: 'Search conversation titles...',
+                      prefixIcon: const Icon(Icons.search_rounded, size: 20),
+                      suffixIcon: _searchQuery.isEmpty
+                          ? null
+                          : IconButton(
+                              tooltip: 'Clear',
+                              icon: const Icon(Icons.close_rounded, size: 18),
+                              onPressed: () {
+                                _searchController.clear();
+                                setState(() => _searchQuery = '');
+                              },
+                            ),
+                      filled: true,
+                      fillColor: isDark ? AppColors.glassWhite : Colors.white,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(AppRadius.full),
+                        borderSide: BorderSide(
+                          color: isDark
+                              ? AppColors.glassBorder
+                              : Colors.grey.shade300,
+                        ),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(AppRadius.full),
+                        borderSide: BorderSide(
+                          color: isDark
+                              ? AppColors.glassBorder
+                              : Colors.grey.shade300,
+                        ),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(AppRadius.full),
+                        borderSide: BorderSide(
+                          color: Theme.of(context).colorScheme.primary,
+                          width: 1.2,
+                        ),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 12,
                       ),
                     ),
                   ),
-                  // Sort
-                  IconButton(
-                    tooltip: 'Sort',
-                    onPressed: () => _openSortSheet(context, isDark),
-                    icon: Icon(
-                      Icons.sort_rounded,
-                      color: _sortOrder != _SortOrder.newestFirst
-                          ? primary
-                          : (isDark
-                                ? AppColors.slate300
-                                : Colors.grey.shade700),
+                ),
+
+                // --- Tabs ---
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: isDark ? AppColors.glassWhite : Colors.white,
+                      borderRadius: BorderRadius.circular(AppRadius.full),
+                      border: Border.all(
+                        color: isDark
+                            ? AppColors.glassBorder
+                            : Colors.grey.shade300,
+                      ),
+                    ),
+                    child: TabBar(
+                      indicatorSize: TabBarIndicatorSize.tab,
+                      dividerColor: Colors.transparent,
+                      indicator: BoxDecoration(
+                        color: Theme.of(context).colorScheme.primary,
+                        borderRadius: BorderRadius.circular(AppRadius.full),
+                      ),
+                      labelColor: Colors.white,
+                      unselectedLabelColor: isDark
+                          ? AppColors.slate300
+                          : AppColors.slate700,
+                      labelStyle: GoogleFonts.manrope(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 12,
+                      ),
+                      unselectedLabelStyle: GoogleFonts.manrope(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 12,
+                      ),
+                      tabs: const [
+                        Tab(text: 'Live Session History'),
+                        Tab(text: 'Conversation History'),
+                      ],
                     ),
                   ),
-                ],
-              ),
-            ),
+                ),
+                const SizedBox(height: 8),
 
-            // --- Filter Chips ---
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-              child: Row(
-                children: [
-                  _FilterChip(
-                    label: 'All',
-                    selected: _selectedFilter == 0,
-                    onTap: () => setState(() => _selectedFilter = 0),
-                    isDark: isDark,
+                Expanded(
+                  child: TabBarView(
+                    children: [
+                      LiveSessionsList(
+                        searchQuery: _searchQuery,
+                        sortOrder: _sortOrder,
+                      ),
+                      ConsultantHistoryList(
+                        searchQuery: _searchQuery,
+                        sortOrder: _sortOrder,
+                      ),
+                    ],
                   ),
-                  const SizedBox(width: 8),
-                  _FilterChip(
-                    label: 'Wingman',
-                    selected: _selectedFilter == 1,
-                    onTap: () => setState(() => _selectedFilter = 1),
-                    isDark: isDark,
-                  ),
-                  const SizedBox(width: 8),
-                  _FilterChip(
-                    label: 'Consultant',
-                    selected: _selectedFilter == 2,
-                    onTap: () => setState(() => _selectedFilter = 2),
-                    isDark: isDark,
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
-            const SizedBox(height: 4),
-
-            // --- Content ---
-            Expanded(
-              child: _selectedFilter == 2
-                  ? ConsultantHistoryList(
-                      searchQuery: '',
-                      sortOrder: _sortOrder,
-                    )
-                  : _selectedFilter == 1
-                  ? LiveSessionsList(searchQuery: '', sortOrder: _sortOrder)
-                  : _CombinedList(searchQuery: '', sortOrder: _sortOrder),
-            ),
-          ],
-        ),
-      ),
-    ));
-  }
-}
-
-// Filter Chip Widget
-class _FilterChip extends StatelessWidget {
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-  final bool isDark;
-  const _FilterChip({
-    required this.label,
-    required this.selected,
-    required this.onTap,
-    required this.isDark,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: AppDurations.tooltip,
-        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-        decoration: BoxDecoration(
-          color: selected
-              ? Theme.of(context).colorScheme.primary
-              : (isDark ? AppColors.glassWhite : Colors.white),
-          borderRadius: BorderRadius.circular(AppRadius.full),
-          border: Border.all(
-            color: selected
-                ? Theme.of(context).colorScheme.primary
-                : (isDark ? AppColors.glassBorder : Colors.grey.shade300),
           ),
-        ),
-        child: Text(
-          label,
-          style: GoogleFonts.manrope(
-            fontSize: 13,
-            fontWeight: FontWeight.w600,
-            color: selected
-                ? Colors.white
-                : (isDark ? AppColors.slate300 : Colors.grey.shade700),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// Combined list showing both types
-class _CombinedList extends StatelessWidget {
-  final String searchQuery;
-  final _SortOrder sortOrder;
-  const _CombinedList({required this.searchQuery, required this.sortOrder});
-
-  @override
-  Widget build(BuildContext context) {
-    return ListView(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      children: [
-        const _SectionHeader(title: 'Live Sessions'),
-        const SizedBox(height: 4),
-        LiveSessionsList(
-          shrinkwrap: true,
-          searchQuery: searchQuery,
-          sortOrder: sortOrder,
-        ),
-        const SizedBox(height: 20),
-        const _SectionHeader(title: 'Consultant Chats'),
-        const SizedBox(height: 4),
-        ConsultantHistoryList(
-          shrinkwrap: true,
-          searchQuery: searchQuery,
-          sortOrder: sortOrder,
-        ),
-      ],
-    );
-  }
-}
-
-class _SectionHeader extends StatelessWidget {
-  final String title;
-  const _SectionHeader({required this.title});
-
-  @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Padding(
-      padding: const EdgeInsets.only(left: 4, top: 8, bottom: 4),
-      child: Text(
-        title.toUpperCase(),
-        style: GoogleFonts.manrope(
-          fontSize: 11,
-          fontWeight: FontWeight.w700,
-          letterSpacing: 1.2,
-          color: isDark ? AppColors.slate400 : AppColors.slate500,
         ),
       ),
     );
@@ -764,12 +754,24 @@ class _GenericSessionDetailState extends State<GenericSessionDetail> {
   bool _loading = true;
   final Map<String, int> _feedbackMap = {};
   List<Map<String, dynamic>> _sessionTags = [];
+  Map<String, dynamic>? _report;
 
   @override
   void initState() {
     super.initState();
     _loadLogs(swr: true);
-    WidgetsBinding.instance.addPostFrameCallback((_) => _loadTags());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadTags();
+      _loadReport();
+    });
+  }
+
+  Future<void> _loadReport() async {
+    if (widget.isConsultant) return;
+    try {
+      final r = await context.read<ApiService>().getCoachingReport(widget.sessionId);
+      if (mounted) setState(() => _report = r);
+    } catch (_) {}
   }
 
   Future<void> _loadLogs({bool swr = false}) async {
@@ -782,6 +784,16 @@ class _GenericSessionDetailState extends State<GenericSessionDetail> {
       if (mounted) {
         setState(() {
           _logs = result.data ?? [];
+          // Pre-populate feedback map from DB if available
+          for (var log in _logs) {
+            final logId = log['id'] as String?;
+            if (logId != null) {
+              final fb = log['feedback'] ?? log['feedback_value'] ?? log['rating'];
+              if (fb != null && fb is int) {
+                _feedbackMap[logId] = fb;
+              }
+            }
+          }
           _loading = false;
         });
       }
@@ -875,6 +887,7 @@ class _GenericSessionDetailState extends State<GenericSessionDetail> {
                       context,
                       widget.sessionId,
                       widget.title,
+                      isConsultant: widget.isConsultant,
                     ),
                   ),
                   // View Report button (wingman only)
@@ -913,9 +926,13 @@ class _GenericSessionDetailState extends State<GenericSessionDetail> {
 
                   return ListView.builder(
                     padding: const EdgeInsets.all(16),
-                    itemCount: logs.length,
+                    itemCount: logs.length + (_report != null ? 1 : 0),
                     itemBuilder: (context, index) {
-                      final log = logs[index];
+                      if (_report != null && index == 0) {
+                        return _buildSummaryCard(_report!);
+                      }
+                      final logIndex = _report != null ? index - 1 : index;
+                      final log = logs[logIndex];
 
                       if (widget.isConsultant) {
                         final question = log['question']?.toString() ?? log['query']?.toString() ?? '';
@@ -951,6 +968,7 @@ class _GenericSessionDetailState extends State<GenericSessionDetail> {
                                     text: answer,
                                     isUser: false,
                                     speakerLabel: 'Consultant AI',
+                                    isHighlighted: _feedbackMap[log['id'] as String? ?? ''] == 1,
                                   ),
                                   // ── Star rating for consultant answer ──
                                   Padding(
@@ -1009,6 +1027,7 @@ class _GenericSessionDetailState extends State<GenericSessionDetail> {
                                 speakerLabel: isUser
                                     ? null
                                     : (isOther ? 'Other' : 'Wingman'),
+                                isHighlighted: _feedbackMap[log['id'] as String? ?? ''] == 1,
                               ),
                               // ── Thumbs feedback for LLM advice ──
                               if (isLlm)
@@ -1059,6 +1078,76 @@ class _GenericSessionDetailState extends State<GenericSessionDetail> {
         ),
       ),
     ));
+  }
+
+  Widget _buildSummaryCard(Map<String, dynamic> report) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final summary = report['report_text'] as String?;
+    final keyTopics = report['key_topics'] as List?;
+    
+    if (summary == null && (keyTopics == null || keyTopics.isEmpty)) return const SizedBox();
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 24),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.slate800 : AppColors.slate100,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: isDark ? AppColors.glassBorder : Colors.grey.shade300),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.auto_awesome, size: 18, color: Theme.of(context).colorScheme.primary),
+              const SizedBox(width: 8),
+              Text(
+                'AI Summary',
+                style: GoogleFonts.manrope(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 14,
+                  color: isDark ? Colors.white : AppColors.slate900,
+                ),
+              ),
+            ],
+          ),
+          if (summary != null) ...[
+            const SizedBox(height: 12),
+            Text(
+              summary,
+              style: GoogleFonts.manrope(
+                fontSize: 13,
+                color: isDark ? AppColors.slate300 : AppColors.slate700,
+                height: 1.5,
+              ),
+            ),
+          ],
+          if (keyTopics != null && keyTopics.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: keyTopics.map((t) => Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  t.toString(),
+                  style: GoogleFonts.manrope(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                ),
+              )).toList(),
+            ),
+          ],
+        ],
+      ),
+    );
   }
 }
 

@@ -12,6 +12,7 @@ import '../services/voice_assistant_service.dart';
 import '../providers/home_provider.dart';
 import '../providers/gamification_provider.dart';
 import '../providers/settings_provider.dart';
+import '../repositories/graph_repository.dart';
 import '../widgets/glass_morphism.dart';
 import '../widgets/animated_background.dart';
 
@@ -46,6 +47,11 @@ class _HomeScreenState extends State<HomeScreen>
       Provider.of<HomeProvider>(context, listen: false).init();
       Provider.of<VoiceAssistantService>(context, listen: false).activate();
       Provider.of<GamificationProvider>(context, listen: false).init();
+      
+      final userId = AuthService.instance.currentUser?.id;
+      if (userId != null) {
+        Provider.of<GraphRepository>(context, listen: false).getGraphExport(userId, forceRefresh: true);
+      }
     });
   }
 
@@ -567,25 +573,35 @@ class _HomeScreenState extends State<HomeScreen>
                               // --- QUICK ACTIONS ---
                               SliverToBoxAdapter(
                                 child: Padding(
-                                  padding: const EdgeInsets.fromLTRB(
-                                      16, 8, 16, 4),
-                                  child: Text(
-                                    'Quick Actions',
-                                    style: GoogleFonts.manrope(
-                                      fontSize: 17,
-                                      fontWeight: FontWeight.w700,
-                                      color: isDark
-                                          ? Colors.white
-                                          : AppColors.slate900,
-                                    ),
+                                  padding: const EdgeInsets.fromLTRB(16, 8, 4, 4),
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text(
+                                        'Quick Actions',
+                                        style: GoogleFonts.manrope(
+                                          fontSize: 17,
+                                          fontWeight: FontWeight.w700,
+                                          color: isDark ? Colors.white : AppColors.slate900,
+                                        ),
+                                      ),
+                                      IconButton(
+                                        icon: Icon(Icons.edit_outlined, size: 18, color: isDark ? AppColors.slate400 : AppColors.slate500),
+                                        padding: EdgeInsets.zero,
+                                        constraints: const BoxConstraints(),
+                                        onPressed: () => _showQuickActionsEditSheet(context),
+                                      ),
+                                    ],
                                   ),
                                 ),
                               ),
                               SliverToBoxAdapter(
-                                child: Selector<SettingsProvider, String>(
-                                  selector: (_, sp) => sp.quickActionsStyle,
-                                  builder: (context, style, _) {
-                                    return _QuickActionsSection(style: style);
+                                child: Consumer<SettingsProvider>(
+                                  builder: (context, sp, _) {
+                                    return _QuickActionsSection(
+                                      style: sp.quickActionsStyle,
+                                      enabledIds: sp.enabledQuickActions,
+                                    );
                                   },
                                 ),
                               ),
@@ -674,53 +690,98 @@ class _HomeScreenState extends State<HomeScreen>
                                             ),
                                           )
                                         else
-                                          Column(
-                                            children: [
-                                              ...events.map(
-                                                (ev) => Padding(
-                                                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
-                                                  child: _InsightCard(
-                                                    accentColor: AppColors.warning,
-                                                    title: ev['title'] as String? ?? 'Event',
-                                                    badge: ev['due_text'] as String? ?? 'Event',
-                                                    description: ev['description'] as String? ?? '',
-                                                    isDark: isDark,
-                                                    icon: Icons.event_rounded,
-                                                  ),
+                                          SingleChildScrollView(
+                                            scrollDirection: Axis.horizontal,
+                                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                                            child: Row(
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              children: [
+                                                ...events.map(
+                                                  (ev) {
+                                                    final evId = ev['id'] as String? ?? '';
+                                                    return Container(
+                                                      width: 280,
+                                                      margin: const EdgeInsets.only(right: 12),
+                                                      child: Dismissible(
+                                                        key: Key('ev_$evId'),
+                                                        direction: DismissDirection.up,
+                                                        background: _DismissBackground(isDark: isDark),
+                                                        onDismissed: (_) => context.read<HomeProvider>().dismissInsight(evId, 'event'),
+                                                        child: Padding(
+                                                          padding: const EdgeInsets.symmetric(vertical: 4),
+                                                          child: _InsightCard(
+                                                            accentColor: AppColors.warning,
+                                                            title: ev['title'] as String? ?? 'Event',
+                                                            badge: ev['due_text'] as String? ?? 'Event',
+                                                            description: ev['description'] as String? ?? '',
+                                                            isDark: isDark,
+                                                            icon: Icons.event_rounded,
+                                                            sessionId: ev['session_id'] as String?,
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    );
+                                                  },
                                                 ),
-                                              ),
-                                              ...highlights.map(
-                                                (hl) {
-                                                  final hlType = (hl['highlight_type'] as String? ?? '').toLowerCase();
-                                                  final hlColor = _highlightColor(hlType, Theme.of(context).colorScheme.primary);
-                                                  final hlIcon = _highlightIcon(hlType);
-                                                  return Padding(
-                                                    padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
-                                                    child: _InsightCard(
-                                                      accentColor: hlColor,
-                                                      title: hl['title'] as String? ?? 'Highlight',
-                                                      badge: _highlightBadge(hlType),
-                                                      description: hl['body'] as String? ?? '',
-                                                      isDark: isDark,
-                                                      icon: hlIcon,
-                                                    ),
-                                                  );
-                                                },
-                                              ),
-                                              ...notifications.map(
-                                                (tn) => Padding(
-                                                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
-                                                  child: _InsightCard(
-                                                    accentColor: Theme.of(context).colorScheme.primary,
-                                                    title: tn['title'] as String? ?? 'Notification',
-                                                    badge: 'Update',
-                                                    description: tn['body'] as String? ?? '',
-                                                    isDark: isDark,
-                                                    icon: Icons.notifications_active_outlined,
-                                                  ),
+                                                ...highlights.map(
+                                                  (hl) {
+                                                    final hlType = (hl['highlight_type'] as String? ?? '').toLowerCase();
+                                                    final hlColor = _highlightColor(hlType, Theme.of(context).colorScheme.primary);
+                                                    final hlIcon = _highlightIcon(hlType);
+                                                    final hlId = hl['id'] as String? ?? '';
+                                                    return Container(
+                                                      width: 280,
+                                                      margin: const EdgeInsets.only(right: 12),
+                                                      child: Dismissible(
+                                                        key: Key('hl_$hlId'),
+                                                        direction: DismissDirection.up,
+                                                        background: _DismissBackground(isDark: isDark),
+                                                        onDismissed: (_) => context.read<HomeProvider>().dismissInsight(hlId, 'highlight'),
+                                                        child: Padding(
+                                                          padding: const EdgeInsets.symmetric(vertical: 4),
+                                                          child: _InsightCard(
+                                                            accentColor: hlColor,
+                                                            title: hl['title'] as String? ?? 'Highlight',
+                                                            badge: _highlightBadge(hlType),
+                                                            description: hl['body'] as String? ?? '',
+                                                            isDark: isDark,
+                                                            icon: hlIcon,
+                                                            sessionId: hl['session_id'] as String?,
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    );
+                                                  },
                                                 ),
-                                              ),
-                                            ],
+                                                ...notifications.map(
+                                                  (tn) {
+                                                    final tnId = tn['id'] as String? ?? '';
+                                                    return Container(
+                                                      width: 280,
+                                                      margin: const EdgeInsets.only(right: 12),
+                                                      child: Dismissible(
+                                                        key: Key('tn_$tnId'),
+                                                        direction: DismissDirection.up,
+                                                        background: _DismissBackground(isDark: isDark),
+                                                        onDismissed: (_) => context.read<HomeProvider>().dismissInsight(tnId, 'notification'),
+                                                        child: Padding(
+                                                          padding: const EdgeInsets.symmetric(vertical: 4),
+                                                          child: _InsightCard(
+                                                            accentColor: Theme.of(context).colorScheme.primary,
+                                                            title: tn['title'] as String? ?? 'Notification',
+                                                            badge: 'Update',
+                                                            description: tn['body'] as String? ?? '',
+                                                            isDark: isDark,
+                                                            icon: Icons.notifications_active_outlined,
+                                                            sessionId: tn['session_id'] as String?,
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    );
+                                                  },
+                                                ),
+                                              ],
+                                            ),
                                           ),
                                       ],
                                     );
@@ -829,9 +890,112 @@ class _HomeScreenState extends State<HomeScreen>
     );
   }
 
+  void _showQuickActionsEditSheet(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final allActions = [
+      {'id': 'consultant', 'title': 'Consultant AI', 'icon': Icons.psychology_rounded},
+      {'id': 'sessions', 'title': 'History', 'icon': Icons.history_rounded},
+      {'id': 'roleplay', 'title': 'Roleplay Mode', 'icon': Icons.theater_comedy_outlined},
+      {'id': 'game-center', 'title': 'Game Center', 'icon': Icons.emoji_events},
+      {'id': 'graph-explorer', 'title': 'Knowledge Graph', 'icon': Icons.hub_rounded},
+      {'id': 'insights', 'title': 'Insights', 'icon': Icons.lightbulb_outline},
+    ];
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            final sp = context.read<SettingsProvider>();
+            final enabled = List<String>.from(sp.enabledQuickActions);
+
+            return Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+              ),
+              child: SafeArea(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'Customize Quick Actions',
+                      style: GoogleFonts.manrope(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                        color: isDark ? Colors.white : AppColors.slate900,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    ...allActions.map((action) {
+                      final isSelected = enabled.contains(action['id'] as String);
+                      return CheckboxListTile(
+                        title: Text(action['title'] as String, style: GoogleFonts.manrope()),
+                        secondary: Icon(action['icon'] as IconData),
+                        value: isSelected,
+                        activeColor: Theme.of(context).colorScheme.primary,
+                        onChanged: (val) {
+                          if (val == true) {
+                            enabled.add(action['id'] as String);
+                          } else {
+                            enabled.remove(action['id'] as String);
+                          }
+                          setSheetState(() {});
+                          sp.setEnabledQuickActions(enabled);
+                        },
+                      );
+                    }),
+                    const SizedBox(height: 16),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: () => Navigator.pop(ctx),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Theme.of(context).colorScheme.primary,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                        ),
+                        child: Text('Done', style: GoogleFonts.manrope(fontWeight: FontWeight.w700)),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
 }
 
 // --- WIDGETS ---
+
+/// Dismiss background shown when swiping an insight card to the left.
+class _DismissBackground extends StatelessWidget {
+  final bool isDark;
+  const _DismissBackground({required this.isDark});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Container(
+        alignment: Alignment.topCenter,
+        padding: const EdgeInsets.only(top: 20),
+        decoration: BoxDecoration(
+          color: AppColors.error.withAlpha(200),
+          borderRadius: BorderRadius.circular(AppRadius.xxl),
+        ),
+        child: const Icon(Icons.delete_outline_rounded, color: Colors.white, size: 24),
+      ),
+    );
+  }
+}
 
 class _PulseDot extends StatefulWidget {
   @override
@@ -989,14 +1153,16 @@ class _QuickActionCardState extends State<_QuickActionCard> {
 
 class _QuickActionsSection extends StatelessWidget {
   final String style;
+  final List<String> enabledIds;
 
-  const _QuickActionsSection({required this.style});
+  const _QuickActionsSection({required this.style, required this.enabledIds});
 
   @override
   Widget build(BuildContext context) {
     final actions = [
       {
-        'icon': Icons.forum,
+        'id': 'consultant',
+        'icon': Icons.psychology_rounded,
         'iconColor': Theme.of(context).colorScheme.secondary,
         'iconBg': Theme.of(context).colorScheme.secondary.withAlpha(51),
         'title': 'Consultant AI',
@@ -1004,7 +1170,8 @@ class _QuickActionsSection extends StatelessWidget {
         'route': '/consultant',
       },
       {
-        'icon': Icons.auto_awesome,
+        'id': 'sessions',
+        'icon': Icons.history_rounded,
         'iconColor': const Color(0xFF34D399),
         'iconBg': const Color(0xFF34D399).withAlpha(51),
         'title': 'History',
@@ -1012,6 +1179,7 @@ class _QuickActionsSection extends StatelessWidget {
         'route': '/sessions',
       },
       {
+        'id': 'roleplay',
         'icon': Icons.theater_comedy_outlined,
         'iconColor': Colors.deepPurple,
         'iconBg': Colors.deepPurple.withAlpha(51),
@@ -1020,6 +1188,7 @@ class _QuickActionsSection extends StatelessWidget {
         'route': '/roleplay-setup',
       },
       {
+        'id': 'game-center',
         'icon': Icons.emoji_events,
         'iconColor': AppColors.xpGold,
         'iconBg': AppColors.xpGold.withAlpha(51),
@@ -1028,6 +1197,7 @@ class _QuickActionsSection extends StatelessWidget {
         'route': '/game-center',
       },
       {
+        'id': 'graph-explorer',
         'icon': Icons.hub_rounded,
         'iconColor': const Color(0xFF8B5CF6),
         'iconBg': const Color(0xFF8B5CF6).withAlpha(51),
@@ -1036,6 +1206,7 @@ class _QuickActionsSection extends StatelessWidget {
         'route': '/graph-explorer',
       },
       {
+        'id': 'insights',
         'icon': Icons.lightbulb_outline,
         'iconColor': const Color(0xFFF59E0B),
         'iconBg': const Color(0xFFF59E0B).withAlpha(51),
@@ -1043,7 +1214,11 @@ class _QuickActionsSection extends StatelessWidget {
         'subtitle': 'Events & highlights',
         'route': '/insights',
       },
-    ];
+    ].where((a) => enabledIds.contains(a['id'])).toList();
+
+    if (actions.isEmpty) {
+      return const SizedBox();
+    }
 
     if (style == 'list') {
       return Padding(
@@ -1370,6 +1545,7 @@ class _InsightCard extends StatefulWidget {
   final String description;
   final bool isDark;
   final IconData? icon;
+  final String? sessionId;
 
   const _InsightCard({
     required this.accentColor,
@@ -1378,6 +1554,7 @@ class _InsightCard extends StatefulWidget {
     required this.description,
     required this.isDark,
     this.icon,
+    this.sessionId,
   });
 
   @override
@@ -1535,24 +1712,61 @@ class _InsightCardState extends State<_InsightCard>
                           ),
                           const SizedBox(height: 8),
                           Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Icon(
-                                Icons.touch_app_outlined,
-                                size: 12,
-                                color: widget.isDark
-                                    ? AppColors.slate500
-                                    : Colors.grey.shade400,
+                              Row(
+                                children: [
+                                  Icon(
+                                    Icons.touch_app_outlined,
+                                    size: 12,
+                                    color: widget.isDark
+                                        ? AppColors.slate500
+                                        : Colors.grey.shade400,
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    'Tap to collapse',
+                                    style: GoogleFonts.manrope(
+                                      fontSize: 11,
+                                      color: widget.isDark
+                                          ? AppColors.slate500
+                                          : Colors.grey.shade400,
+                                    ),
+                                  ),
+                                ],
                               ),
-                              const SizedBox(width: 4),
-                              Text(
-                                'Tap to collapse',
-                                style: GoogleFonts.manrope(
-                                  fontSize: 11,
-                                  color: widget.isDark
-                                      ? AppColors.slate500
-                                      : Colors.grey.shade400,
+                              if (widget.sessionId != null && widget.sessionId!.isNotEmpty)
+                                GestureDetector(
+                                  onTap: () {
+                                    Navigator.pushNamed(
+                                      context,
+                                      '/session-analytics',
+                                      arguments: {'sessionId': widget.sessionId, 'sessionTitle': widget.title},
+                                    );
+                                  },
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: widget.accentColor.withAlpha(20),
+                                      borderRadius: BorderRadius.circular(12),
+                                      border: Border.all(color: widget.accentColor.withAlpha(60)),
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        Text(
+                                          'View Source',
+                                          style: GoogleFonts.manrope(
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w700,
+                                            color: widget.accentColor,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 4),
+                                        Icon(Icons.arrow_forward_rounded, size: 12, color: widget.accentColor),
+                                      ],
+                                    ),
+                                  ),
                                 ),
-                              ),
                             ],
                           ),
                         ],

@@ -19,6 +19,7 @@ import '../services/api_service.dart';
 import '../services/auth_service.dart';
 import '../services/connection_service.dart';
 import '../providers/consultant_provider.dart';
+import '../providers/settings_provider.dart';
 import '../widgets/app_logo.dart';
 import '../widgets/consultant/voice_mode.dart';
 import '../widgets/consultant/consultant_widgets.dart';
@@ -54,6 +55,8 @@ class _ConsultantScreenState extends State<ConsultantScreen>
   bool _voiceModeActive = false;
   late final AnimationController _micPulse;
   late final Animation<double> _micPulseAnim;
+  String _conversationTone = 'casual';
+  bool _conversationModeInitialized = false;
 
   /// Quick access to the provider without listening.
   ConsultantProvider get _chat =>
@@ -68,6 +71,7 @@ class _ConsultantScreenState extends State<ConsultantScreen>
   @override
   void initState() {
     super.initState();
+    _controller.addListener(() => setState(() {}));
     WidgetsBinding.instance.addObserver(this);
     _scrollController.addListener(_scrollListener);
 
@@ -94,6 +98,11 @@ class _ConsultantScreenState extends State<ConsultantScreen>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    if (!_conversationModeInitialized) {
+      final settings = context.read<SettingsProvider>();
+      _conversationTone = settings.defaultConsultantTone;
+      _conversationModeInitialized = true;
+    }
     if (!_processedArgs) {
       _processedArgs = true;
       final args = ModalRoute.of(context)?.settings.arguments;
@@ -149,8 +158,127 @@ class _ConsultantScreenState extends State<ConsultantScreen>
 
   // -- New / clear chat (delegates to provider) --
   void _newChat() {
+    _startNewChatFlow();
+  }
+
+  Future<void> _startNewChatFlow() async {
+    final selected = await _pickConversationMode();
+    if (!mounted || !selected) return;
     Navigator.pop(context); // close drawer
     _chat.newChat(_getWelcomeMessage());
+  }
+
+  String _toneLabel(String tone) {
+    switch (tone) {
+      case 'formal':
+        return 'Formal';
+      case 'semi-formal':
+        return 'Semi-Formal';
+      default:
+        return 'Casual';
+    }
+  }
+
+  Future<bool> _pickConversationMode({bool forceShow = false}) async {
+    final settings = context.read<SettingsProvider>();
+    if (!forceShow && !settings.alwaysPromptForTone) {
+      setState(() => _conversationTone = settings.defaultConsultantTone);
+      return true;
+    }
+
+    String selected = _conversationTone;
+    bool setAsDefault = false;
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (ctx) {
+        final isDark = Theme.of(context).brightness == Brightness.dark;
+        return StatefulBuilder(
+          builder: (ctx, setModal) => GlassDialog(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Choose Conversation Mode',
+                  style: GoogleFonts.manrope(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w800,
+                    color: isDark ? Colors.white : AppColors.slate900,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Set the tone for this new chat session.',
+                  style: GoogleFonts.manrope(
+                    fontSize: 13,
+                    color: isDark ? AppColors.slate400 : AppColors.slate500,
+                  ),
+                ),
+                const SizedBox(height: 14),
+                ...const ['formal', 'semi-formal', 'casual'].map((tone) {
+                  final isSelected = selected == tone;
+                  return RadioListTile<String>(
+                    value: tone,
+                    groupValue: selected,
+                    onChanged: (value) {
+                      if (value == null) return;
+                      setModal(() => selected = value);
+                    },
+                    activeColor: Theme.of(context).colorScheme.primary,
+                    contentPadding: EdgeInsets.zero,
+                    title: Text(
+                      _toneLabel(tone),
+                      style: GoogleFonts.manrope(
+                        fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
+                        color: isDark ? Colors.white : AppColors.slate900,
+                      ),
+                    ),
+                  );
+                }),
+                CheckboxListTile(
+                  value: setAsDefault,
+                  onChanged: (v) => setModal(() => setAsDefault = v ?? false),
+                  contentPadding: EdgeInsets.zero,
+                  controlAffinity: ListTileControlAffinity.leading,
+                  title: Text(
+                    'Set as default for all sessions',
+                    style: GoogleFonts.manrope(
+                      fontSize: 13,
+                      color: isDark ? AppColors.slate300 : AppColors.slate700,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(ctx, false),
+                      child: const Text('Cancel'),
+                    ),
+                    const SizedBox(width: 8),
+                    FilledButton(
+                      onPressed: () => Navigator.pop(ctx, true),
+                      child: const Text('Start'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+
+    if (result == true) {
+      if (setAsDefault) {
+        await settings.setDefaultConsultantTone(selected);
+        await settings.setAlwaysPromptForTone(false);
+      }
+      setState(() => _conversationTone = selected);
+      return true;
+    }
+    return false;
   }
 
   // -- Load sidebar chat list (delegates to provider) --
@@ -287,7 +415,7 @@ class _ConsultantScreenState extends State<ConsultantScreen>
 
     _controller.clear();
     final api = Provider.of<ApiService>(context, listen: false);
-    chat.sendMessage(text, api);
+    chat.sendMessage(text, api, tone: _conversationTone);
     _scrollToBottom();
   }
 
@@ -407,6 +535,7 @@ class _ConsultantScreenState extends State<ConsultantScreen>
     await _chat.sendMessage(
       text,
       api,
+      tone: _conversationTone,
       onFirstToken: () {
         if (mounted && _voiceModeActive) {
           _setVoiceMode(CVoiceMode.speaking);
@@ -678,29 +807,55 @@ class _ConsultantScreenState extends State<ConsultantScreen>
                             ),
                           ),
                           Expanded(
-                            child: Text(
-                              'Consultant',
-                              textAlign: TextAlign.center,
-                              style: GoogleFonts.manrope(
-                                fontSize: 18,
-                                fontWeight: FontWeight.w800,
-                                color: isDark
-                                    ? Colors.white
-                                    : AppColors.slate900,
-                              ),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  'Consultant',
+                                  textAlign: TextAlign.center,
+                                  style: GoogleFonts.manrope(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w800,
+                                    color: isDark
+                                        ? Colors.white
+                                        : AppColors.slate900,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  _toneLabel(_conversationTone),
+                                  style: GoogleFonts.manrope(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w700,
+                                    color: Theme.of(context).colorScheme.primary,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
-                          MicToggleButton(
-                            voiceMode: _voiceMode,
-                            onTap: () {
-                              if (_voiceMode == CVoiceMode.speaking) {
-                                _interruptAndListen();
-                              } else {
-                                _toggleVoiceMode();
-                              }
+
+                          IconButton(
+                            tooltip: 'Change mode',
+                            onPressed: () async {
+                              final selected = await _pickConversationMode(forceShow: true);
+                              if (!selected || !mounted) return;
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    'Mode set to ${_toneLabel(_conversationTone)}',
+                                  ),
+                                  duration: const Duration(milliseconds: 1200),
+                                ),
+                              );
                             },
-                            isDark: isDark,
+                            icon: Icon(
+                              Icons.tune_rounded,
+                              color: isDark
+                                  ? AppColors.textSecondary
+                                  : AppColors.textMuted,
+                            ),
                           ),
+
                         ],
                       ),
                     ),
@@ -857,134 +1012,98 @@ class _ConsultantScreenState extends State<ConsultantScreen>
                     ),
 
                   // -- INPUT AREA --
-                  ClipRRect(
-                    child: BackdropFilter(
-                      filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-                      child: Container(
-                        padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
-                        decoration: BoxDecoration(
-                          color: isDark
-                              ? AppColors.backgroundDark.withAlpha(200)
-                              : Colors.white.withAlpha(220),
-                          border: Border(
-                            top: BorderSide(
-                              color: isDark
-                                  ? AppColors.glassBorder
-                                  : Colors.white.withAlpha(255),
+                  Container(
+                    color: Colors.transparent,
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Expanded(
+                          child: Container(
+                            decoration: BoxDecoration(
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withAlpha(isDark ? 50 : 10),
+                                  blurRadius: 10,
+                                  offset: const Offset(0, 4),
+                                ),
+                              ],
+                              borderRadius: BorderRadius.circular(24.0),
+                            ),
+                            child: TextField(
+                              controller: _controller,
+                              maxLines: 4,
+                              minLines: 1,
+                              style: GoogleFonts.manrope(
+                                fontSize: 15,
+                                color: isDark ? Colors.white : AppColors.slate900,
+                              ),
+                              decoration: InputDecoration(
+                                filled: true,
+                                fillColor: isDark ? AppColors.slate800 : Colors.white,
+                                hintText: 'Message',
+                                hintStyle: GoogleFonts.manrope(
+                                  color: isDark ? AppColors.slate500 : AppColors.slate400,
+                                ),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(24.0),
+                                  borderSide: BorderSide.none,
+                                ),
+                                contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 20,
+                                  vertical: 14,
+                                ),
+                              ),
+                              onSubmitted: (_) => _sendMessage(),
                             ),
                           ),
                         ),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: [
-                            Expanded(
-                              child: ClipRRect(
-                                borderRadius: BorderRadius.circular(24.0),
-                                child: BackdropFilter(
-                                  filter: ImageFilter.blur(
-                                    sigmaX: 8,
-                                    sigmaY: 8,
+                        const SizedBox(width: 8),
+                        Selector<ConsultantProvider, bool>(
+                          selector: (_, cp) => cp.loading || cp.loadingChat,
+                          builder: (context, isBusy, _) {
+                            final bool hasText = _controller.text.trim().isNotEmpty;
+                            
+                            if (!hasText && !isBusy) {
+                              return MicToggleButton(
+                                voiceMode: _voiceMode,
+                                onTap: () {
+                                  if (_voiceMode == CVoiceMode.speaking) {
+                                    _interruptAndListen();
+                                  } else {
+                                    _toggleVoiceMode();
+                                  }
+                                },
+                                isDark: isDark,
+                              );
+                            }
+
+                            return Semantics(
+                              label: 'Send message',
+                              child: GestureDetector(
+                                onTap: isBusy ? null : _sendMessage,
+                                child: Container(
+                                  width: 44,
+                                  height: 44,
+                                  decoration: BoxDecoration(
+                                    color: isBusy
+                                        ? (isDark ? AppColors.slate700 : AppColors.slate200)
+                                        : (isDark ? Colors.white : AppColors.slate900),
+                                    shape: BoxShape.circle,
                                   ),
-                                  child: TextField(
-                                    controller: _controller,
-                                    maxLines: 4,
-                                    minLines: 1,
-                                    style: GoogleFonts.manrope(
-                                      fontSize: 14,
-                                      color: isDark
-                                          ? Colors.white
-                                          : AppColors.slate900,
-                                    ),
-                                    decoration: InputDecoration(
-                                      filled: true,
-                                      fillColor: isDark
-                                          ? AppColors.glassInput
-                                          : Colors.white.withAlpha(220),
-                                      hintText:
-                                          'Ask about your conversations...',
-                                      hintStyle: GoogleFonts.manrope(
-                                        color: isDark
-                                            ? AppColors.textMuted
-                                            : AppColors.textSecondary,
-                                      ),
-                                      border: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(24.0),
-                                        borderSide: BorderSide(
-                                          color: isDark
-                                              ? AppColors.glassBorder
-                                              : AppColors.slate300,
-                                          width: 1.5,
-                                        ),
-                                      ),
-                                      enabledBorder: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(24.0),
-                                        borderSide: BorderSide(
-                                          color: isDark
-                                              ? AppColors.glassBorder
-                                              : AppColors.slate300,
-                                          width: 1.5,
-                                        ),
-                                      ),
-                                      focusedBorder: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(24.0),
-                                        borderSide: BorderSide(
-                                          color: Theme.of(context).colorScheme.primary,
-                                          width: 1.5,
-                                        ),
-                                      ),
-                                      contentPadding:
-                                          const EdgeInsets.symmetric(
-                                            horizontal: 20,
-                                            vertical: 14,
-                                          ),
-                                    ),
-                                    onSubmitted: (_) => _sendMessage(),
+                                  child: Icon(
+                                    Icons.arrow_upward_rounded,
+                                    color: isBusy
+                                        ? (isDark ? AppColors.slate500 : Colors.white)
+                                        : (isDark ? AppColors.slate900 : Colors.white),
+                                    size: 20,
                                   ),
                                 ),
                               ),
-                            ),
-                            const SizedBox(width: 10),
-                            Selector<ConsultantProvider, bool>(
-                              selector: (_, cp) => cp.loading || cp.loadingChat,
-                              builder: (context, isBusy, _) => Semantics(
-                                label: 'Send message',
-                                child: GestureDetector(
-                                  onTap: isBusy ? null : _sendMessage,
-                                  child: Container(
-                                    width: 44,
-                                    height: 44,
-                                    decoration: BoxDecoration(
-                                      color: isBusy
-                                          ? (isDark
-                                                ? AppColors.glassWhite
-                                                : Colors.grey.shade300)
-                                          : Theme.of(context).colorScheme.primary,
-                                      shape: BoxShape.circle,
-                                      boxShadow: isBusy
-                                          ? null
-                                          : [
-                                              BoxShadow(
-                                                color: Theme.of(context)
-                                                    .colorScheme
-                                                    .primary
-                                                    .withAlpha(77),
-                                                blurRadius: 12,
-                                                offset: const Offset(0, 4),
-                                              ),
-                                            ],
-                                    ),
-                                    child: const Icon(
-                                      Icons.send_rounded,
-                                      color: Colors.white,
-                                      size: 20,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
+                            );
+                          },
                         ),
-                      ),
+                      ],
                     ),
                   ),
                 ],

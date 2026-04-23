@@ -93,3 +93,4 @@ graphify-out/
 .graphify_cached.json
 .graphify_detect.json
 .graphify_uncached.txt
+todos.md

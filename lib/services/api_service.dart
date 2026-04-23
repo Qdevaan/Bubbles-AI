@@ -259,7 +259,8 @@ class ApiService {
     String transcript, {
     String? sessionId,
     String speakerRole = 'others',
-    String mode = 'casual',
+    String mode = 'live_wingman',
+    String persona = 'casual',
   }) async {
     if (_baseUrl.isEmpty) return null;
 
@@ -271,6 +272,7 @@ class ApiService {
           "transcript": transcript,
           "speaker_role": speakerRole,
           "mode": mode,
+          "persona": persona,
           if (sessionId != null) "session_id": sessionId,
         };
         var response = await http
@@ -365,7 +367,8 @@ class ApiService {
     String userId,
     String question, {
     String? sessionId,
-    String mode = 'casual',
+    String mode = 'consultant',
+    String persona = 'casual',
     void Function(String sessionId)? onSessionCreated,
   }) async* {
     if (_baseUrl.isEmpty) {
@@ -387,6 +390,7 @@ class ApiService {
         'user_id': userId,
         'question': question,
         'mode': mode,
+        'persona': persona,
         if (sessionId != null) 'session_id': sessionId,
       });
 
@@ -671,6 +675,38 @@ class ApiService {
     } catch (e) {
       debugPrint('getPerformanceSummary error: $e');
       return null;
+    }
+  }
+
+  // --- 15. GRAPH QUERY ENGINE ---
+  /// Sends a natural language question about a graph entity/topic and returns
+  /// the AI answer string. Used by graph quick-reference and query bar.
+  Future<String> askGraphQuery(String userId, String query) async {
+    if (!_connectionService.isConnected) {
+      return 'Server is offline. Connect to get AI insights.';
+    }
+    try {
+      final res = await http
+          .post(
+            Uri.parse('$_baseUrl/v1/consultant/ask'),
+            headers: await _authHeaders(),
+            body: jsonEncode({
+              'user_id': userId,
+              'question': query,
+              'context': 'knowledge_graph',
+            }),
+          )
+          .timeout(const Duration(seconds: 20));
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body) as Map<String, dynamic>;
+        return data['answer'] as String? ??
+            data['response'] as String? ??
+            'No answer available.';
+      }
+      return 'Could not get an answer right now (${res.statusCode}).';
+    } catch (e) {
+      debugPrint('askAboutEntity error: $e');
+      return 'Error: $e';
     }
   }
 }

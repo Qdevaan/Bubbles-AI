@@ -95,7 +95,8 @@ class SessionProvider extends ChangeNotifier {
       transcript,
       sessionId: _sessionId,
       speakerRole: 'others',
-      mode: _currentLiveTone,
+      mode: 'live_wingman',
+      persona: _currentLiveTone,
     );
 
     if (advice != null && advice.isNotEmpty) {
@@ -127,6 +128,8 @@ class SessionProvider extends ChangeNotifier {
     final advice = await api.sendTranscriptToWingman(
       user.id,
       _lastTranscriptForRetry!,
+      mode: 'live_wingman',
+      persona: _currentLiveTone,
     );
     _currentSuggestion = advice ?? "No response from server.";
     notifyListeners();
@@ -162,6 +165,13 @@ class SessionProvider extends ChangeNotifier {
   }
 
   String _currentLiveTone = 'casual';
+  String get currentLiveTone => _currentLiveTone;
+
+  void changeLiveTone(String tone) {
+    if (_currentLiveTone == tone) return;
+    _currentLiveTone = tone;
+    notifyListeners();
+  }
 
   Future<void> startSession(
     ApiService api,

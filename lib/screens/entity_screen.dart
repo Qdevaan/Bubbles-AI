@@ -787,21 +787,27 @@ class _EntityCardState extends State<_EntityCard> {
                     ),
                   ),
                   // Mention count badge
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: color.withAlpha(31),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Text(
-                      'x$mentionCount',
-                      style: GoogleFonts.manrope(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                        color: color,
+                  InkWell(
+                    onTap: () {
+                      Navigator.pushNamed(context, '/sessions', arguments: {'query': e['display_name'] as String? ?? ''});
+                    },
+                    borderRadius: BorderRadius.circular(20),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: color.withAlpha(31),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        'x$mentionCount',
+                        style: GoogleFonts.manrope(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: color,
+                        ),
                       ),
                     ),
                   ),
@@ -867,22 +873,32 @@ class _EntityCardState extends State<_EntityCard> {
                     ...rels.map(
                       (r) => Padding(
                         padding: const EdgeInsets.only(bottom: 4),
-                        child: Row(
-                          children: [
-                            Icon(Icons.arrow_forward, size: 14, color: color),
-                            const SizedBox(width: 6),
-                            Flexible(
-                              child: Text(
-                                '${r['relation']} -> ${r['target']}',
-                                style: GoogleFonts.manrope(
-                                  fontSize: 13,
-                                  color: widget.isDark
-                                      ? AppColors.slate300
-                                      : AppColors.slate700,
+                        child: InkWell(
+                          onTap: () {
+                            Navigator.pushNamed(context, '/sessions', arguments: {'query': r['target']});
+                          },
+                          borderRadius: BorderRadius.circular(4),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 2, horizontal: 4),
+                            child: Row(
+                              children: [
+                                Icon(Icons.arrow_forward, size: 14, color: color),
+                                const SizedBox(width: 6),
+                                Flexible(
+                                  child: Text(
+                                    '${r['relation']} -> ${r['target']}',
+                                    style: GoogleFonts.manrope(
+                                      fontSize: 13,
+                                      color: widget.isDark
+                                          ? AppColors.slate300
+                                          : AppColors.slate700,
+                                      decoration: TextDecoration.underline,
+                                    ),
+                                  ),
                                 ),
-                              ),
+                              ],
                             ),
-                          ],
+                          ),
                         ),
                       ),
                     ),

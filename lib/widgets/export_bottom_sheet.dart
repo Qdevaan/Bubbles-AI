@@ -1,23 +1,30 @@
 import 'dart:ui';
+import 'dart:io';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../theme/design_tokens.dart';
 import '../services/auth_service.dart';
 import '../services/api_service.dart';
+import '../repositories/sessions_repository.dart';
 import 'package:provider/provider.dart';
 
 class ExportBottomSheet extends StatefulWidget {
   final String sessionId;
   final String sessionTitle;
+  final bool isConsultant;
 
   const ExportBottomSheet({
     super.key,
     required this.sessionId,
     required this.sessionTitle,
+    this.isConsultant = false,
   });
 
-  static Future<void> show(BuildContext context, String sessionId, String sessionTitle) {
+  static Future<void> show(BuildContext context, String sessionId, String sessionTitle, {bool isConsultant = false}) {
     return showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -25,6 +32,7 @@ class ExportBottomSheet extends StatefulWidget {
       builder: (_) => ExportBottomSheet(
         sessionId: sessionId,
         sessionTitle: sessionTitle,
+        isConsultant: isConsultant,
       ),
     );
   }
@@ -34,18 +42,16 @@ class ExportBottomSheet extends StatefulWidget {
 }
 
 class _ExportBottomSheetState extends State<ExportBottomSheet> {
-  String _selectedFormat = 'pdf';
+  String _selectedFormat = 'markdown';
   bool _exporting = false;
 
   final Map<String, String> _formats = {
-    'pdf': 'PDF Document',
     'markdown': 'Markdown (.md)',
     'txt': 'Text (.txt)',
     'json': 'JSON Data'
   };
 
   final Map<String, IconData> _formatIcons = {
-    'pdf': Icons.picture_as_pdf_outlined,
     'markdown': Icons.text_snippet_outlined,
     'txt': Icons.article_outlined,
     'json': Icons.data_object_rounded,
@@ -57,20 +63,58 @@ class _ExportBottomSheetState extends State<ExportBottomSheet> {
       final user = AuthService.instance.currentUser;
       if (user == null) throw Exception("Not logged in");
 
-      // We'll simulate the export or call actual if exists in future API.
-      // schema_v2 asks for /v1/export_session
+      final repo = context.read<SessionsRepository>();
+      final result = await repo.getSessionLogs(widget.sessionId, widget.isConsultant, user.id);
+      final logs = result.data ?? [];
+
+      if (logs.isEmpty) throw Exception("No logs to export.");
+
+      String dataStr = "";
+      String ext = _selectedFormat == 'markdown' ? 'md' : _selectedFormat;
       
-      // Let's pretend ApiService has a method exportSession(sessionId, format).
-      // We don't have it implemented yet on the server, but we will mock or call it.
-      await Future.delayed(const Duration(seconds: 2)); // Mock delay
-      
+      if (_selectedFormat == 'json') {
+        dataStr = const JsonEncoder.withIndent('  ').convert(logs);
+      } else if (_selectedFormat == 'markdown') {
+        dataStr = "# ${widget.sessionTitle}\n\n";
+        for (var log in logs) {
+          if (widget.isConsultant) {
+            final q = log['question']?.toString() ?? log['query']?.toString() ?? '';
+            final a = log['answer']?.toString() ?? log['response']?.toString() ?? '';
+            if (q.isNotEmpty) dataStr += "**You**:\n$q\n\n";
+            if (a.isNotEmpty) dataStr += "**Consultant AI**:\n$a\n\n";
+          } else {
+            final role = log['role']?.toString() ?? 'unknown';
+            final content = log['content']?.toString() ?? '';
+            dataStr += "**${role.toUpperCase()}**:\n$content\n\n";
+          }
+        }
+      } else if (_selectedFormat == 'txt') {
+        dataStr = "Title: ${widget.sessionTitle}\n\n";
+        for (var log in logs) {
+          if (widget.isConsultant) {
+            final q = log['question']?.toString() ?? log['query']?.toString() ?? '';
+            final a = log['answer']?.toString() ?? log['response']?.toString() ?? '';
+            if (q.isNotEmpty) dataStr += "You:\n$q\n\n";
+            if (a.isNotEmpty) dataStr += "Consultant AI:\n$a\n\n";
+          } else {
+            final role = log['role']?.toString() ?? 'unknown';
+            final content = log['content']?.toString() ?? '';
+            dataStr += "${role.toUpperCase()}:\n$content\n\n";
+          }
+        }
+      }
+
+      final dir = await getTemporaryDirectory();
+      final filename = "Session_${widget.sessionId}.$ext";
+      final file = File('${dir.path}/$filename');
+      await file.writeAsString(dataStr);
+
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('${_formats[_selectedFormat]} exported successfully!'),
-          backgroundColor: AppColors.success,
-        )
+      await Share.shareXFiles(
+        [XFile(file.path)],
+        text: 'Exported session: ${widget.sessionTitle}',
       );
+
       Navigator.pop(context);
     } catch (e) {
       if (mounted) {
