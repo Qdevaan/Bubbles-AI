@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/rendering.dart';
 import 'package:provider/provider.dart';
 
 import '../theme/design_tokens.dart';
@@ -692,98 +693,12 @@ class _HomeScreenState extends State<HomeScreen>
                                             ),
                                           )
                                         else
-                                          SingleChildScrollView(
-                                            scrollDirection: Axis.horizontal,
-                                            padding: const EdgeInsets.symmetric(horizontal: 16),
-                                            child: Row(
-                                              crossAxisAlignment: CrossAxisAlignment.start,
-                                              children: [
-                                                ...events.map(
-                                                  (ev) {
-                                                    final evId = ev['id'] as String? ?? '';
-                                                    return Container(
-                                                      width: 280,
-                                                      margin: const EdgeInsets.only(right: 12),
-                                                      child: Dismissible(
-                                                        key: Key('ev_$evId'),
-                                                        direction: DismissDirection.up,
-                                                        background: DismissBackground(isDark: isDark),
-                                                        onDismissed: (_) => context.read<HomeProvider>().dismissInsight(evId, 'event'),
-                                                        child: Padding(
-                                                          padding: const EdgeInsets.symmetric(vertical: 4),
-                                                          child: HomeInsightCard(
-                                                            accentColor: AppColors.warning,
-                                                            title: ev['title'] as String? ?? 'Event',
-                                                            badge: ev['due_text'] as String? ?? 'Event',
-                                                            description: ev['description'] as String? ?? '',
-                                                            isDark: isDark,
-                                                            icon: Icons.event_rounded,
-                                                            sessionId: ev['session_id'] as String?,
-                                                          ),
-                                                        ),
-                                                      ),
-                                                    );
-                                                  },
-                                                ),
-                                                ...highlights.map(
-                                                  (hl) {
-                                                    final hlType = (hl['highlight_type'] as String? ?? '').toLowerCase();
-                                                    final hlColor = InsightItem.colorForType(hlType);
-                                                    final hlIcon = InsightItem.iconForType(hlType);
-                                                    final hlId = hl['id'] as String? ?? '';
-                                                    return Container(
-                                                      width: 280,
-                                                      margin: const EdgeInsets.only(right: 12),
-                                                      child: Dismissible(
-                                                        key: Key('hl_$hlId'),
-                                                        direction: DismissDirection.up,
-                                                        background: DismissBackground(isDark: isDark),
-                                                        onDismissed: (_) => context.read<HomeProvider>().dismissInsight(hlId, 'highlight'),
-                                                        child: Padding(
-                                                          padding: const EdgeInsets.symmetric(vertical: 4),
-                                                          child: HomeInsightCard(
-                                                            accentColor: hlColor,
-                                                            title: hl['title'] as String? ?? 'Highlight',
-                                                            badge: InsightItem.badgeForType(hlType),
-                                                            description: hl['body'] as String? ?? '',
-                                                            isDark: isDark,
-                                                            icon: hlIcon,
-                                                            sessionId: hl['session_id'] as String?,
-                                                          ),
-                                                        ),
-                                                      ),
-                                                    );
-                                                  },
-                                                ),
-                                                ...notifications.map(
-                                                  (tn) {
-                                                    final tnId = tn['id'] as String? ?? '';
-                                                    return Container(
-                                                      width: 280,
-                                                      margin: const EdgeInsets.only(right: 12),
-                                                      child: Dismissible(
-                                                        key: Key('tn_$tnId'),
-                                                        direction: DismissDirection.up,
-                                                        background: DismissBackground(isDark: isDark),
-                                                        onDismissed: (_) => context.read<HomeProvider>().dismissInsight(tnId, 'notification'),
-                                                        child: Padding(
-                                                          padding: const EdgeInsets.symmetric(vertical: 4),
-                                                          child: HomeInsightCard(
-                                                            accentColor: Theme.of(context).colorScheme.primary,
-                                                            title: tn['title'] as String? ?? 'Notification',
-                                                            badge: 'Update',
-                                                            description: tn['body'] as String? ?? '',
-                                                            isDark: isDark,
-                                                            icon: Icons.notifications_active_outlined,
-                                                            sessionId: tn['session_id'] as String?,
-                                                          ),
-                                                        ),
-                                                      ),
-                                                    );
-                                                  },
-                                                ),
-                                              ],
-                                            ),
+                                          RecentInsightsCarousel(
+                                            events: events,
+                                            highlights: highlights,
+                                            notifications: notifications,
+                                            homeScrollCtrl: _homeScrollCtrl,
+                                            isDark: isDark,
                                           ),
                                       ],
                                     );
@@ -975,3 +890,253 @@ class _HomeScreenState extends State<HomeScreen>
   }
 }
 
+// ============================================================================
+//  RECENT INSIGHTS CAROUSEL
+// ============================================================================
+class RecentInsightsCarousel extends StatefulWidget {
+  final List<Map<String, dynamic>> events;
+  final List<Map<String, dynamic>> highlights;
+  final List<Map<String, dynamic>> notifications;
+  final ScrollController homeScrollCtrl;
+  final bool isDark;
+
+  const RecentInsightsCarousel({
+    super.key,
+    required this.events,
+    required this.highlights,
+    required this.notifications,
+    required this.homeScrollCtrl,
+    required this.isDark,
+  });
+
+  @override
+  State<RecentInsightsCarousel> createState() => _RecentInsightsCarouselState();
+}
+
+class _RecentInsightsCarouselState extends State<RecentInsightsCarousel> {
+  late PageController _pageCtrl;
+  String? _expandedId;
+  double _previousScrollOffset = 0.0;
+  int _currentPage = 0;
+  final Map<int, double> _heights = {};
+
+  List<Map<String, dynamic>> get _combinedInsights {
+    final list = <Map<String, dynamic>>[];
+    for (var e in widget.events) {
+      list.add({'data': e, 'type': 'event', 'id': e['id']?.toString() ?? ''});
+    }
+    for (var h in widget.highlights) {
+      list.add({'data': h, 'type': 'highlight', 'id': h['id']?.toString() ?? ''});
+    }
+    for (var n in widget.notifications) {
+      list.add({'data': n, 'type': 'notification', 'id': n['id']?.toString() ?? ''});
+    }
+    return list;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    final len = _combinedInsights.length;
+    final initialPage = len > 1 ? len * 1000 : 0;
+    _currentPage = initialPage;
+    _pageCtrl = PageController(initialPage: initialPage, viewportFraction: 1.0);
+  }
+
+  @override
+  void dispose() {
+    _pageCtrl.dispose();
+    super.dispose();
+  }
+
+  void _handleToggle(String id, bool isExpanded) {
+    if (isExpanded) {
+      setState(() {
+        _expandedId = id;
+      });
+      _previousScrollOffset = widget.homeScrollCtrl.offset;
+      Future.delayed(const Duration(milliseconds: 100), () {
+        if (widget.homeScrollCtrl.hasClients) {
+          widget.homeScrollCtrl.animateTo(
+            widget.homeScrollCtrl.position.maxScrollExtent,
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeOutCubic,
+          );
+        }
+      });
+    } else {
+      setState(() {
+        _expandedId = null;
+      });
+      if (widget.homeScrollCtrl.hasClients) {
+        widget.homeScrollCtrl.animateTo(
+          _previousScrollOffset,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOutCubic,
+        );
+      }
+    }
+  }
+
+  void _dismissInsight(String id, String type) {
+    context.read<HomeProvider>().dismissInsight(id, type);
+    if (_expandedId == id) {
+      setState(() {
+        _expandedId = null;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final combined = _combinedInsights;
+    final len = combined.length;
+    if (len == 0) return const SizedBox.shrink();
+
+    final double carouselHeight = _heights[_currentPage] ?? 160.0;
+
+    if (len == 1) {
+      final item = combined.first;
+      return SizedBox(
+        height: carouselHeight,
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Align(
+              alignment: Alignment.topCenter,
+              child: OverflowBox(
+                alignment: Alignment.topCenter,
+                maxHeight: double.infinity,
+                child: MeasureSize(
+                  onChange: (size) {
+                    if (mounted && _heights[0] != size.height) {
+                      setState(() => _heights[0] = size.height);
+                    }
+                  },
+                  child: _buildCard(item),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return SizedBox(
+      height: carouselHeight,
+      child: PageView.builder(
+        controller: _pageCtrl,
+        onPageChanged: (idx) {
+          setState(() {
+            _currentPage = idx;
+          });
+        },
+        itemBuilder: (context, index) {
+          final item = combined[index % len];
+          return Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Align(
+              alignment: Alignment.topCenter,
+              child: OverflowBox(
+                alignment: Alignment.topCenter,
+                maxHeight: double.infinity,
+                child: MeasureSize(
+                  onChange: (size) {
+                    if (mounted && _heights[index] != size.height) {
+                      setState(() => _heights[index] = size.height);
+                    }
+                  },
+                  child: _buildCard(item),
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildCard(Map<String, dynamic> item) {
+    final type = item['type'] as String;
+    final data = item['data'] as Map<String, dynamic>;
+    final id = item['id'] as String;
+
+    Color accentColor;
+    String title;
+    String badge;
+    String description;
+    IconData icon;
+    String? sessionId = data['session_id'] as String?;
+
+    if (type == 'event') {
+      accentColor = AppColors.warning;
+      title = data['title'] as String? ?? 'Event';
+      badge = data['due_text'] as String? ?? 'Event';
+      description = data['description'] as String? ?? '';
+      icon = Icons.event_rounded;
+    } else if (type == 'highlight') {
+      final hlType = (data['highlight_type'] as String? ?? '').toLowerCase();
+      accentColor = InsightItem.colorForType(hlType);
+      title = data['title'] as String? ?? 'Highlight';
+      badge = InsightItem.badgeForType(hlType);
+      description = data['body'] as String? ?? '';
+      icon = InsightItem.iconForType(hlType);
+    } else {
+      accentColor = Theme.of(context).colorScheme.primary;
+      title = data['title'] as String? ?? 'Notification';
+      badge = 'Update';
+      description = data['body'] as String? ?? '';
+      icon = Icons.notifications_active_outlined;
+    }
+
+    return HomeInsightCard(
+      key: ValueKey(id),
+      accentColor: accentColor,
+      title: title,
+      badge: badge,
+      description: description,
+      isDark: widget.isDark,
+      icon: icon,
+      sessionId: sessionId,
+      onToggle: (isExpanded) => _handleToggle(id, isExpanded),
+      onLongPress: () => _dismissInsight(id, type),
+    );
+  }
+}
+
+// ============================================================================
+//  MEASURE SIZE UTILITY
+// ============================================================================
+class MeasureSize extends SingleChildRenderObjectWidget {
+  final void Function(Size size) onChange;
+
+  const MeasureSize({
+    super.key,
+    required this.onChange,
+    required super.child,
+  });
+
+  @override
+  RenderObject createRenderObject(BuildContext context) {
+    return _MeasureSizeRenderObject(onChange);
+  }
+}
+
+class _MeasureSizeRenderObject extends RenderProxyBox {
+  Size? oldSize;
+  final void Function(Size size) onChange;
+
+  _MeasureSizeRenderObject(this.onChange);
+
+  @override
+  void performLayout() {
+    super.performLayout();
+    final newSize = child?.size;
+    if (newSize != null && oldSize != newSize) {
+      oldSize = newSize;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        onChange(newSize);
+      });
+    }
+  }
+}

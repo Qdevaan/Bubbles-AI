@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../theme/design_tokens.dart';
@@ -11,6 +12,8 @@ class HomeInsightCard extends StatefulWidget {
   final bool isDark;
   final IconData? icon;
   final String? sessionId;
+  final ValueChanged<bool>? onToggle;
+  final VoidCallback? onLongPress;
 
   const HomeInsightCard({
     super.key,
@@ -21,6 +24,8 @@ class HomeInsightCard extends StatefulWidget {
     required this.isDark,
     this.icon,
     this.sessionId,
+    this.onToggle,
+    this.onLongPress,
   });
 
   @override
@@ -30,6 +35,7 @@ class HomeInsightCard extends StatefulWidget {
 class _HomeInsightCardState extends State<HomeInsightCard>
     with SingleTickerProviderStateMixin {
   bool _expanded = false;
+  bool _dismissing = false;
   late AnimationController _ctrl;
   late Animation<double> _expandAnim;
   late Animation<double> _chevronTurn;
@@ -54,6 +60,16 @@ class _HomeInsightCardState extends State<HomeInsightCard>
   void _toggle() {
     setState(() => _expanded = !_expanded);
     _expanded ? _ctrl.forward() : _ctrl.reverse();
+    widget.onToggle?.call(_expanded);
+  }
+
+  void _handleLongPress() async {
+    HapticFeedback.heavyImpact();
+    setState(() {
+      _dismissing = true;
+    });
+    await Future.delayed(const Duration(milliseconds: 300));
+    widget.onLongPress?.call();
   }
 
   @override
@@ -61,7 +77,16 @@ class _HomeInsightCardState extends State<HomeInsightCard>
     final hasBody = widget.description.isNotEmpty;
     return GestureDetector(
       onTap: hasBody ? _toggle : null,
-      child: AnimatedContainer(
+      onLongPress: widget.onLongPress != null ? _handleLongPress : null,
+      child: AnimatedOpacity(
+        duration: const Duration(milliseconds: 300),
+        opacity: _dismissing ? 0.0 : 1.0,
+        curve: Curves.easeOut,
+        child: AnimatedScale(
+          duration: const Duration(milliseconds: 300),
+          scale: _dismissing ? 0.8 : 1.0,
+          curve: Curves.easeInBack,
+          child: AnimatedContainer(
         duration: const Duration(milliseconds: 300),
         curve: Curves.easeOutCubic,
         padding: const EdgeInsets.all(16),
@@ -74,15 +99,18 @@ class _HomeInsightCardState extends State<HomeInsightCard>
               : null,
         ),
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _buildHeader(hasBody),
             _buildExpandedBody(hasBody),
           ],
-        ),
-      ),
-    );
-  }
+        ), // Column
+      ), // AnimatedContainer
+    ), // AnimatedScale
+  ), // AnimatedOpacity
+); // GestureDetector
+}
 
   Widget _buildHeader(bool hasBody) {
     return Row(children: [
