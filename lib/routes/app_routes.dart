@@ -9,7 +9,10 @@ class AppRoutes {
   static const newSession = '/new-session';
   static const sessions = '/sessions';
   static const about = '/about';
-  static const settings = '/settings';
+  static const settings    = '/settings';
+  static const preferences = '/settings/preferences';
+  static const assistant   = '/settings/assistant';
+  static const voiceAssistant = '/settings/voice-assistant';
   static const entities = '/entities';
   static const sessionAnalytics = '/session-analytics';
   static const roleplaySetup = '/roleplay-setup';

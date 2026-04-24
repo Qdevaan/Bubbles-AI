@@ -276,12 +276,9 @@ class _HomeScreenState extends State<HomeScreen>
           return GestureDetector(
             behavior: HitTestBehavior.opaque,
             onHorizontalDragEnd: (details) {
-              if (details.primaryVelocity != null) {
-                if (details.primaryVelocity! > 300) {
-                  Navigator.pushNamed(context, '/settings');
-                } else if (details.primaryVelocity! < -300) {
-                  Navigator.pushNamed(context, '/entities');
-                }
+              if (details.primaryVelocity != null &&
+                  details.primaryVelocity! < -300) {
+                Navigator.pushNamed(context, '/entities');
               }
             },
             child: Stack(
@@ -704,21 +701,20 @@ class _HomeScreenState extends State<HomeScreen>
                                 ),
                               ),
 
-                              const SliverToBoxAdapter(
-                                  child: SizedBox(height: 30)),
+                              const SliverToBoxAdapter(child: SizedBox(height: 30)),
                             ],
                           ),
                         ),
                       ],
                     ),
                   ),
-              ],
-            ),
-          );
-        },
-      ),
-    );
-  }
+                ],
+              ),
+            );
+          },
+        ),
+      );
+    }
 
   void _showNotConnectedDialog(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
