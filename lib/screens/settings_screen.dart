@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
-import 'package:permission_handler/permission_handler.dart';
+
 import '../theme/design_tokens.dart';
 import '../services/app_cache_service.dart';
 import '../services/auth_service.dart';
@@ -25,27 +25,7 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen> {
   bool _isLoggingOut = false;
-  bool _notificationsGranted = false;
 
-  @override
-  void initState() {
-    super.initState();
-    _checkNotificationPermission();
-  }
-
-  Future<void> _checkNotificationPermission() async {
-    final status = await Permission.notification.status;
-    if (mounted) setState(() => _notificationsGranted = status.isGranted);
-  }
-
-  Future<void> _toggleNotifications(bool _) async {
-    if (_notificationsGranted) {
-      await openAppSettings();
-    } else {
-      final status = await Permission.notification.request();
-      if (mounted) setState(() => _notificationsGranted = status.isGranted);
-    }
-  }
 
   Future<void> _logout() async {
     setState(() => _isLoggingOut = true);
@@ -222,19 +202,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               ),
                             ),
                             TileDivider(isDark: isDark),
-                            SettingsTile(
-                              isDark: isDark,
-                              iconBg: const Color(0xFF34D399).withAlpha(51),
-                              iconColor: const Color(0xFF34D399),
-                              icon: Icons.translate,
-                              title: 'Language',
-                              trailing: Text(
-                                'English (US)',
-                                style: GoogleFonts.manrope(
-                                    fontSize: 13, color: AppColors.textMuted),
+                            Consumer<SettingsProvider>(
+                              builder: (context, sp, _) => SettingsTile(
+                                isDark: isDark,
+                                iconBg: const Color(0xFF34D399).withAlpha(51),
+                                iconColor: const Color(0xFF34D399),
+                                icon: Icons.translate,
+                                title: 'Language',
+                                trailing: Text(
+                                  sp.locale.languageCode == 'en'
+                                      ? 'English'
+                                      : sp.locale.languageCode == 'ur'
+                                          ? 'Urdu'
+                                          : 'Arabic',
+                                  style: GoogleFonts.manrope(
+                                      fontSize: 13, color: AppColors.textMuted),
+                                ),
+                                onTap: () => _showLanguagePicker(context, sp),
                               ),
-                              onTap: () => Navigator.pushNamed(
-                                  context, AppRoutes.language),
                             ),
                             TileDivider(isDark: isDark),
                             Consumer<SettingsProvider>(
@@ -370,73 +355,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           ),
                         ),
 
-                        const SizedBox(height: 24),
-
-                        // NOTIFICATIONS
-                        _SectionHeader(
-                          label: 'Notifications',
-                          icon: Icons.notifications_outlined,
-                          color: const Color(0xFFF43F5E),
-                        ),
-                        const SizedBox(height: 8),
-                        Consumer<SettingsProvider>(
-                          builder: (context, sp, _) => GroupedContainer(
-                            isDark: isDark,
-                            children: [
-                              ToggleTile(
-                                isDark: isDark,
-                                iconBg: const Color(0xFFF43F5E).withAlpha(51),
-                                iconColor: const Color(0xFFF43F5E),
-                                icon: Icons.notifications_active_outlined,
-                                title: 'Allow OS Notifications',
-                                value: _notificationsGranted,
-                                onChanged: _toggleNotifications,
-                              ),
-                              if (_notificationsGranted) ...[
-                                TileDivider(isDark: isDark),
-                                ToggleTile(
-                                  isDark: isDark,
-                                  iconBg: Colors.orange.withAlpha(51),
-                                  iconColor: Colors.orange,
-                                  icon: Icons.event_rounded,
-                                  title: 'Events & Deadlines',
-                                  value: sp.pushEvents,
-                                  onChanged: (val) => sp.setPushEvents(val),
-                                ),
-                                TileDivider(isDark: isDark),
-                                ToggleTile(
-                                  isDark: isDark,
-                                  iconBg: Colors.blue.withAlpha(51),
-                                  iconColor: Colors.blue,
-                                  icon: Icons.lightbulb_outline_rounded,
-                                  title: 'Insights & Highlights',
-                                  value: sp.pushHighlights,
-                                  onChanged: (val) => sp.setPushHighlights(val),
-                                ),
-                                TileDivider(isDark: isDark),
-                                ToggleTile(
-                                  isDark: isDark,
-                                  iconBg: Colors.purple.withAlpha(51),
-                                  iconColor: Colors.purple,
-                                  icon: Icons.campaign_outlined,
-                                  title: 'Feature Announcements',
-                                  value: sp.pushAnnouncements,
-                                  onChanged: (val) => sp.setPushAnnouncements(val),
-                                ),
-                                TileDivider(isDark: isDark),
-                                ToggleTile(
-                                  isDark: isDark,
-                                  iconBg: Colors.teal.withAlpha(51),
-                                  iconColor: Colors.teal,
-                                  icon: Icons.check_circle_outline,
-                                  title: 'Gamification Reminders',
-                                  value: sp.pushReminders,
-                                  onChanged: (val) => sp.setPushReminders(val),
-                                ),
-                              ],
-                            ],
-                          ),
-                        ),
 
                         const SizedBox(height: 24),
 
@@ -578,6 +496,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   void _showQuickActionsStylePicker(BuildContext context, SettingsProvider p) =>
       showQuickActionsStylePicker(context, p);
+
+  void _showLanguagePicker(BuildContext context, SettingsProvider p) =>
+      showLanguagePicker(context, p);
 }
 
 // ── Profile Hero Card ──────────────────────────────────────────────────────────

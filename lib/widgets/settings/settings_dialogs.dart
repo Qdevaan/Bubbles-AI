@@ -784,6 +784,91 @@ void showQuickActionsStylePicker(
   );
 }
 
+/// Shows a language picker dialog.
+void showLanguagePicker(BuildContext context, SettingsProvider settingsProvider) {
+  final isDark = Theme.of(context).brightness == Brightness.dark;
+  final locales = [
+    (const Locale('en'), 'English', '🇬🇧'),
+    (const Locale('ur'), 'اردو', '🇵🇰'),
+    (const Locale('ar'), 'العربية', '🇸🇦'),
+  ];
+
+  showDialog(
+    context: context,
+    builder: (ctx) => GlassDialog(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.primary.withAlpha(26),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: Theme.of(context).colorScheme.primary.withAlpha(51),
+                  ),
+                ),
+                child: Icon(
+                  Icons.translate_rounded,
+                  color: Theme.of(context).colorScheme.primary,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'Select Language',
+                  style: GoogleFonts.manrope(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                    color: isDark ? Colors.white : AppColors.slate900,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          ...locales.map((item) {
+            final (locale, label, flag) = item;
+            final isSelected =
+                settingsProvider.locale.languageCode == locale.languageCode;
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: _buildToneOption(
+                context: context,
+                title: '$flag  $label',
+                isSelected: isSelected,
+                isDark: isDark,
+                onTap: () {
+                  settingsProvider.setLocale(locale);
+                  Navigator.pop(ctx);
+                },
+              ),
+            );
+          }).toList(),
+          const SizedBox(height: 16),
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: Text(
+                'Cancel',
+                style: GoogleFonts.manrope(
+                  fontWeight: FontWeight.w700,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
 /// Helper widget to build tone option rows.
 Widget _buildToneOption({
   required BuildContext context,

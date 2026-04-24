@@ -14,6 +14,7 @@
     <!-- Android 13+ (API 33+) -->
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
     <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
+    <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
 
     <!-- Bluetooth (Retained from your snippet for future features) -->
     <uses-permission android:name="android.permission.BLUETOOTH" />
