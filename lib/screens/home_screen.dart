@@ -92,10 +92,8 @@ class _HomeScreenState extends State<HomeScreen>
               decoration: BoxDecoration(
                 color: isDark ? const Color(0xFF0D1B1F).withAlpha(235) : Colors.white.withAlpha(242),
                 borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-                border: Border(
-                  top: BorderSide(color: isDark ? AppColors.glassBorder : Colors.grey.shade200),
-                  left: BorderSide(color: isDark ? AppColors.glassBorderLight : Colors.grey.shade100),
-                  right: BorderSide(color: isDark ? AppColors.glassBorderLight : Colors.grey.shade100),
+                border: Border.all(
+                  color: isDark ? AppColors.glassBorder : Colors.grey.shade200,
                 ),
               ),
               child: Column(

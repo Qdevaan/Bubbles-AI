@@ -33,6 +33,7 @@ class SettingsProvider with ChangeNotifier {
   bool _pushEvents = true;
   bool _pushWeeklyDigest = true;
   bool _pushReminders = true;
+  bool _pushAnnouncements = true;
 
   // Synced settings (mirror user_settings schema columns)
   String _fontSize = 'medium';
@@ -55,6 +56,7 @@ class SettingsProvider with ChangeNotifier {
   bool get pushEvents => _pushEvents;
   bool get pushWeeklyDigest => _pushWeeklyDigest;
   bool get pushReminders => _pushReminders;
+  bool get pushAnnouncements => _pushAnnouncements;
   String get fontSize => _fontSize;
   String get voiceAssistantName => _voiceAssistantName;
   String? get assistantVoiceId => _assistantVoiceId;
@@ -94,6 +96,7 @@ class SettingsProvider with ChangeNotifier {
       _pushEvents = prefs.getBool('push_events') ?? true;
       _pushWeeklyDigest = prefs.getBool('push_weekly_digest') ?? true;
       _pushReminders = prefs.getBool('push_reminders') ?? true;
+      _pushAnnouncements = prefs.getBool('push_announcements') ?? true;
 
       _fontSize = prefs.getString('font_size') ?? 'medium';
       _voiceAssistantName = prefs.getString('voice_assistant_name') ?? 'Bubbles';
@@ -141,6 +144,7 @@ class SettingsProvider with ChangeNotifier {
     if (settings['push_events'] != null) _pushEvents = settings['push_events'];
     if (settings['push_weekly_digest'] != null) _pushWeeklyDigest = settings['push_weekly_digest'];
     if (settings['push_reminders'] != null) _pushReminders = settings['push_reminders'];
+    if (settings['push_announcements'] != null) _pushAnnouncements = settings['push_announcements'];
   }
 
   Future<void> _loadFromSupabase() async {
@@ -267,6 +271,11 @@ class SettingsProvider with ChangeNotifier {
   Future<void> setPushReminders(bool val) async {
     _pushReminders = val;
     await _updateSetting('push_reminders', val);
+  }
+
+  Future<void> setPushAnnouncements(bool val) async {
+    _pushAnnouncements = val;
+    await _updateSetting('push_announcements', val);
   }
 
   Future<void> setFontSize(String size) async {

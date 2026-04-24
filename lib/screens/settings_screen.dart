@@ -379,20 +379,61 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           color: const Color(0xFFF43F5E),
                         ),
                         const SizedBox(height: 8),
-                        Consumer<ConnectionService>(
-                          builder: (context, conn, _) => GroupedContainer(
+                        Consumer<SettingsProvider>(
+                          builder: (context, sp, _) => GroupedContainer(
                             isDark: isDark,
                             children: [
                               ToggleTile(
                                 isDark: isDark,
-                                iconBg:
-                                    const Color(0xFFF43F5E).withAlpha(51),
+                                iconBg: const Color(0xFFF43F5E).withAlpha(51),
                                 iconColor: const Color(0xFFF43F5E),
-                                icon: Icons.notifications_outlined,
-                                title: 'Push Notifications',
+                                icon: Icons.notifications_active_outlined,
+                                title: 'Allow OS Notifications',
                                 value: _notificationsGranted,
                                 onChanged: _toggleNotifications,
                               ),
+                              if (_notificationsGranted) ...[
+                                TileDivider(isDark: isDark),
+                                ToggleTile(
+                                  isDark: isDark,
+                                  iconBg: Colors.orange.withAlpha(51),
+                                  iconColor: Colors.orange,
+                                  icon: Icons.event_rounded,
+                                  title: 'Events & Deadlines',
+                                  value: sp.pushEvents,
+                                  onChanged: (val) => sp.setPushEvents(val),
+                                ),
+                                TileDivider(isDark: isDark),
+                                ToggleTile(
+                                  isDark: isDark,
+                                  iconBg: Colors.blue.withAlpha(51),
+                                  iconColor: Colors.blue,
+                                  icon: Icons.lightbulb_outline_rounded,
+                                  title: 'Insights & Highlights',
+                                  value: sp.pushHighlights,
+                                  onChanged: (val) => sp.setPushHighlights(val),
+                                ),
+                                TileDivider(isDark: isDark),
+                                ToggleTile(
+                                  isDark: isDark,
+                                  iconBg: Colors.purple.withAlpha(51),
+                                  iconColor: Colors.purple,
+                                  icon: Icons.campaign_outlined,
+                                  title: 'Feature Announcements',
+                                  value: sp.pushAnnouncements,
+                                  onChanged: (val) => sp.setPushAnnouncements(val),
+                                ),
+                                TileDivider(isDark: isDark),
+                                ToggleTile(
+                                  isDark: isDark,
+                                  iconBg: Colors.teal.withAlpha(51),
+                                  iconColor: Colors.teal,
+                                  icon: Icons.check_circle_outline,
+                                  title: 'Gamification Reminders',
+                                  value: sp.pushReminders,
+                                  onChanged: (val) => sp.setPushReminders(val),
+                                ),
+                              ],
                             ],
                           ),
                         ),

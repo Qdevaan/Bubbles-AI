@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/auth_service.dart';
 import '../services/analytics_service.dart';
+import '../services/notification_service.dart';
 import '../repositories/home_repository.dart';
 
 /// Dedicated state manager for the HomeScreen.
@@ -39,6 +40,7 @@ class HomeProvider extends ChangeNotifier {
   RealtimeChannel? _notificationsChannel;
 
   void init() {
+    NotificationService.instance.init();
     loadProfile();
     loadInsights();
     subscribeToHighlights();
@@ -148,6 +150,12 @@ class HomeProvider extends ChangeNotifier {
             if (_repository != null) {
               _repository!.updateHighlightsCache(user.id, record);
             }
+            NotificationService.instance.showImmediateNotification(
+              id: record['id'].hashCode,
+              title: record['title'] ?? 'New Highlight',
+              body: record['body'] ?? '',
+              notifType: 'highlight',
+            );
           },
         )
         .subscribe();
@@ -176,6 +184,12 @@ class HomeProvider extends ChangeNotifier {
             if (_repository != null) {
               _repository!.updateNotificationsCache(user.id, record);
             }
+            NotificationService.instance.showImmediateNotification(
+              id: record['id'].hashCode,
+              title: record['title'] ?? 'New Notification',
+              body: record['body'] ?? '',
+              notifType: record['notif_type'] as String?,
+            );
           },
         )
         .subscribe();
@@ -205,6 +219,21 @@ class HomeProvider extends ChangeNotifier {
     _notifications = results[2].data ?? [];
     _insightsLoaded = true;
     notifyListeners();
+
+    // Schedule local alerts for events
+    for (final ev in _events) {
+      if (ev['due_date'] != null) {
+        try {
+          final dt = DateTime.parse(ev['due_date'] as String);
+          NotificationService.instance.scheduleEventAlert(
+            eventId: ev['id'] as String,
+            title: ev['title'] as String? ?? 'Event',
+            description: ev['description'] as String? ?? '',
+            dueDate: dt,
+          );
+        } catch (_) {}
+      }
+    }
   }
 
   @override
