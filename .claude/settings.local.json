@@ -34,7 +34,16 @@
       "Bash(docker exec:*)",
       "Bash(grep -v \"maybe_single\\\\|execute\\\\|asyncio\\\\|table\\\\|select\\\\|\\\\.eq\\\\|\\\\.in_\\\\|\\\\.gte\\\\|^--$\")",
       "Bash(docker compose:*)",
-      "Bash(npx ccstatusline@latest:*)"
+      "Bash(npx ccstatusline@latest:*)",
+      "Bash(claude doctor *)",
+      "PowerShell(python -c \"import graphify; print\\('ok'\\)\")",
+      "PowerShell(Out-File *)",
+      "PowerShell(python .graphify_ast.py)",
+      "PowerShell(python .graphify_cache_check.py)",
+      "PowerShell(python .graphify_step4.py)",
+      "PowerShell($env:PYTHONIOENCODING=\"utf-8\"; python .graphify_step5.py)",
+      "PowerShell($env:PYTHONIOENCODING=\"utf-8\"; python .graphify_step6.py)",
+      "PowerShell($env:PYTHONIOENCODING=\"utf-8\"; python .graphify_step8.py)"
     ]
   }
 }

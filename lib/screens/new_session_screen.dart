@@ -1,4 +1,4 @@
-import 'dart:math';
+﻿import 'dart:math';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -15,6 +15,7 @@ import '../providers/session_provider.dart';
 import '../providers/settings_provider.dart';
 import '../widgets/chat_bubble.dart';
 import '../widgets/feedback_dialog.dart';
+import '../widgets/session/session_widgets.dart';
 
 // ============================================================================
 //  NEW SESSION SCREEN  (Live Wingman)
@@ -331,10 +332,10 @@ class _NewSessionScreenState extends State<NewSessionScreen>
               SnackBar(
                 content: Text(
                   hasAudio && hasTx
-                      ? 'Session saved — audio + transcript recorded to device'
+                      ? 'Session saved â€” audio + transcript recorded to device'
                       : hasTx
-                          ? 'Session saved — transcript recorded to device'
-                          : 'Session saved — audio recorded to device',
+                          ? 'Session saved â€” transcript recorded to device'
+                          : 'Session saved â€” audio recorded to device',
                 ),
                 backgroundColor: AppColors.success,
                 duration: const Duration(seconds: 4),
@@ -537,7 +538,7 @@ class _NewSessionScreenState extends State<NewSessionScreen>
               return Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  _CheckItem(
+                  CheckItem(
                     icon: Icons.mic,
                     label: 'Microphone',
                     status: 'Ready',
@@ -545,7 +546,7 @@ class _NewSessionScreenState extends State<NewSessionScreen>
                     isDark: isDark,
                   ),
                   const SizedBox(height: 12),
-                  _CheckItem(
+                  CheckItem(
                     icon: Icons.wifi,
                     label: 'Server',
                     status: isServerOnline ? 'Connected' : 'Offline',
@@ -553,7 +554,7 @@ class _NewSessionScreenState extends State<NewSessionScreen>
                     isDark: isDark,
                   ),
                   const SizedBox(height: 12),
-                  _CheckItem(
+                  CheckItem(
                     icon: Icons.bluetooth,
                     label: 'Bluetooth',
                     status: 'Optional',
@@ -1331,38 +1332,38 @@ class _NewSessionScreenState extends State<NewSessionScreen>
 
       if (adviceMatch != null && adviceMatch.group(1)!.trim().isNotEmpty) {
         sections.add(
-          _buildSectionCard(
-            "ADVICE",
-            adviceMatch.group(1)!.trim(),
-            AppColors.success.withAlpha(38),
-            AppColors.success,
-            Icons.lightbulb_outline,
-            isDark,
+          SessionSectionCard(
+            title: "ADVICE",
+            content: adviceMatch.group(1)!.trim(),
+            bg: AppColors.success.withAlpha(38),
+            fg: AppColors.success,
+            icon: Icons.lightbulb_outline,
+            isDark: isDark,
           ),
         );
       }
       if (clarificationMatch != null &&
           clarificationMatch.group(1)!.trim().isNotEmpty) {
         sections.add(
-          _buildSectionCard(
-            "CLARIFICATION",
-            clarificationMatch.group(1)!.trim(),
-            AppColors.warning.withAlpha(38),
-            AppColors.warning,
-            Icons.help_outline,
-            isDark,
+          SessionSectionCard(
+            title: "CLARIFICATION",
+            content: clarificationMatch.group(1)!.trim(),
+            bg: AppColors.warning.withAlpha(38),
+            fg: AppColors.warning,
+            icon: Icons.help_outline,
+            isDark: isDark,
           ),
         );
       }
       if (apologyMatch != null && apologyMatch.group(1)!.trim().isNotEmpty) {
         sections.add(
-          _buildSectionCard(
-            "CONFIRMATION",
-            apologyMatch.group(1)!.trim(),
-            Theme.of(context).colorScheme.primary.withAlpha(38),
-            Theme.of(context).colorScheme.primary,
-            Icons.info_outline,
-            isDark,
+          SessionSectionCard(
+            title: "CONFIRMATION",
+            content: apologyMatch.group(1)!.trim(),
+            bg: Theme.of(context).colorScheme.primary.withAlpha(38),
+            fg: Theme.of(context).colorScheme.primary,
+            icon: Icons.info_outline,
+            isDark: isDark,
           ),
         );
       }
@@ -1383,52 +1384,7 @@ class _NewSessionScreenState extends State<NewSessionScreen>
     );
   }
 
-  Widget _buildSectionCard(
-    String title,
-    String content,
-    Color bg,
-    Color fg,
-    IconData icon,
-    bool isDark,
-  ) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(AppRadius.md),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(icon, size: 14, color: fg),
-              const SizedBox(width: 6),
-              Text(
-                title,
-                style: GoogleFonts.manrope(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w800,
-                  color: fg,
-                  letterSpacing: 0.5,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 4),
-          Text(
-            content,
-            style: GoogleFonts.manrope(
-              fontSize: 13,
-              color: isDark ? AppColors.slate200 : AppColors.slate700,
-              height: 1.3,
-            ),
-          ),
-        ],
-      ),
-    );
-  }// ========================
+  // ========================
   // SECTION 5: ADVANCED SETTINGS UI
   // ========================
   Widget _buildSection5Settings(bool isDark) {
@@ -1530,74 +1486,3 @@ class _NewSessionScreenState extends State<NewSessionScreen>
     );
   }}
 
-// --- Sub Widgets ---
-
-class _CheckItem extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final String status;
-  final Color color;
-  final bool isDark;
-
-  const _CheckItem({
-    required this.icon,
-    required this.label,
-    required this.status,
-    required this.color,
-    required this.isDark,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 40),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(AppRadius.xxl),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-            decoration: BoxDecoration(
-              color: isDark ? AppColors.glassWhite : Colors.white.withAlpha(200),
-              border: Border.all(
-                color: isDark ? AppColors.glassBorder : Colors.white.withAlpha(255),
-              ),
-            ),
-            child: Row(
-        children: [
-          Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              color: color.withAlpha(51),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Icon(icon, color: color, size: 20),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Text(
-              label,
-              style: GoogleFonts.manrope(
-                fontSize: 15,
-                fontWeight: FontWeight.w600,
-                color: isDark ? Colors.white : AppColors.slate900,
-              ),
-            ),
-          ),
-          Text(
-            status,
-            style: GoogleFonts.manrope(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: color,
-            ),
-          ),
-        ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
