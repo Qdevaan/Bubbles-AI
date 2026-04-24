@@ -28,6 +28,8 @@ class _RoleplaySetupScreenState extends State<RoleplaySetupScreen> {
       final res = await _supabase
           .from('entities')
           .select('id, display_name, entity_type')
+          .eq('user_id', _supabase.auth.currentUser!.id)
+          .eq('entity_type', 'person')
           .order('display_name');
       if (mounted) {
         setState(() {

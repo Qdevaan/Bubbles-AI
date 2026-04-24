@@ -21,7 +21,7 @@ class EntityRepository extends BaseRepository {
             .from('entities')
             .select()
             .eq('user_id', userId)
-            .order('name', ascending: true);
+            .order('display_name', ascending: true);
         return List<Map<String, dynamic>>.from(res);
       },
       fromJson: (json) => List<Map<String, dynamic>>.from(json),
