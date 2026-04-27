@@ -1,27 +1,9 @@
 -- ================================================================================
 --  BUBBLES AI ASSISTANT — UNIFIED "DB FINAL" SCHEMA v5.0
---  Date      : March 23, 2026
---  Status    : UNIFIED SCHEMA — Merges v4.0 schema + all old server columns
+--  Date      : April 27, 2026
+--  Status    : UNIFIED SCHEMA — Updated till date with all necessary changes for both server and Flutter app compatibility
 --  Purpose   : Single source of truth for server + Flutter app
 --  RLS       : DISABLED on all tables (server enforces ownership checks)
--- ================================================================================
---
---  CHANGES FROM v4.0:
---  ─────────────────────────────────────────────────────────────────────────────
---  Sessions        : Added mode, is_ephemeral, is_multiplayer, persona, ended_at
---  Session Logs    : Added sentiment_score, sentiment_label, speaker_label,
---                    confidence, turn_index now has default
---  Consultant Logs : Renamed query→question, response→answer for server compat
---  Entities        : Added display_name, last_seen_at
---  Entity Attrs    : Added source_session_id (FK to sessions)
---  Entity Relations: Added source_session_id, updated_at
---  Sentiment Logs  : Added speaker_role, renamed columns to score/label
---  Feedback        : Added feedback_type, value, consultant_log_id
---  Highlights      : Added title, body (server writes these)
---  Events          : Added due_text
---  Session Analytics: Added many granular metrics (user_turns, others_turns, etc.)
---  Coaching Reports : Added structured report columns (model_used, key_topics, etc.)
---  Voice Enrollments: Added model_version
 -- ================================================================================
 
 
@@ -47,7 +29,6 @@ drop table if exists public.audit_log cascade;
 
 drop table if exists public.subscription_usage cascade;
 drop table if exists public.subscriptions cascade;
-
 drop table if exists public.shared_sessions cascade;
 drop table if exists public.team_members cascade;
 drop table if exists public.team_workspaces cascade;
@@ -60,7 +41,6 @@ drop table if exists public.integrations cascade;
 
 drop table if exists public.iot_logs cascade;
 drop table if exists public.iot_devices cascade;
-
 drop table if exists public.notifications cascade;
 drop table if exists public.notification_tokens cascade;
 
@@ -104,6 +84,7 @@ drop table if exists public.profiles cascade;
 -- 3. CORE USER & IDENTITY (Group A)
 -- ════════════════════════════════════════════════════════════════════════════════
 
+-- Basic profile details for each signed-in user.
 create table public.profiles (
     id uuid primary key references auth.users(id) on delete cascade,
     full_name text,
@@ -121,6 +102,7 @@ create table public.profiles (
     updated_at timestamptz default now()
 );
 
+-- User app preferences and assistant settings.
 create table public.user_settings (
     user_id uuid primary key references auth.users(id) on delete cascade,
     theme text default 'system',
@@ -139,6 +121,7 @@ create table public.user_settings (
     updated_at timestamptz default now()
 );
 
+-- Devices the user has signed in from.
 create table public.user_devices (
     id uuid default extensions.uuid_generate_v4() primary key,
     user_id uuid references auth.users(id) on delete cascade,
@@ -156,6 +139,7 @@ create table public.user_devices (
     unique(user_id, device_id)
 );
 
+-- Tracks where the user is in onboarding.
 create table public.onboarding_progress (
     user_id uuid primary key references auth.users(id) on delete cascade,
     has_completed_welcome boolean default false,
@@ -172,6 +156,7 @@ create table public.onboarding_progress (
 --    ★ MERGED: Added mode, is_ephemeral, is_multiplayer, persona, ended_at
 -- ════════════════════════════════════════════════════════════════════════════════
 
+-- One row for each chat or voice session.
 create table public.sessions (
     id uuid default extensions.uuid_generate_v4() primary key,
     user_id uuid references auth.users(id) on delete cascade,
@@ -196,6 +181,7 @@ create table public.sessions (
     deleted_at timestamptz                      -- soft delete
 );
 
+-- Individual messages and turns inside a session.
 create table public.session_logs (
     id uuid default extensions.uuid_generate_v4() primary key,
     session_id uuid references public.sessions(id) on delete cascade,
@@ -217,6 +203,7 @@ create table public.session_logs (
     created_at timestamptz default now()
 );
 
+-- Freeform questions and answers from the consultant flow.
 create table public.consultant_logs (
     id uuid default extensions.uuid_generate_v4() primary key,
     user_id uuid not null references auth.users(id) on delete cascade,
@@ -230,6 +217,7 @@ create table public.consultant_logs (
     created_at timestamptz not null default timezone('utc', now())
 );
 
+-- Files, images, audio, or PDFs attached to a session message.
 create table public.multimodal_attachments (
     id uuid default extensions.uuid_generate_v4() primary key,
     session_log_id uuid references public.session_logs(id) on delete cascade,
@@ -242,6 +230,7 @@ create table public.multimodal_attachments (
     created_at timestamptz default now()
 );
 
+-- Metadata for uploaded or recorded audio sessions.
 create table public.audio_sessions (
     id uuid default extensions.uuid_generate_v4() primary key,
     session_id uuid references public.sessions(id) on delete cascade,
@@ -255,6 +244,7 @@ create table public.audio_sessions (
     recorded_at timestamptz default now()
 );
 
+-- Precomputed stats and summary numbers for a session.
 create table public.session_analytics (
     session_id uuid primary key references public.sessions(id) on delete cascade,
     user_id uuid not null references auth.users(id) on delete cascade,
@@ -283,6 +273,7 @@ create table public.session_analytics (
 -- 5. INTELLIGENCE, MEMORY & CONTEXT (Group C)
 -- ════════════════════════════════════════════════════════════════════════════════
 
+-- Saved memories that the assistant can recall later.
 create table public.memory (
     id uuid default extensions.uuid_generate_v4() primary key,
     user_id uuid references auth.users(id) on delete cascade,
@@ -300,12 +291,14 @@ create table public.memory (
     expires_at timestamptz
 );
 
+-- High-level graph data for a user's knowledge map.
 create table public.knowledge_graphs (
     user_id uuid primary key references auth.users(id) on delete cascade,
     graph_data jsonb not null default '{}',
     updated_at timestamptz default now()
 );
 
+-- People, places, things, and concepts the app knows about.
 create table public.entities (
     id uuid default extensions.uuid_generate_v4() primary key,
     user_id uuid references auth.users(id) on delete cascade,
@@ -321,6 +314,7 @@ create table public.entities (
     unique(user_id, canonical_name)
 );
 
+-- Extra facts and attributes for each entity.
 create table public.entity_attributes (
     id uuid default extensions.uuid_generate_v4() primary key,
     entity_id uuid references public.entities(id) on delete cascade,
@@ -334,6 +328,7 @@ create table public.entity_attributes (
     unique(entity_id, attribute_key)
 );
 
+-- Relationships between two entities.
 create table public.entity_relations (
     id uuid default extensions.uuid_generate_v4() primary key,
     user_id uuid references auth.users(id) on delete cascade,
@@ -347,6 +342,7 @@ create table public.entity_relations (
     unique(source_id, target_id, relation)
 );
 
+-- Saved automation or routine rules for a user.
 create table public.user_routines (
     id uuid default extensions.uuid_generate_v4() primary key,
     user_id uuid references auth.users(id) on delete cascade,
@@ -363,6 +359,7 @@ create table public.user_routines (
 -- 6. HEALTH, FINANCE & LIFE TRACKING (Group D)
 -- ════════════════════════════════════════════════════════════════════════════════
 
+-- Health readings such as sleep, weight, steps, or mood.
 create table public.health_metrics (
     id uuid default extensions.uuid_generate_v4() primary key,
     user_id uuid references auth.users(id) on delete cascade,
@@ -373,6 +370,7 @@ create table public.health_metrics (
     source text default 'manual'                -- manual | wearable | apple_health
 );
 
+-- Spending records and receipts.
 create table public.expenses (
     id uuid default extensions.uuid_generate_v4() primary key,
     user_id uuid references auth.users(id) on delete cascade,
@@ -386,6 +384,7 @@ create table public.expenses (
     notes text
 );
 
+-- Travel plans and trip details.
 create table public.trips (
     id uuid default extensions.uuid_generate_v4() primary key,
     user_id uuid references auth.users(id) on delete cascade,
@@ -404,6 +403,7 @@ create table public.trips (
 --    ★ MERGED: highlights gets title/body; events gets due_text; feedback updated
 -- ════════════════════════════════════════════════════════════════════════════════
 
+-- Important takeaways or action-worthy notes from a session.
 create table public.highlights (
     id uuid default extensions.uuid_generate_v4() primary key,
     user_id uuid not null references auth.users(id) on delete cascade,
@@ -418,6 +418,7 @@ create table public.highlights (
     created_at timestamptz not null default timezone('utc', now())
 );
 
+-- User tasks that need follow-up or completion.
 create table public.tasks (
     id uuid default extensions.uuid_generate_v4() primary key,
     user_id uuid references auth.users(id) on delete cascade,
@@ -432,6 +433,7 @@ create table public.tasks (
     created_at timestamptz default now()
 );
 
+-- Calendar-style events pulled from or created by the app.
 create table public.events (
     id uuid default extensions.uuid_generate_v4() primary key,
     user_id uuid references auth.users(id) on delete cascade,
@@ -450,6 +452,7 @@ create table public.events (
     updated_at timestamptz default now()
 );
 
+-- Ratings and comments left after using the assistant.
 create table public.feedback (
     id uuid default extensions.uuid_generate_v4() primary key,
     user_id uuid not null references auth.users(id) on delete cascade,
@@ -463,6 +466,7 @@ create table public.feedback (
     created_at timestamptz not null default timezone('utc', now())
 );
 
+-- Sentiment score for each turn in a session.
 create table public.sentiment_logs (
     id uuid default extensions.uuid_generate_v4() primary key,
     user_id uuid not null references auth.users(id) on delete cascade,
@@ -478,6 +482,7 @@ create table public.sentiment_logs (
     recorded_at timestamptz not null default timezone('utc', now())
 );
 
+-- Voice profile data used to recognize a user.
 create table public.voice_enrollments (
     id uuid default extensions.uuid_generate_v4() primary key,
     user_id uuid not null references auth.users(id) on delete cascade,
@@ -487,6 +492,7 @@ create table public.voice_enrollments (
     updated_at timestamptz not null default timezone('utc', now())
 );
 
+-- Push notification device tokens.
 create table public.notification_tokens (
     id uuid default extensions.uuid_generate_v4() primary key,
     user_id uuid not null references auth.users(id) on delete cascade,
@@ -497,6 +503,7 @@ create table public.notification_tokens (
     unique (user_id, token)
 );
 
+-- Notifications shown to the user.
 create table public.notifications (
     id uuid default extensions.uuid_generate_v4() primary key,
     user_id uuid references auth.users(id) on delete cascade,
@@ -514,6 +521,7 @@ create table public.notifications (
 -- 8. SMART HOME & IOT (Group F)
 -- ════════════════════════════════════════════════════════════════════════════════
 
+-- Smart devices connected to the user account.
 create table public.iot_devices (
     id uuid default extensions.uuid_generate_v4() primary key,
     user_id uuid references auth.users(id) on delete cascade,
@@ -527,6 +535,7 @@ create table public.iot_devices (
     last_synced_at timestamptz default now()
 );
 
+-- History of actions sent to smart devices.
 create table public.iot_logs (
     id uuid default extensions.uuid_generate_v4() primary key,
     device_id uuid references public.iot_devices(id) on delete cascade,
@@ -543,6 +552,7 @@ create table public.iot_logs (
 --    ★ MERGED: coaching_reports gets structured columns; exports unchanged
 -- ════════════════════════════════════════════════════════════════════════════════
 
+-- Exported copies of a session in different file formats.
 create table public.session_exports (
     id uuid default extensions.uuid_generate_v4() primary key,
     user_id uuid not null references auth.users(id) on delete cascade,
@@ -552,6 +562,7 @@ create table public.session_exports (
     created_at timestamptz not null default timezone('utc', now())
 );
 
+-- Detailed coaching summaries and structured feedback.
 create table public.coaching_reports (
     id uuid default extensions.uuid_generate_v4() primary key,
     user_id uuid not null references auth.users(id) on delete cascade,
@@ -577,6 +588,7 @@ create table public.coaching_reports (
     generated_at timestamptz not null default timezone('utc', now())
 );
 
+-- Labels users can apply to sessions or entities.
 create table public.tags (
     id uuid default extensions.uuid_generate_v4() primary key,
     user_id uuid not null references auth.users(id) on delete cascade,
@@ -586,6 +598,7 @@ create table public.tags (
     unique (user_id, name)
 );
 
+-- Shared tags that belong to a specific session.
 create table public.session_tags (
     session_id uuid not null references public.sessions(id) on delete cascade,
     tag_id uuid not null references public.tags(id) on delete cascade,
@@ -593,6 +606,7 @@ create table public.session_tags (
     primary key (session_id, tag_id)
 );
 
+-- Shared tags that belong to a specific entity.
 create table public.entity_tags (
     entity_id uuid not null references public.entities(id) on delete cascade,
     tag_id uuid not null references public.tags(id) on delete cascade,
@@ -600,6 +614,7 @@ create table public.entity_tags (
     primary key (entity_id, tag_id)
 );
 
+-- Third-party services connected to the account.
 create table public.integrations (
     id uuid default extensions.uuid_generate_v4() primary key,
     user_id uuid references auth.users(id) on delete cascade,
@@ -615,6 +630,7 @@ create table public.integrations (
     unique(user_id, provider)
 );
 
+-- Calendar connections for sync providers.
 create table public.calendar_integrations (
     id uuid default extensions.uuid_generate_v4() primary key,
     user_id uuid not null references auth.users(id) on delete cascade,
@@ -627,6 +643,7 @@ create table public.calendar_integrations (
     unique (user_id, provider)
 );
 
+-- Log of calendar sync attempts and errors.
 create table public.calendar_sync_log (
     id uuid default extensions.uuid_generate_v4() primary key,
     user_id uuid not null references auth.users(id) on delete cascade,
@@ -638,6 +655,7 @@ create table public.calendar_sync_log (
     synced_at timestamptz not null default timezone('utc', now())
 );
 
+-- API keys issued for programmatic access.
 create table public.api_keys (
     id uuid default extensions.uuid_generate_v4() primary key,
     user_id uuid references auth.users(id) on delete cascade,
@@ -651,6 +669,7 @@ create table public.api_keys (
     created_at timestamptz default now()
 );
 
+-- Webhook endpoints that receive app events.
 create table public.webhooks (
     id uuid default extensions.uuid_generate_v4() primary key,
     user_id uuid references auth.users(id) on delete cascade,
@@ -666,6 +685,7 @@ create table public.webhooks (
 -- 10. TEAMS, WORKSPACES & ENTERPRISE (Group H)
 -- ════════════════════════════════════════════════════════════════════════════════
 
+-- Team or company workspaces.
 create table public.team_workspaces (
     id uuid default extensions.uuid_generate_v4() primary key,
     owner_id uuid references auth.users(id),
@@ -678,6 +698,7 @@ create table public.team_workspaces (
     updated_at timestamptz default now()
 );
 
+-- Users assigned to a workspace and their role.
 create table public.team_members (
     id uuid default extensions.uuid_generate_v4() primary key,
     workspace_id uuid references public.team_workspaces(id) on delete cascade,
@@ -687,6 +708,7 @@ create table public.team_members (
     unique(workspace_id, user_id)
 );
 
+-- Sessions shared with a workspace.
 create table public.shared_sessions (
     id uuid default extensions.uuid_generate_v4() primary key,
     session_id uuid references public.sessions(id) on delete cascade,
@@ -702,6 +724,7 @@ create table public.shared_sessions (
 -- 11. SUBSCRIPTIONS & BILLING (Group I)
 -- ════════════════════════════════════════════════════════════════════════════════
 
+-- Stripe subscription records for each user.
 create table public.subscriptions (
     id uuid default extensions.uuid_generate_v4() primary key,
     user_id uuid references auth.users(id) on delete cascade,
@@ -716,6 +739,7 @@ create table public.subscriptions (
     updated_at timestamptz default now()
 );
 
+-- Usage totals for billing periods.
 create table public.subscription_usage (
     id uuid default extensions.uuid_generate_v4() primary key,
     user_id uuid references auth.users(id) on delete cascade,
@@ -733,6 +757,7 @@ create table public.subscription_usage (
 -- 12. ADMIN, SYSTEM & COMPLIANCE (Group J)
 -- ════════════════════════════════════════════════════════════════════════════════
 
+-- Audit trail for important system actions.
 create table public.audit_log (
     id uuid default extensions.uuid_generate_v4() primary key,
     user_id uuid references auth.users(id) on delete set null,
@@ -745,6 +770,7 @@ create table public.audit_log (
     created_at timestamptz default now()
 );
 
+-- Feature toggles for switching app behavior on or off.
 create table public.feature_flags (
     id text primary key,                        -- flag name e.g. "enable_voice_commands"
     description text,
@@ -754,6 +780,7 @@ create table public.feature_flags (
     created_at timestamptz default now()
 );
 
+-- Requests from users to delete their data.
 create table public.data_deletion_requests (
     id uuid default extensions.uuid_generate_v4() primary key,
     user_id uuid references auth.users(id) on delete cascade,
@@ -763,6 +790,7 @@ create table public.data_deletion_requests (
     processed_by uuid
 );
 
+-- Feedback about the app itself.
 create table public.app_feedback (
     id uuid default extensions.uuid_generate_v4() primary key,
     user_id uuid references auth.users(id) on delete cascade,
@@ -892,6 +920,7 @@ alter table public.feedback add column if not exists idempotency_key text unique
 
 
 -- 1. User XP/level/streak profile
+-- XP, levels, and streak tracking for each user.
 create table public.user_gamification (
     user_id uuid primary key references auth.users(id) on delete cascade,
     total_xp int default 0,
@@ -904,6 +933,7 @@ create table public.user_gamification (
 );
 
 -- 2. XP award log (idempotency + daily cap enforcement)
+-- Logs every XP change a user earns.
 create table public.xp_transactions (
     id uuid default extensions.uuid_generate_v4() primary key,
     user_id uuid references auth.users(id) on delete cascade,
@@ -918,6 +948,7 @@ create unique index idx_xp_transactions_dedup on public.xp_transactions(user_id,
     where source_id is not null;
 
 -- 3. Quest templates
+-- Reusable goal templates for daily or weekly missions.
 create table public.quest_definitions (
     id uuid default extensions.uuid_generate_v4() primary key,
     title text not null,
@@ -931,6 +962,7 @@ create table public.quest_definitions (
 );
 
 -- 4. Per-user daily quest assignments
+-- Quest progress assigned to each user.
 create table public.user_quests (
     id uuid default extensions.uuid_generate_v4() primary key,
     user_id uuid references auth.users(id) on delete cascade,
@@ -946,6 +978,7 @@ create table public.user_quests (
 create index idx_user_quests_user_date on public.user_quests(user_id, assigned_date);
 
 -- 5. Achievement definitions
+-- Unlockable badges and milestones.
 create table public.achievements (
     id uuid default extensions.uuid_generate_v4() primary key,
     title text not null,
@@ -959,6 +992,7 @@ create table public.achievements (
 );
 
 -- 6. User achievement unlocks
+-- Achievements already awarded to a user.
 create table public.user_achievements (
     id uuid default extensions.uuid_generate_v4() primary key,
     user_id uuid references auth.users(id) on delete cascade,
@@ -1019,6 +1053,7 @@ alter table public.user_gamification
     add column if not exists xp_spent int default 0;
 
 -- 7. Reward catalog
+-- Items or perks users can spend XP on.
 create table if not exists public.rewards (
     id uuid default extensions.uuid_generate_v4() primary key,
     title text not null,
@@ -1032,6 +1067,7 @@ create table if not exists public.rewards (
 );
 
 -- 8. User-owned rewards (redemptions)
+-- Rewards a user has already claimed.
 create table if not exists public.user_rewards (
     id uuid default extensions.uuid_generate_v4() primary key,
     user_id uuid references auth.users(id) on delete cascade,
