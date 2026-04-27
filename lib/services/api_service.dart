@@ -657,6 +657,157 @@ class ApiService {
     }
   }
 
+  /// Submit an answer for a question_set quest.
+  Future<Map<String, dynamic>?> submitQuestAnswer({
+    required String userId,
+    required String userQuestId,
+    required String questionId,
+    required String answer,
+  }) async {
+    if (!_connectionService.isConnected) return null;
+    try {
+      final res = await http
+          .post(
+            Uri.parse('${_connectionService.serverUrl}/v1/quests/$userId/$userQuestId/answer'),
+            headers: await _authHeaders(),
+            body: jsonEncode({'question_id': questionId, 'answer': answer}),
+          )
+          .timeout(const Duration(seconds: 10));
+      if (res.statusCode == 200) {
+        return jsonDecode(res.body) as Map<String, dynamic>;
+      }
+      debugPrint('submitQuestAnswer non-200: ${res.statusCode} ${res.body}');
+      return null;
+    } catch (e) {
+      debugPrint('submitQuestAnswer error: $e');
+      return null;
+    }
+  }
+
+  /// Attach a session to a conversation quest.
+  Future<Map<String, dynamic>?> attachQuestSession({
+    required String userId,
+    required String userQuestId,
+    required String sessionId,
+  }) async {
+    if (!_connectionService.isConnected) return null;
+    try {
+      final res = await http
+          .post(
+            Uri.parse('${_connectionService.serverUrl}/v1/quests/$userId/$userQuestId/attach_session'),
+            headers: await _authHeaders(),
+            body: jsonEncode({'session_id': sessionId}),
+          )
+          .timeout(const Duration(seconds: 30));
+      if (res.statusCode == 200) {
+        return jsonDecode(res.body) as Map<String, dynamic>;
+      }
+      debugPrint('attachQuestSession non-200: ${res.statusCode} ${res.body}');
+      return null;
+    } catch (e) {
+      debugPrint('attachQuestSession error: $e');
+      return null;
+    }
+  }
+
+  /// Fetch the reward catalog with affordability/ownership flags.
+  Future<Map<String, dynamic>?> getRewards(String userId) async {
+    if (!_connectionService.isConnected) return null;
+    try {
+      final res = await http
+          .get(
+            Uri.parse('${_connectionService.serverUrl}/v1/rewards/$userId'),
+            headers: await _authHeaders(),
+          )
+          .timeout(const Duration(seconds: 10));
+      if (res.statusCode == 200) {
+        return jsonDecode(res.body) as Map<String, dynamic>;
+      }
+      debugPrint('getRewards non-200: ${res.statusCode}');
+      return null;
+    } catch (e) {
+      debugPrint('getRewards error: $e');
+      return null;
+    }
+  }
+
+  /// Fetch the global leaderboard for the given period.
+  Future<Map<String, dynamic>?> getLeaderboard({
+    String period = 'all',
+    int limit = 25,
+  }) async {
+    if (!_connectionService.isConnected) return null;
+    try {
+      final res = await http
+          .get(
+            Uri.parse(
+                '${_connectionService.serverUrl}/v1/leaderboard?period=$period&limit=$limit'),
+            headers: await _authHeaders(),
+          )
+          .timeout(const Duration(seconds: 10));
+      if (res.statusCode == 200) {
+        return jsonDecode(res.body) as Map<String, dynamic>;
+      }
+      debugPrint('getLeaderboard non-200: ${res.statusCode}');
+      return null;
+    } catch (e) {
+      debugPrint('getLeaderboard error: $e');
+      return null;
+    }
+  }
+
+  /// Toggle leaderboard visibility.
+  Future<bool> setLeaderboardOptIn({
+    required String userId,
+    required bool optIn,
+  }) async {
+    if (!_connectionService.isConnected) return false;
+    try {
+      final res = await http
+          .post(
+            Uri.parse(
+                '${_connectionService.serverUrl}/v1/leaderboard/$userId/opt_in'),
+            headers: await _authHeaders(),
+            body: jsonEncode({'opt_in': optIn}),
+          )
+          .timeout(const Duration(seconds: 10));
+      return res.statusCode == 200;
+    } catch (e) {
+      debugPrint('setLeaderboardOptIn error: $e');
+      return false;
+    }
+  }
+
+  /// Redeem a reward. Returns the new balance on success or a string error.
+  Future<({Map<String, dynamic>? data, String? error})> redeemReward({
+    required String userId,
+    required String rewardId,
+  }) async {
+    if (!_connectionService.isConnected) {
+      return (data: null, error: 'Server offline');
+    }
+    try {
+      final res = await http
+          .post(
+            Uri.parse('${_connectionService.serverUrl}/v1/rewards/$userId/redeem'),
+            headers: await _authHeaders(),
+            body: jsonEncode({'reward_id': rewardId}),
+          )
+          .timeout(const Duration(seconds: 10));
+      if (res.statusCode == 200) {
+        return (data: jsonDecode(res.body) as Map<String, dynamic>, error: null);
+      }
+      String? msg;
+      try {
+        msg = (jsonDecode(res.body) as Map)['detail'] as String?;
+      } catch (_) {}
+      return (data: null, error: msg ?? 'Redeem failed (${res.statusCode})');
+    } catch (e) {
+      debugPrint('redeemReward error: $e');
+      return (data: null, error: 'Network error');
+    }
+  }
+
   // --- 14. AI PERFORMANCE SUMMARY (Adaptive Engine) ---
   /// Returns AI-analyzed performance summary for adaptive gamification.
   Future<Map<String, dynamic>?> getPerformanceSummary(String userId) async {

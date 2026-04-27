@@ -966,3 +966,91 @@ create table public.user_achievements (
     awarded_at timestamptz default now(),
     unique(user_id, achievement_id)
 );
+
+-- ═══════════════════════════════════════════════════════════════════════════
+-- Gamification Phase 1 — Adaptive Missions
+-- ═══════════════════════════════════════════════════════════════════════════
+-- focus_area aligns quest with user's weak area from performance_summary:
+--   engagement | filler_words | positivity | consistency | quest_completion
+-- difficulty: easy | medium | hard | challenge (matches _DIFFICULTY_MAP).
+alter table public.quest_definitions
+    add column if not exists focus_area text,
+    add column if not exists difficulty text default 'medium';
+
+alter table public.user_quests
+    add column if not exists reason text;
+
+create index if not exists idx_quest_defs_focus_active
+    on public.quest_definitions(focus_area, difficulty)
+    where is_active;
+
+-- ═══════════════════════════════════════════════════════════════════════════
+-- Gamification Phase 2 — Mission Variety
+-- ═══════════════════════════════════════════════════════════════════════════
+-- mission_type:
+--   action       — counter-based (existing behavior, default)
+--   conversation — user must hold a conversation matching brief; completes
+--                  when a session is attached and meets criteria
+--   question_set — user answers a fixed list of questions; each answer
+--                  increments progress
+--
+-- brief (per-template payload, jsonb):
+--   conversation: { topic, persona, min_turns, completion_criteria }
+--   question_set: { questions: [ { id, prompt, answer_schema } ] }
+--
+-- brief_state (per-user runtime state, jsonb):
+--   conversation: { session_id, last_eval_at, eval_score }
+--   question_set: { answers: { <qid>: <answer> } }
+alter table public.quest_definitions
+    add column if not exists mission_type text default 'action',
+    add column if not exists brief jsonb;
+
+alter table public.user_quests
+    add column if not exists brief_state jsonb default '{}'::jsonb;
+
+-- ═══════════════════════════════════════════════════════════════════════════
+-- Gamification Phase 3 — Rewards & Streak Milestones
+-- ═══════════════════════════════════════════════════════════════════════════
+-- Spendable XP semantics:
+--   total_xp     = lifetime earned (drives level — never decreases)
+--   xp_spent    = lifetime spent on reward redemptions
+--   spendable   = total_xp - xp_spent (computed client/server-side)
+alter table public.user_gamification
+    add column if not exists xp_spent int default 0;
+
+-- 7. Reward catalog
+create table if not exists public.rewards (
+    id uuid default extensions.uuid_generate_v4() primary key,
+    title text not null,
+    description text,
+    icon text default '🎁',
+    category text default 'general',     -- general | cosmetic | feature_unlock | streak_freeze
+    cost_xp int not null,
+    sort_order int default 0,
+    is_active boolean default true,
+    created_at timestamptz default now()
+);
+
+-- 8. User-owned rewards (redemptions)
+create table if not exists public.user_rewards (
+    id uuid default extensions.uuid_generate_v4() primary key,
+    user_id uuid references auth.users(id) on delete cascade,
+    reward_id uuid references public.rewards(id) on delete cascade,
+    cost_xp int not null,
+    unlocked_at timestamptz default now(),
+    unique(user_id, reward_id)
+);
+create index if not exists idx_user_rewards_user on public.user_rewards(user_id);
+
+-- ═══════════════════════════════════════════════════════════════════════════
+-- Gamification Phase 4 — Leaderboards
+-- ═══════════════════════════════════════════════════════════════════════════
+-- Privacy: users opt out by setting leaderboard_opt_in = false.
+-- Period queries aggregate xp_transactions; all-time uses total_xp.
+alter table public.user_gamification
+    add column if not exists leaderboard_opt_in boolean default true;
+
+-- Helps period leaderboard scans (positive earnings only)
+create index if not exists idx_xp_transactions_period
+    on public.xp_transactions(created_at, user_id)
+    where amount > 0;

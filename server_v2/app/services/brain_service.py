@@ -540,3 +540,71 @@ class BrainService:
         except Exception as e:
             print(f"❌ Brain Service generate_title error: {e}")
             return ""
+
+    async def evaluate_conversation_mission(
+        self,
+        transcript: str,
+        brief: Dict[str, Any],
+    ) -> Dict[str, Any]:
+        """
+        Score a conversation transcript against a mission brief.
+        Returns: {score: 0-10, passed: bool, feedback: str, criteria_met: [str]}.
+        Pass threshold defaults to 7.0 unless brief.pass_threshold overrides.
+        """
+        topic = (brief.get("topic") or "").strip()
+        persona = (brief.get("persona") or "").strip()
+        criteria = (brief.get("completion_criteria") or "").strip()
+        threshold = float(brief.get("pass_threshold") or 7.0)
+
+        if not transcript.strip():
+            return {
+                "score": 0.0, "passed": False,
+                "feedback": "No transcript content available.",
+                "criteria_met": [],
+            }
+
+        prompt = (
+            "You are a conversation mission evaluator. Score how well a transcript "
+            "satisfies a mission brief. Be strict but fair.\n\n"
+            f"Mission topic: {topic or '(none specified)'}\n"
+            f"Expected persona/role for the user: {persona or '(any)'}\n"
+            f"Completion criteria: {criteria or '(general engagement)'}\n"
+            f"Pass threshold: {threshold}/10\n\n"
+            "Return JSON ONLY in this shape:\n"
+            '{"score": <0-10 float>, "passed": <bool>, '
+            '"feedback": "<one or two sentences>", '
+            '"criteria_met": ["<short bullet>", ...]}\n'
+            "passed must be true only if score >= the pass threshold."
+        )
+
+        try:
+            completion = await self.aclient.chat.completions.create(
+                messages=[
+                    {"role": "system", "content": prompt},
+                    {"role": "user", "content": self._truncate_to_token_limit(transcript, 5500)},
+                ],
+                model=settings.WINGMAN_MODEL,
+                response_format={"type": "json_object"},
+                temperature=0.2,
+                max_tokens=350,
+            )
+            data = json.loads(completion.choices[0].message.content)
+            score = float(data.get("score") or 0.0)
+            passed = bool(data.get("passed")) and score >= threshold
+            feedback = (data.get("feedback") or "").strip()
+            criteria_met = [
+                str(x).strip() for x in (data.get("criteria_met") or []) if str(x).strip()
+            ]
+            return {
+                "score": round(max(0.0, min(10.0, score)), 1),
+                "passed": passed,
+                "feedback": feedback,
+                "criteria_met": criteria_met[:5],
+            }
+        except Exception as e:
+            print(f"❌ Brain Service evaluate_conversation_mission error: {e}")
+            return {
+                "score": 0.0, "passed": False,
+                "feedback": "Evaluation failed; please try again.",
+                "criteria_met": [],
+            }

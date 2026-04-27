@@ -44,6 +44,26 @@ class SessionsService {
     await _client.from('sessions').delete().eq('id', sessionId);
   }
 
+  /// Returns the user's most recent sessions across all modes, optionally
+  /// filtered to completed-only. Used by the conversation-mission session picker.
+  Future<List<Map<String, dynamic>>> fetchRecentSessions(
+    String userId, {
+    int limit = 25,
+    bool completedOnly = true,
+  }) async {
+    final query = _client
+        .from('sessions')
+        .select('id, title, summary, mode, status, created_at, end_time, ended_at')
+        .eq('user_id', userId);
+
+    final filtered = completedOnly ? query.eq('status', 'completed') : query;
+
+    final data = await filtered
+        .order('created_at', ascending: false)
+        .limit(limit);
+    return List<Map<String, dynamic>>.from(data as List);
+  }
+
   // ── Log tables ──────────────────────────────────────────────────────────────
 
   /// Fetches all log rows for [sessionId] from either 'consultant_logs' or
