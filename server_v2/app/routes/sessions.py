@@ -22,7 +22,7 @@ from app.models.requests import (
     EndSessionRequest,
     WingmanRequest,
 )
-from app.services import graph_svc, vector_svc, brain_svc, session_svc, entity_svc, audit_svc, gamification_svc
+from app.services import graph_svc, vector_svc, brain_svc, session_svc, entity_svc, audit_svc, gamification_svc, dispatcher_svc
 from app.utils import fire_and_forget
 from app.utils.rate_limit import limiter
 from app.utils.text_sanitizer import sanitize_input
@@ -428,6 +428,7 @@ async def save_session_endpoint(
     fire_and_forget(gamification_svc.increment_quest_progress(user_id, "complete_session", 1))
     fire_and_forget(gamification_svc.increment_quest_progress(user_id, "save_memory", 1))
     fire_and_forget(gamification_svc.update_streak(user_id))
+    fire_and_forget(dispatcher_svc.personalize_quest_briefs(user_id))
 
     return {"status": "success", "session_id": session_id}
 
@@ -542,5 +543,6 @@ async def end_session_endpoint(
     fire_and_forget(gamification_svc.increment_quest_progress(req.user_id, "complete_session", 1))
     fire_and_forget(gamification_svc.increment_quest_progress(req.user_id, "save_memory", 1))
     fire_and_forget(gamification_svc.update_streak(req.user_id))
+    fire_and_forget(dispatcher_svc.personalize_quest_briefs(req.user_id))
 
     return {"status": "completed", "session_id": req.session_id}

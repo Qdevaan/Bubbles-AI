@@ -11,6 +11,7 @@ from app.services.session_service import SessionService
 from app.services.entity_service import EntityService
 from app.services.audit_service import AuditService
 from app.services.gamification_service import GamificationService
+from app.services.task_dispatcher_service import TaskDispatcherService
 
 # Initialize all services
 graph_svc = GraphService()
@@ -20,6 +21,7 @@ session_svc = SessionService()
 entity_svc = EntityService()
 audit_svc = AuditService()
 gamification_svc = GamificationService()
+dispatcher_svc = TaskDispatcherService()
 
 # Share the SentenceTransformer model so GraphService can do semantic search
 # without loading the model twice
