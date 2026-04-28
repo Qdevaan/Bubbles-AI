@@ -331,16 +331,33 @@ class LiveSessionsList extends StatefulWidget {
 }
 
 class _LiveSessionsListState extends State<LiveSessionsList> {
-  late final Stream<List<Map<String, dynamic>>> _sessionsStream;
+  List<Map<String, dynamic>> _sessions = [];
+  bool _loading = true;
 
   @override
   void initState() {
     super.initState();
+    _loadSessions(swr: true);
+  }
+
+  Future<void> _loadSessions({bool swr = false}) async {
     final userId = AuthService.instance.currentUserId;
-    if (userId != null) {
-      _sessionsStream = SessionsService.instance.streamLiveSessions(userId);
-    } else {
-      _sessionsStream = const Stream.empty();
+    if (userId == null) {
+      if (mounted) setState(() => _loading = false);
+      return;
+    }
+
+    final repo = context.read<SessionsRepository>();
+    try {
+      final result = await repo.getLiveSessions(userId, forceRefresh: !swr);
+      if (mounted) {
+        setState(() {
+          _sessions = result.data ?? [];
+          _loading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) setState(() => _loading = false);
     }
   }
 
@@ -348,109 +365,98 @@ class _LiveSessionsListState extends State<LiveSessionsList> {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return StreamBuilder<List<Map<String, dynamic>>>(
-      stream: _sessionsStream,
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        }
-        var sessions = snapshot.data ?? [];
+    if (_loading && _sessions.isEmpty) {
+      return const Center(child: CircularProgressIndicator());
+    }
 
-        // Apply search
-        if (widget.searchQuery.isNotEmpty) {
-          sessions = sessions.where((s) {
-            final title = (s['title'] ?? '').toString().toLowerCase();
-            return title.contains(widget.searchQuery);
-          }).toList();
-        }
+    var sessions = _sessions;
 
-        // Apply sort
-        sessions = List.from(sessions);
-        switch (widget.sortOrder) {
-          case _SortOrder.newestFirst:
-            sessions.sort(
-              (a, b) => (b['created_at'] as String).compareTo(
-                a['created_at'] as String,
-              ),
-            );
-          case _SortOrder.oldestFirst:
-            sessions.sort(
-              (a, b) => (a['created_at'] as String).compareTo(
-                b['created_at'] as String,
-              ),
-            );
-        }
+    // Apply search
+    if (widget.searchQuery.isNotEmpty) {
+      sessions = sessions.where((s) {
+        final title = (s['title'] ?? '').toString().toLowerCase();
+        return title.contains(widget.searchQuery.toLowerCase());
+      }).toList();
+    }
 
-        if (sessions.isEmpty) {
-          return _buildEmptyState('No live sessions yet', Icons.mic_off);
-        }
+    // Apply sort
+    sessions = List.from(sessions);
+    switch (widget.sortOrder) {
+      case _SortOrder.newestFirst:
+        sessions.sort(
+          (a, b) => (b['created_at'] as String).compareTo(
+            a['created_at'] as String,
+          ),
+        );
+      case _SortOrder.oldestFirst:
+        sessions.sort(
+          (a, b) => (a['created_at'] as String).compareTo(
+            b['created_at'] as String,
+          ),
+        );
+    }
 
-        return ListView.builder(
-          shrinkWrap: widget.shrinkwrap,
-          physics: widget.shrinkwrap
-              ? const NeverScrollableScrollPhysics()
-              : null,
-          padding: widget.shrinkwrap
-              ? EdgeInsets.zero
-              : const EdgeInsets.all(16),
-          itemCount: sessions.length,
-          itemBuilder: (context, index) {
-            final session = sessions[index];
-            final date = DateTime.parse(session['created_at']).toLocal();
-            final formattedDate = DateFormat('MMM d, h:mm a').format(date);
-            final title = session['title'] ?? 'Conversation';
+    if (sessions.isEmpty) {
+      return _buildEmptyState('No live sessions yet', Icons.mic_off);
+    }
 
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 10),
-              child: GestureDetector(
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => GenericSessionDetail(
-                        isConsultant: false,
-                        sessionId: session['id'],
-                        title: title,
+    return RefreshIndicator(
+      onRefresh: () => _loadSessions(swr: false),
+      child: ListView.builder(
+        shrinkWrap: widget.shrinkwrap,
+        physics: widget.shrinkwrap
+            ? const NeverScrollableScrollPhysics()
+            : const AlwaysScrollableScrollPhysics(),
+        padding: widget.shrinkwrap
+            ? EdgeInsets.zero
+            : const EdgeInsets.all(16),
+        itemCount: sessions.length,
+        itemBuilder: (context, index) {
+          final session = sessions[index];
+          final date = DateTime.parse(session['created_at']).toLocal();
+          final formattedDate = DateFormat('MMM d, h:mm a').format(date);
+          final title = session['title'] ?? 'Conversation';
+
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: GestureDetector(
+              onTap: () => _showSessionOptions(context, session, title, isDark),
+              child: GlassPanel(
+                padding: const EdgeInsets.all(16),
+                borderRadius: AppRadius.xxl,
+                child: Row(
+                  children: [
+                    Container(
+                      width: 42,
+                      height: 42,
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.primary.withAlpha(51),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Icon(
+                        Icons.mic,
+                        color: Theme.of(context).colorScheme.primary,
+                        size: 22,
                       ),
                     ),
-                  );
-                },
-                child: GlassPanel(
-                  padding: const EdgeInsets.all(16),
-                  borderRadius: AppRadius.xxl,
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 42,
-                        height: 42,
-                        decoration: BoxDecoration(
-                          color: Theme.of(context).colorScheme.primary.withAlpha(51),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Icon(
-                          Icons.mic,
-                          color: Theme.of(context).colorScheme.primary,
-                          size: 22,
-                        ),
-                      ),
-                      const SizedBox(width: 14),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              title,
-                              style: GoogleFonts.manrope(
-                                fontSize: 15,
-                                fontWeight: FontWeight.w700,
-                                color: isDark
-                                    ? Colors.white
-                                    : AppColors.slate900,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            title,
+                            style: GoogleFonts.manrope(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700,
+                              color: isDark
+                                  ? Colors.white
+                                  : AppColors.slate900,
                             ),
-                            const SizedBox(height: 4),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 4),
                             Row(
                               children: [
                                 Container(
@@ -490,21 +496,158 @@ class _LiveSessionsListState extends State<LiveSessionsList> {
                           ],
                         ),
                       ),
-                      Icon(
-                        Icons.chevron_right,
-                        color: isDark
-                            ? AppColors.slate500
-                            : Colors.grey.shade400,
-                        size: 20,
-                      ),
-                    ],
-                  ),
+                    Icon(
+                      Icons.chevron_right,
+                      color: isDark
+                          ? AppColors.slate500
+                          : Colors.grey.shade400,
+                      size: 20,
+                    ),
+                  ],
                 ),
               ),
-            );
-          },
-        );
-      },
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  void _showSessionOptions(BuildContext context, Map<String, dynamic> session, String title, bool isDark) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (_) => GlassBottomSheet(
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: isDark ? AppColors.glassBorder : Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Session Options',
+              style: GoogleFonts.manrope(
+                fontSize: 16,
+                fontWeight: FontWeight.w800,
+                color: isDark ? Colors.white : AppColors.slate900,
+              ),
+            ),
+            const SizedBox(height: 12),
+            _buildOptionTile(
+              context,
+              Icons.school_outlined,
+              'Coaching',
+              'View AI-generated coaching and feedback',
+              () {
+                Navigator.pop(context);
+                Navigator.pushNamed(context, AppRoutes.sessionAnalytics, arguments: {
+                  'sessionId': session['id'],
+                  'sessionTitle': title,
+                  'initialTab': 1,
+                });
+              },
+              isDark,
+            ),
+            _buildOptionTile(
+              context,
+              Icons.analytics_outlined,
+              'Analytics',
+              'Check sentiment and engagement stats',
+              () {
+                Navigator.pop(context);
+                Navigator.pushNamed(context, AppRoutes.sessionAnalytics, arguments: {
+                  'sessionId': session['id'],
+                  'sessionTitle': title,
+                  'initialTab': 0,
+                });
+              },
+              isDark,
+            ),
+            _buildOptionTile(
+              context,
+              Icons.description_outlined,
+              'History & Transcript',
+              'Review the full conversation log',
+              () {
+                Navigator.pop(context);
+                Navigator.pushNamed(context, AppRoutes.sessionAnalytics, arguments: {
+                  'sessionId': session['id'],
+                  'sessionTitle': title,
+                  'initialTab': 2,
+                });
+              },
+              isDark,
+            ),
+            _buildOptionTile(
+              context,
+              Icons.details_outlined,
+              'Full Details',
+              'Manage tags and feedback for this session',
+              () {
+                Navigator.pop(context);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => GenericSessionDetail(
+                      isConsultant: false,
+                      sessionId: session['id'],
+                      title: title,
+                    ),
+                  ),
+                );
+              },
+              isDark,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildOptionTile(
+    BuildContext context,
+    IconData icon,
+    String title,
+    String subtitle,
+    VoidCallback onTap,
+    bool isDark,
+  ) {
+    return ListTile(
+      contentPadding: EdgeInsets.zero,
+      leading: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.primary.withAlpha(30),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Icon(icon, color: Theme.of(context).colorScheme.primary, size: 20),
+      ),
+      title: Text(
+        title,
+        style: GoogleFonts.manrope(
+          fontSize: 14,
+          fontWeight: FontWeight.w700,
+          color: isDark ? Colors.white : AppColors.slate900,
+        ),
+      ),
+      subtitle: Text(
+        subtitle,
+        style: GoogleFonts.manrope(
+          fontSize: 12,
+          color: isDark ? AppColors.slate400 : AppColors.slate500,
+        ),
+      ),
+      onTap: onTap,
     );
   }
 }
@@ -537,7 +680,10 @@ class _ConsultantHistoryListState extends State<ConsultantHistoryList> {
 
   Future<void> _loadSessions({bool swr = false}) async {
     final userId = AuthService.instance.currentUserId;
-    if (userId == null) return;
+    if (userId == null) {
+      if (mounted) setState(() => _loading = false);
+      return;
+    }
 
     final repo = context.read<SessionsRepository>();
     try {
@@ -755,6 +901,7 @@ class _GenericSessionDetailState extends State<GenericSessionDetail> {
   final Map<String, int> _feedbackMap = {};
   List<Map<String, dynamic>> _sessionTags = [];
   Map<String, dynamic>? _report;
+  Map<String, dynamic>? _analytics;
 
   @override
   void initState() {
@@ -762,15 +909,32 @@ class _GenericSessionDetailState extends State<GenericSessionDetail> {
     _loadLogs(swr: true);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadTags();
-      _loadReport();
+      _loadReport(swr: true);
+      _loadAnalytics(swr: true);
     });
   }
 
-  Future<void> _loadReport() async {
+  Future<void> _loadReport({bool swr = false}) async {
     if (widget.isConsultant) return;
+    final userId = AuthService.instance.currentUserId;
+    if (userId == null) return;
+
     try {
-      final r = await context.read<ApiService>().getCoachingReport(widget.sessionId);
-      if (mounted) setState(() => _report = r);
+      final repo = context.read<SessionsRepository>();
+      final result = await repo.getCoachingReport(widget.sessionId, userId, forceRefresh: !swr);
+      if (mounted) setState(() => _report = result.data);
+    } catch (_) {}
+  }
+
+  Future<void> _loadAnalytics({bool swr = false}) async {
+    if (widget.isConsultant) return;
+    final userId = AuthService.instance.currentUserId;
+    if (userId == null) return;
+
+    try {
+      final repo = context.read<SessionsRepository>();
+      final result = await repo.getSessionAnalytics(widget.sessionId, userId, forceRefresh: !swr);
+      if (mounted) setState(() => _analytics = result.data);
     } catch (_) {}
   }
 
@@ -967,6 +1131,7 @@ class _GenericSessionDetailState extends State<GenericSessionDetail> {
                                   ChatBubble(
                                     text: answer,
                                     isUser: false,
+                                    isAI: true,
                                     speakerLabel: 'Consultant AI',
                                     isHighlighted: _feedbackMap[log['id'] as String? ?? ''] == 1,
                                   ),
@@ -1024,6 +1189,7 @@ class _GenericSessionDetailState extends State<GenericSessionDetail> {
                               ChatBubble(
                                 text: log['content'],
                                 isUser: isUser,
+                                isAI: isLlm,
                                 speakerLabel: isUser
                                     ? null
                                     : (isOther ? 'Other' : 'Wingman'),

@@ -19,7 +19,7 @@ class InsightsService {
   Future<List<Map<String, dynamic>>> fetchEvents(String userId) async {
     final res = await _client
         .from('events')
-        .select('id, title, due_text, description, created_at')
+        .select('id, title, due_text, description, session_id, created_at')
         .eq('user_id', userId)
         .order('created_at', ascending: false)
         .limit(50);
@@ -30,7 +30,7 @@ class InsightsService {
   Future<List<Map<String, dynamic>>> fetchHighlights(String userId) async {
     final res = await _client
         .from('highlights')
-        .select('id, title, body, highlight_type, is_resolved, created_at')
+        .select('id, title, body, highlight_type, session_id, is_resolved, created_at')
         .eq('user_id', userId)
         .order('created_at', ascending: false)
         .limit(50);

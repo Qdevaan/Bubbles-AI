@@ -11,6 +11,7 @@ class InsightItem {
   final IconData icon;
   final String createdAt;
   final bool isDimmed;
+  final String? sessionId;
 
   const InsightItem({
     required this.id,
@@ -22,6 +23,7 @@ class InsightItem {
     required this.icon,
     required this.createdAt,
     this.isDimmed = false,
+    this.sessionId,
   });
 
   factory InsightItem.fromEvent(Map<String, dynamic> ev) => InsightItem(
@@ -33,6 +35,7 @@ class InsightItem {
         color: const Color(0xFFF59E0B),
         icon: Icons.event_rounded,
         createdAt: ev['created_at'] as String? ?? '',
+        sessionId: ev['session_id'] as String?,
       );
 
   factory InsightItem.fromHighlight(Map<String, dynamic> hl) {
@@ -47,6 +50,7 @@ class InsightItem {
       icon: iconForType(type),
       createdAt: hl['created_at'] as String? ?? '',
       isDimmed: hl['is_resolved'] == true,
+      sessionId: hl['session_id'] as String?,
     );
   }
 
@@ -60,6 +64,7 @@ class InsightItem {
         icon: Icons.notifications_active_outlined,
         createdAt: nt['created_at'] as String? ?? '',
         isDimmed: nt['is_read'] == true,
+        sessionId: null, // Notifications don't have session_id in schema
       );
 
   static Color colorForType(String t) {

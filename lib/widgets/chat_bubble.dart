@@ -8,6 +8,7 @@ import '../theme/design_tokens.dart';
 class ChatBubble extends StatelessWidget {
   final String text;
   final bool isUser;
+  final bool isAI;
   final String? speakerLabel;
   final Widget? contentWidget;
   final bool isHighlighted;
@@ -16,6 +17,7 @@ class ChatBubble extends StatelessWidget {
     super.key,
     required this.text,
     required this.isUser,
+    this.isAI = false,
     this.speakerLabel,
     this.contentWidget,
     this.isHighlighted = false,
@@ -35,26 +37,28 @@ class ChatBubble extends StatelessWidget {
         ),
         decoration: BoxDecoration(
           color: isHighlighted
-              ? Theme.of(context).colorScheme.primary.withAlpha(38)
+              ? Theme.of(context).colorScheme.primary.withAlpha(50)
               : (isUser
-                  ? Colors.transparent
-                  : (isDark ? AppColors.glassWhite : AppColors.slate100)),
+                  ? (isDark ? AppColors.glassWhite.withAlpha(20) : Colors.blue.withAlpha(15))
+                  : (isAI
+                      ? Theme.of(context).colorScheme.primary.withAlpha(isDark ? 50 : 30)
+                      : (isDark ? AppColors.glassWhite : AppColors.slate100))),
           borderRadius: BorderRadius.only(
-            topLeft: Radius.circular(isUser ? 18 : 4),
-            topRight: Radius.circular(isUser ? 4 : 18),
-            bottomLeft: const Radius.circular(18),
-            bottomRight: const Radius.circular(18),
+            topLeft: const Radius.circular(18),
+            topRight: const Radius.circular(18),
+            bottomLeft: Radius.circular(isUser ? 18 : 4),
+            bottomRight: Radius.circular(isUser ? 4 : 18),
           ),
-          border: isHighlighted
-              ? Border.all(
-                  color: Theme.of(context).colorScheme.primary.withAlpha(128),
-                  width: 1.5,
-                )
-              : (isUser
-                  ? Border.all(
-                      color: isDark ? AppColors.glassBorder : Colors.grey.shade300,
-                    )
-                  : (isDark ? Border.all(color: AppColors.glassBorder) : null)),
+          border: Border.all(
+            color: isHighlighted
+                ? Theme.of(context).colorScheme.primary
+                : (isUser
+                    ? (isDark ? AppColors.glassBorder : Colors.blue.withAlpha(100))
+                    : (isAI
+                        ? Theme.of(context).colorScheme.primary.withAlpha(120)
+                        : (isDark ? AppColors.glassBorder : Colors.grey.shade300))),
+            width: isHighlighted || isAI ? 1.2 : 1,
+          ),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,

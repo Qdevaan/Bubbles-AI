@@ -279,6 +279,45 @@ class _InsightTileState extends State<InsightTile>
                                       onTap: widget.onDelete,
                                     ),
                                     const Spacer(),
+                                    if (item.sessionId != null &&
+                                        item.sessionId!.isNotEmpty) ...[
+                                      GestureDetector(
+                                        onTap: () => Navigator.pushNamed(
+                                            context, '/session-analytics',
+                                            arguments: {
+                                              'sessionId': item.sessionId,
+                                              'sessionTitle': item.title,
+                                              'initialTab': 2
+                                            }),
+                                        child: Container(
+                                          padding: const EdgeInsets.symmetric(
+                                              horizontal: 8, vertical: 4),
+                                          decoration: BoxDecoration(
+                                            color: Theme.of(context).colorScheme.primary.withAlpha(20),
+                                            borderRadius:
+                                                BorderRadius.circular(8),
+                                            border: Border.all(
+                                                color:
+                                                    Theme.of(context).colorScheme.primary.withAlpha(60)),
+                                          ),
+                                          child: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Text('Source',
+                                                  style: GoogleFonts.manrope(
+                                                      fontSize: 11,
+                                                      fontWeight:
+                                                          FontWeight.w700,
+                                                      color: Theme.of(context).colorScheme.primary)),
+                                              const SizedBox(width: 4),
+                                              Icon(Icons.arrow_forward_rounded,
+                                                  size: 11, color: Theme.of(context).colorScheme.primary),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 12),
+                                    ],
                                     Icon(Icons.touch_app_outlined,
                                         size: 12,
                                         color: isDark
@@ -355,6 +394,24 @@ class _InsightTileState extends State<InsightTile>
             ]),
             const SizedBox(height: 16),
             const Divider(),
+            if (widget.item.sessionId != null && widget.item.sessionId!.isNotEmpty)
+              ListTile(
+                leading: Icon(Icons.analytics_outlined,
+                    color: Theme.of(context).colorScheme.primary),
+                title: Text('View Source',
+                    style: TextStyle(
+                        color: Theme.of(context).colorScheme.primary)),
+                contentPadding: EdgeInsets.zero,
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.pushNamed(context, '/session-analytics',
+                      arguments: {
+                        'sessionId': widget.item.sessionId,
+                        'sessionTitle': widget.item.title,
+                        'initialTab': 2
+                      });
+                },
+              ),
             if (widget.item.table != 'notifications')
               ListTile(
                 leading: Icon(Icons.edit_outlined,

@@ -20,9 +20,21 @@ class SessionsService {
         .order('created_at', ascending: false)
         .map(
           (data) => List<Map<String, dynamic>>.from(data)
-              .where((s) => s['mode'] == 'live_wingman')
+              .where((s) => s['mode'] == 'live_wingman' || s['session_type'] == 'live_wingman')
               .toList(),
         );
+  }
+
+  /// Fetches the list of live sessions once (Future-based).
+  Future<List<Map<String, dynamic>>> fetchLiveSessions(String userId) async {
+    final data = await _client
+        .from('sessions')
+        .select('id, user_id, title, summary, session_type, mode, status, created_at, end_time, ended_at')
+        .eq('user_id', userId)
+        .or('mode.eq.live_wingman,session_type.eq.live_wingman')
+        .order('created_at', ascending: false)
+        .limit(50);
+    return List<Map<String, dynamic>>.from(data as List);
   }
 
   /// Returns a one-time fetch of consultant sessions for [userId],
@@ -31,9 +43,9 @@ class SessionsService {
       String userId) async {
     final data = await _client
         .from('sessions')
-        .select()
+        .select('id, user_id, title, summary, session_type, mode, status, created_at, end_time, ended_at')
         .eq('user_id', userId)
-        .eq('mode', 'consultant')
+        .or('mode.eq.consultant,session_type.eq.consultant')
         .order('created_at', ascending: false)
         .limit(50);
     return List<Map<String, dynamic>>.from(data as List);
@@ -75,7 +87,9 @@ class SessionsService {
     final table = isConsultant ? 'consultant_logs' : 'session_logs';
     final data = await _client
         .from(table)
-        .select()
+        .select(isConsultant 
+            ? 'id, user_id, session_id, query, question, response, answer, created_at'
+            : 'id, session_id, turn_index, role, content, created_at, speaker_label')
         .eq('session_id', sessionId)
         .order('created_at', ascending: true);
     return List<Map<String, dynamic>>.from(data as List);

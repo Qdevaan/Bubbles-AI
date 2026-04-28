@@ -220,10 +220,11 @@ class BubblesApp extends StatelessWidget {
             l2: context.read<PersistentCacheService>(),
           ),
         ),
-        ProxyProvider<AppCacheService, SessionsRepository>(
-          update: (context, l1, _) => SessionsRepository(
+        ProxyProvider2<AppCacheService, ApiService, SessionsRepository>(
+          update: (context, l1, api, _) => SessionsRepository(
             l1: l1,
             l2: context.read<PersistentCacheService>(),
+            api: api,
           ),
         ),
 
@@ -397,12 +398,13 @@ class BubblesApp extends StatelessWidget {
                       },
                 );
               } else if (settings.name == AppRoutes.sessionAnalytics) {
-                final args = settings.arguments as Map<String, String>?;
+                final args = settings.arguments as Map<String, dynamic>?;
                 return PageRouteBuilder(
                   pageBuilder: (context, animation, secondaryAnimation) =>
-                      SessionAnalyticsScreen(
+                       SessionAnalyticsScreen(
                         sessionId: args?['sessionId'] ?? '',
                         sessionTitle: args?['sessionTitle'] ?? 'Session',
+                        initialTab: args?['initialTab'] ?? 0,
                       ),
                   transitionsBuilder:
                       (context, animation, secondaryAnimation, child) {
@@ -441,7 +443,7 @@ class BubblesApp extends StatelessWidget {
               AppRoutes.consultant: (context) =>
                   const AuthGuard(child: ConsultantScreen()),
               AppRoutes.sessions: (context) {
-                final args = ModalRoute.of(context)?.settings.arguments as Map<String, String>?;
+                final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
                 return AuthGuard(child: SessionsScreen(initialSearchQuery: args?['query']));
               },
               AppRoutes.about: (context) =>

@@ -14,7 +14,10 @@ class CacheKeys {
   static String quests(String uid)            => 'user:$uid:quests';
   static String performance(String uid)       => 'user:$uid:performance';
   static String consultantSessions(String uid) => 'user:$uid:sessions:consultant';
+  static String liveSessions(String uid)       => 'user:$uid:sessions:live';
   static String sessionLogs(String sessionId) => 'session:$sessionId:logs';
+  static String sessionAnalytics(String sessionId) => 'session:$sessionId:analytics';
+  static String coachingReport(String sessionId) => 'session:$sessionId:report';
 }
 
 class CacheTtl {

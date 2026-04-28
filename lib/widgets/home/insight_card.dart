@@ -75,79 +75,95 @@ class _HomeInsightCardState extends State<HomeInsightCard>
   @override
   Widget build(BuildContext context) {
     final hasBody = widget.description.isNotEmpty;
-    return GestureDetector(
-      onTap: hasBody ? _toggle : null,
-      onLongPress: widget.onLongPress != null ? _handleLongPress : null,
-      child: AnimatedOpacity(
+    return AnimatedOpacity(
+      duration: const Duration(milliseconds: 300),
+      opacity: _dismissing ? 0.0 : 1.0,
+      curve: Curves.easeOut,
+      child: AnimatedScale(
         duration: const Duration(milliseconds: 300),
-        opacity: _dismissing ? 0.0 : 1.0,
-        curve: Curves.easeOut,
-        child: AnimatedScale(
-          duration: const Duration(milliseconds: 300),
-          scale: _dismissing ? 0.8 : 1.0,
-          curve: Curves.easeInBack,
+        scale: _dismissing ? 0.8 : 1.0,
+        curve: Curves.easeInBack,
+        child: GestureDetector(
+          onLongPress: widget.onLongPress != null ? _handleLongPress : null,
           child: AnimatedContainer(
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeOutCubic,
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: widget.isDark ? AppColors.glassWhite : Colors.white,
-          borderRadius: BorderRadius.circular(AppRadius.xxl),
-          border: Border(left: BorderSide(color: widget.accentColor, width: 3)),
-          boxShadow: _expanded
-              ? [BoxShadow(color: widget.accentColor.withAlpha(widget.isDark ? 30 : 15), blurRadius: 16, spreadRadius: -2)]
-              : null,
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeOutCubic,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: widget.isDark ? AppColors.glassWhite : Colors.white,
+              borderRadius: BorderRadius.circular(AppRadius.xxl),
+              border: Border(left: BorderSide(color: widget.accentColor, width: 3)),
+              boxShadow: _expanded
+                  ? [
+                      BoxShadow(
+                          color: widget.accentColor.withAlpha(widget.isDark ? 30 : 15),
+                          blurRadius: 16,
+                          spreadRadius: -2)
+                    ]
+                  : null,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildHeader(hasBody),
+                _buildExpandedBody(hasBody),
+              ],
+            ),
+          ),
         ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildHeader(hasBody),
-            _buildExpandedBody(hasBody),
-          ],
-        ), // Column
-      ), // AnimatedContainer
-    ), // AnimatedScale
-  ), // AnimatedOpacity
-); // GestureDetector
-}
+      ),
+    );
+  }
 
   Widget _buildHeader(bool hasBody) {
-    return Row(children: [
-      if (widget.icon != null)
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: hasBody ? _toggle : null,
+      child: Row(children: [
+        if (widget.icon != null)
+          Container(
+            padding: const EdgeInsets.all(7),
+            margin: const EdgeInsets.only(right: 10),
+            decoration: BoxDecoration(
+              color: widget.accentColor.withAlpha(25),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(widget.icon, size: 16, color: widget.accentColor),
+          ),
+        Expanded(
+          child: Text(widget.title,
+              style: GoogleFonts.manrope(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  color: widget.isDark ? Colors.white : AppColors.slate900)),
+        ),
         Container(
-          padding: const EdgeInsets.all(7),
-          margin: const EdgeInsets.only(right: 10),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
           decoration: BoxDecoration(
             color: widget.accentColor.withAlpha(25),
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(AppRadius.full),
+            border: Border.all(color: widget.accentColor.withAlpha(80)),
           ),
-          child: Icon(widget.icon, size: 16, color: widget.accentColor),
+          child: Text(widget.badge,
+              style: GoogleFonts.manrope(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  color: widget.accentColor)),
         ),
-      Expanded(
-        child: Text(widget.title,
-            style: GoogleFonts.manrope(fontSize: 14, fontWeight: FontWeight.w700,
-                color: widget.isDark ? Colors.white : AppColors.slate900)),
-      ),
-      Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-        decoration: BoxDecoration(
-          color: widget.accentColor.withAlpha(25),
-          borderRadius: BorderRadius.circular(AppRadius.full),
-          border: Border.all(color: widget.accentColor.withAlpha(80)),
-        ),
-        child: Text(widget.badge,
-            style: GoogleFonts.manrope(fontSize: 11, fontWeight: FontWeight.w700, color: widget.accentColor)),
-      ),
-      if (hasBody) ...[
-        const SizedBox(width: 6),
-        RotationTransition(
-          turns: _chevronTurn,
-          child: Icon(Icons.expand_more_rounded, size: 20,
-              color: widget.isDark ? AppColors.slate500 : Colors.grey.shade400),
-        ),
-      ],
-    ]);
+        if (hasBody) ...[
+          const SizedBox(width: 6),
+          RotationTransition(
+            turns: _chevronTurn,
+            child: Icon(Icons.expand_more_rounded,
+                size: 20,
+                color: widget.isDark
+                    ? AppColors.slate500
+                    : Colors.grey.shade400),
+          ),
+        ],
+      ]),
+    );
   }
 
   Widget _buildExpandedBody(bool hasBody) {
@@ -169,29 +185,16 @@ class _HomeInsightCardState extends State<HomeInsightCard>
                       style: GoogleFonts.manrope(fontSize: 13, color: widget.isDark ? AppColors.slate300 : AppColors.slate600, height: 1.6)),
                 ),
                 const SizedBox(height: 8),
-                Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                  Row(children: [
-                    Icon(Icons.touch_app_outlined, size: 12, color: widget.isDark ? AppColors.slate500 : Colors.grey.shade400),
-                    const SizedBox(width: 4),
-                    Text('Tap to collapse', style: GoogleFonts.manrope(fontSize: 11, color: widget.isDark ? AppColors.slate500 : Colors.grey.shade400)),
-                  ]),
-                  if (widget.sessionId != null && widget.sessionId!.isNotEmpty)
-                    GestureDetector(
-                      onTap: () => Navigator.pushNamed(context, '/session-analytics', arguments: {'sessionId': widget.sessionId, 'sessionTitle': widget.title}),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: widget.accentColor.withAlpha(20),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: widget.accentColor.withAlpha(60)),
-                        ),
-                        child: Row(children: [
-                          Text('View Source', style: GoogleFonts.manrope(fontSize: 11, fontWeight: FontWeight.w700, color: widget.accentColor)),
-                          const SizedBox(width: 4),
-                          Icon(Icons.arrow_forward_rounded, size: 12, color: widget.accentColor),
-                        ]),
-                      ),
-                    ),
+                Row(mainAxisAlignment: MainAxisAlignment.start, children: [
+                  GestureDetector(
+                    onTap: _toggle,
+                    behavior: HitTestBehavior.opaque,
+                    child: Row(children: [
+                      Icon(Icons.touch_app_outlined, size: 12, color: widget.isDark ? AppColors.slate500 : Colors.grey.shade400),
+                      const SizedBox(width: 4),
+                      Text('Tap to collapse', style: GoogleFonts.manrope(fontSize: 11, color: widget.isDark ? AppColors.slate500 : Colors.grey.shade400)),
+                    ]),
+                  ),
                 ]),
               ]),
             )

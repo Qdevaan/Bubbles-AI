@@ -1,18 +1,26 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../services/api_service.dart';
+import '../services/auth_service.dart';
+import '../repositories/sessions_repository.dart';
+import '../widgets/glass_morphism.dart';
+import '../theme/design_tokens.dart';
+import '../widgets/chat_bubble.dart';
 
 /// Displays post-session analytics (session_analytics) and coaching report
 /// (coaching_reports) for a given Live Wingman session. (schema_v2 B5 / G2)
 class SessionAnalyticsScreen extends StatefulWidget {
   final String sessionId;
   final String sessionTitle;
+  final int initialTab;
 
   const SessionAnalyticsScreen({
     super.key,
     required this.sessionId,
     required this.sessionTitle,
+    this.initialTab = 0,
   });
 
   @override
@@ -24,33 +32,53 @@ class _SessionAnalyticsScreenState extends State<SessionAnalyticsScreen>
   late TabController _tabController;
   Map<String, dynamic>? _analytics;
   Map<String, dynamic>? _report;
+  List<Map<String, dynamic>> _logs = [];
   bool _analyticsLoading = true;
   bool _reportLoading = true;
+  bool _logsLoading = true;
   String? _analyticsError;
   String? _reportError;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(length: 3, vsync: this, initialIndex: widget.initialTab);
     _fetchData();
   }
 
   Future<void> _fetchData() async {
     final api = context.read<ApiService>();
+    final sessionsRepo = context.read<SessionsRepository>();
+    final userId = AuthService.instance.currentUserId ?? '';
+
     // Fetch analytics
     try {
-      final a = await api.getSessionAnalytics(widget.sessionId);
-      if (mounted) setState(() { _analytics = a; _analyticsLoading = false; _analyticsError = a == null ? 'Not yet computed' : null; });
+      final res = await sessionsRepo.getSessionAnalytics(widget.sessionId, userId, forceRefresh: false);
+      if (mounted) setState(() { 
+        _analytics = res.data; 
+        _analyticsLoading = false; 
+        _analyticsError = res.data == null ? 'Not yet computed' : null; 
+      });
     } catch (e) {
       if (mounted) setState(() { _analyticsLoading = false; _analyticsError = 'Failed to load'; });
     }
     // Fetch coaching report (can be slow — generates on demand)
     try {
-      final r = await api.getCoachingReport(widget.sessionId);
-      if (mounted) setState(() { _report = r; _reportLoading = false; _reportError = r == null ? 'Not available' : null; });
+      final res = await sessionsRepo.getCoachingReport(widget.sessionId, userId, forceRefresh: false);
+      if (mounted) setState(() { 
+        _report = res.data; 
+        _reportLoading = false; 
+        _reportError = res.data == null ? 'Not available' : null; 
+      });
     } catch (e) {
       if (mounted) setState(() { _reportLoading = false; _reportError = 'Failed to load'; });
+    }
+    // Fetch logs (transcript)
+    try {
+      final res = await sessionsRepo.getSessionLogs(widget.sessionId, false, userId);
+      if (mounted) setState(() { _logs = res.data ?? []; _logsLoading = false; });
+    } catch (e) {
+      if (mounted) setState(() { _logsLoading = false; });
     }
   }
 
@@ -62,34 +90,70 @@ class _SessionAnalyticsScreenState extends State<SessionAnalyticsScreen>
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    return Scaffold(
-      backgroundColor: colorScheme.surface,
-      appBar: AppBar(
+
+    return MeshGradientBackground(
+      child: Scaffold(
         backgroundColor: Colors.transparent,
-        elevation: 0,
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Session Report', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
-            Text(widget.sessionTitle, style: theme.textTheme.bodySmall?.copyWith(color: colorScheme.onSurface.withOpacity(0.6)), maxLines: 1, overflow: TextOverflow.ellipsis),
-          ],
+        appBar: AppBar(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          leading: IconButton(
+            icon: Icon(Icons.arrow_back, color: isDark ? Colors.white : Colors.black87),
+            onPressed: () => Navigator.pop(context),
+          ),
+          title: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Session Report',
+                style: GoogleFonts.manrope(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                  color: isDark ? Colors.white : AppColors.slate900,
+                ),
+              ),
+              Text(
+                widget.sessionTitle,
+                style: GoogleFonts.manrope(
+                  fontSize: 12,
+                  color: (isDark ? Colors.white : AppColors.slate900).withOpacity(0.6),
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
+          bottom: TabBar(
+            controller: _tabController,
+            indicatorSize: TabBarIndicatorSize.tab,
+            dividerColor: Colors.transparent,
+            indicatorPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            indicator: BoxDecoration(
+              color: colorScheme.primary,
+              borderRadius: BorderRadius.circular(AppRadius.full),
+            ),
+            labelColor: Colors.white,
+            unselectedLabelColor: isDark ? AppColors.slate400 : AppColors.slate500,
+            labelStyle: GoogleFonts.manrope(fontWeight: FontWeight.w700, fontSize: 13),
+            unselectedLabelStyle: GoogleFonts.manrope(fontWeight: FontWeight.w600, fontSize: 13),
+            tabs: const [
+              Tab(text: 'Analytics'),
+              Tab(text: 'Coaching'),
+              Tab(text: 'Transcript'),
+            ],
+          ),
         ),
-        bottom: TabBar(
+        body: TabBarView(
           controller: _tabController,
-          tabs: const [
-            Tab(icon: Icon(Icons.analytics_outlined), text: 'Analytics'),
-            Tab(icon: Icon(Icons.school_outlined), text: 'Coaching'),
+          children: [
+            _AnalyticsTab(analytics: _analytics, loading: _analyticsLoading, error: _analyticsError),
+            _CoachingTab(report: _report, loading: _reportLoading, error: _reportError),
+            _TranscriptTab(logs: _logs, loading: _logsLoading),
           ],
         ),
-      ),
-      body: TabBarView(
-        controller: _tabController,
-        children: [
-          _AnalyticsTab(analytics: _analytics, loading: _analyticsLoading, error: _analyticsError),
-          _CoachingTab(report: _report, loading: _reportLoading, error: _reportError),
-        ],
       ),
     );
   }
@@ -104,8 +168,9 @@ class _AnalyticsTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (loading) return const Center(child: Column(mainAxisSize: MainAxisSize.min, children: [CircularProgressIndicator(), SizedBox(height: 12), Text('Computing analytics…')]));
-    if (error != null || analytics == null) return Center(child: Column(mainAxisSize: MainAxisSize.min, children: [const Icon(Icons.bar_chart_outlined, size: 48), SizedBox(height: 12), Text(error ?? 'No data yet')]));
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    if (loading) return Center(child: Column(mainAxisSize: MainAxisSize.min, children: [const CircularProgressIndicator(), const SizedBox(height: 12), Text('Computing analytics…', style: GoogleFonts.manrope())]));
+    if (error != null || analytics == null) return Center(child: Column(mainAxisSize: MainAxisSize.min, children: [Icon(Icons.bar_chart_outlined, size: 48, color: AppColors.slate500), const SizedBox(height: 12), Text(error ?? 'No data yet', style: GoogleFonts.manrope(color: AppColors.slate500))]));
     final a = analytics!;
     return ListView(
       padding: const EdgeInsets.all(16),
@@ -141,7 +206,7 @@ class _AnalyticsTab extends StatelessWidget {
           if (a['sentiment_trend'] != null &&
               (a['sentiment_trend'] as List).isNotEmpty) ...[
             const SizedBox(height: 12),
-            const Text('Emotion Flow:', style: TextStyle(color: Colors.white70)),
+            Text('Emotion Flow:', style: GoogleFonts.manrope(color: isDark ? AppColors.slate400 : AppColors.slate500, fontSize: 12, fontWeight: FontWeight.w600)),
             const SizedBox(height: 8),
             SizedBox(
               height: 80,
@@ -180,20 +245,21 @@ class _CoachingTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (loading) return const Center(child: Column(mainAxisSize: MainAxisSize.min, children: [CircularProgressIndicator(), SizedBox(height: 12), Text('Generating coaching report…')]));
-    if (error != null || report == null) return Center(child: Column(mainAxisSize: MainAxisSize.min, children: [const Icon(Icons.school_outlined, size: 48), SizedBox(height: 12), Text(error ?? 'Not available')]));
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    if (loading) return Center(child: Column(mainAxisSize: MainAxisSize.min, children: [const CircularProgressIndicator(), const SizedBox(height: 12), Text('Generating coaching report…', style: GoogleFonts.manrope())]));
+    if (error != null || report == null) return Center(child: Column(mainAxisSize: MainAxisSize.min, children: [Icon(Icons.school_outlined, size: 48, color: AppColors.slate500), const SizedBox(height: 12), Text(error ?? 'Not available', style: GoogleFonts.manrope(color: AppColors.slate500))]));
     final r = report!;
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
         if (r['report_text'] != null)
           _SectionCard(title: '📋 Summary', children: [
-            Text(r['report_text'] as String, style: const TextStyle(height: 1.5)),
+            Text(r['report_text'] as String, style: GoogleFonts.manrope(height: 1.5, fontSize: 14, color: isDark ? AppColors.slate300 : AppColors.slate600)),
           ]),
         if (r['tone_summary'] != null) ...[
           const SizedBox(height: 12),
           _SectionCard(title: '🗣️ Tone', children: [
-            Text(r['tone_summary'] as String),
+            Text(r['tone_summary'] as String, style: GoogleFonts.manrope(fontSize: 14, color: isDark ? AppColors.slate300 : AppColors.slate600)),
             if (r['engagement_trend'] != null)
               _StatRow('Engagement Trend', _capitalize('${r['engagement_trend']}')),
           ]),
@@ -253,6 +319,49 @@ class _CoachingTab extends StatelessWidget {
   String _capitalize(String s) => s.isEmpty ? s : s[0].toUpperCase() + s.substring(1);
 }
 
+// ── Transcript Tab ────────────────────────────────────────────────────────────
+class _TranscriptTab extends StatelessWidget {
+  final List<Map<String, dynamic>> logs;
+  final bool loading;
+  const _TranscriptTab({required this.logs, required this.loading});
+
+  @override
+  Widget build(BuildContext context) {
+    if (loading) return const Center(child: CircularProgressIndicator());
+    if (logs.isEmpty) return Center(child: Text('No transcript available', style: GoogleFonts.manrope(color: AppColors.slate500)));
+
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: logs.length,
+      itemBuilder: (context, index) {
+        final log = logs[index];
+        final role = (log['role'] as String? ?? 'others').toLowerCase();
+        final content = log['content'] as String? ?? '';
+        final isUser = role == 'user';
+        final isAI = role == 'assistant' || role == 'llm';
+        final String displayName = _getDisplayName(role, log['speaker_label']);
+
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: ChatBubble(
+            text: content,
+            isUser: isUser,
+            isAI: isAI,
+            speakerLabel: isUser ? null : displayName,
+          ),
+        );
+      },
+    );
+  }
+
+  String _getDisplayName(String role, dynamic label) {
+    if (role == 'user') return 'You';
+    if (role == 'assistant' || role == 'llm') return 'Bubbles AI';
+    if (label != null) return label.toString();
+    return 'Other';
+  }
+}
+
 // ── Shared widgets ────────────────────────────────────────────────────────────
 class _SectionCard extends StatelessWidget {
   final String title;
@@ -261,16 +370,23 @@ class _SectionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return Card(
-      color: cs.surfaceContainerHighest.withOpacity(0.5),
-      child: Padding(
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: GlassPanel(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-            const SizedBox(height: 10),
+            Text(
+              title,
+              style: GoogleFonts.manrope(
+                fontWeight: FontWeight.w800,
+                fontSize: 15,
+                color: isDark ? Colors.white : AppColors.slate900,
+              ),
+            ),
+            const SizedBox(height: 12),
             ...children,
           ],
         ),
@@ -283,15 +399,17 @@ class _StatRow extends StatelessWidget {
   final String label;
   final String value;
   const _StatRow(this.label, this.value);
+
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 3),
+      padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7))),
-          Text(value, style: const TextStyle(fontWeight: FontWeight.w600)),
+          Text(label, style: GoogleFonts.manrope(color: isDark ? AppColors.slate400 : AppColors.slate500, fontSize: 13)),
+          Text(value, style: GoogleFonts.manrope(fontWeight: FontWeight.w700, fontSize: 13, color: isDark ? Colors.white : AppColors.slate900)),
         ],
       ),
     );
@@ -311,7 +429,7 @@ class _ChipSection extends StatelessWidget {
         children: items.map((i) => Chip(
           label: Text(i),
           backgroundColor: color.withOpacity(0.15),
-          labelStyle: TextStyle(color: color, fontWeight: FontWeight.w500),
+          labelStyle: GoogleFonts.manrope(fontSize: 12, color: color, fontWeight: FontWeight.w700),
           side: BorderSide(color: color.withOpacity(0.3)),
         )).toList(),
       ),
@@ -328,8 +446,8 @@ class _BulletSection extends StatelessWidget {
     return _SectionCard(title: title, children: items.map((i) => Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const Text('• ', style: TextStyle(fontWeight: FontWeight.bold)),
-        Expanded(child: Text(i)),
+        Text('• ', style: GoogleFonts.manrope(fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.primary)),
+        Expanded(child: Text(i, style: GoogleFonts.manrope(fontSize: 13, height: 1.4))),
       ]),
     )).toList());
   }
@@ -450,6 +568,8 @@ class _ToneRadarChart extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final colorScheme = Theme.of(context).colorScheme;
     return Row(
       children: [
         Expanded(
@@ -457,8 +577,8 @@ class _ToneRadarChart extends StatelessWidget {
             RadarChartData(
               dataSets: [
                 RadarDataSet(
-                  fillColor: const Color(0xFF6366F1).withOpacity(0.2),
-                  borderColor: const Color(0xFF6366F1),
+                  fillColor: colorScheme.primary.withOpacity(0.2),
+                  borderColor: colorScheme.primary,
                   borderWidth: 2,
                   entryRadius: 4,
                   dataEntries: [
@@ -476,8 +596,8 @@ class _ToneRadarChart extends StatelessWidget {
               gridBorderData: const BorderSide(color: Colors.white12, width: 1),
               tickCount: 5,
               ticksTextStyle: const TextStyle(color: Colors.transparent, fontSize: 0),
-              tickBorderData: const BorderSide(color: Colors.white10),
-              titleTextStyle: const TextStyle(color: Colors.white70, fontSize: 11),
+              tickBorderData: BorderSide(color: isDark ? Colors.white10 : Colors.black12),
+              titleTextStyle: GoogleFonts.manrope(color: isDark ? AppColors.slate400 : AppColors.slate500, fontSize: 11, fontWeight: FontWeight.w600),
               getTitle: (index, _) {
                 const titles = [
                   'Aggressive',
@@ -515,8 +635,10 @@ class _RadarLegendItem extends StatelessWidget {
   final String label;
   final double value;
   const _RadarLegendItem(this.label, this.value);
+
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2),
       child: Row(
@@ -524,15 +646,15 @@ class _RadarLegendItem extends StatelessWidget {
         children: [
           Container(
             width: 8, height: 8,
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: Color(0xFF6366F1),
+              color: Theme.of(context).colorScheme.primary,
             ),
           ),
-          const SizedBox(width: 6),
+          const SizedBox(width: 8),
           Text(
             '$label: ${value.toStringAsFixed(1)}',
-            style: const TextStyle(fontSize: 10, color: Colors.white70),
+            style: GoogleFonts.manrope(fontSize: 11, color: isDark ? AppColors.slate300 : AppColors.slate600, fontWeight: FontWeight.w600),
           ),
         ],
       ),
