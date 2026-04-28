@@ -103,6 +103,18 @@ async def lifespan(app: FastAPI):
     print(f"   └─────────────────────────────────────────────────────────┘")
     print(f"")
 
+    public_url = None
+    if settings.NGROK_AUTHTOKEN:
+        try:
+            from pyngrok import ngrok
+            ngrok.set_auth_token(settings.NGROK_AUTHTOKEN)
+            public_url = ngrok.connect(settings.PORT).public_url
+            print(f"   🚀 ngrok Public URL: {public_url}")
+            print(f"")
+        except Exception as e:
+            print(f"   ⚠️ ngrok failed to start: {e}")
+            print(f"")
+
     yield  # Server is running
 
     # === Shutdown: drain tracked background tasks (XP, quests, streaks) ===
@@ -113,6 +125,14 @@ async def lifespan(app: FastAPI):
         done, pending = await asyncio.wait(_background_tasks, timeout=10)
         if pending:
             print(f"⚠️  {len(pending)} background task(s) did not complete in time")
+            
+    if public_url:
+        try:
+            from pyngrok import ngrok
+            ngrok.disconnect(public_url)
+        except Exception:
+            pass
+            
     print("👋 Server shut down cleanly")
 
 

@@ -41,3 +41,4 @@ httpx
 python-multipart
 redis[asyncio]
 python-dateutil
+pyngrok

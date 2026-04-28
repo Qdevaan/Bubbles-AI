@@ -200,9 +200,10 @@ class BubblesApp extends StatelessWidget {
             l2: context.read<PersistentCacheService>(),
           ),
         ),
-        ProxyProvider<AppCacheService, GraphRepository>(
-          update: (context, l1, _) => GraphRepository(
-            l1: l1, 
+        ProxyProvider<ApiService, GraphRepository>(
+          update: (context, api, _) => GraphRepository(
+            api: api,
+            l1: context.read<AppCacheService>(), 
             l2: context.read<PersistentCacheService>(),
           ),
         ),

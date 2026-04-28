@@ -98,7 +98,7 @@ class HydrationService with ChangeNotifier {
     _realtimeSubs.add(
       client
           .from('user_gamification')
-          .stream(primaryKey: ['id'])
+          .stream(primaryKey: ['user_id'])
           .eq('user_id', userId)
           .listen((_) => _gamification.getGamification(userId, forceRefresh: true)),
     );

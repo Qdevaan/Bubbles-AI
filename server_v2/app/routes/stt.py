@@ -6,6 +6,7 @@ POST /tts         — HTTP proxy: Flutter → this server → Deepgram TTS → a
 """
 
 import asyncio
+import logging
 
 import httpx
 from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect
@@ -15,6 +16,8 @@ from websockets.asyncio.client import connect as ws_connect
 from websockets.exceptions import ConnectionClosed
 
 from app.config import settings
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -61,18 +64,22 @@ async def stt_stream(websocket: WebSocket, token: str = ""):
         return
 
     try:
+        logger.info("STT: connecting to Deepgram...")
         async with ws_connect(
             _DEEPGRAM_STT_URL,
             extra_headers={"Authorization": f"Token {settings.DEEPGRAM_API_KEY}"},
         ) as deepgram_ws:
+            logger.info("STT: Deepgram connected")
 
             async def client_to_deepgram():
                 """Forward audio bytes from Flutter → Deepgram."""
                 try:
                     async for message in websocket.iter_bytes():
                         await deepgram_ws.send(message)
-                except (WebSocketDisconnect, Exception):
-                    pass
+                except WebSocketDisconnect:
+                    logger.info("STT: Flutter client disconnected")
+                except Exception as e:
+                    logger.warning("STT client_to_deepgram error: %s", e)
                 finally:
                     await deepgram_ws.close()
 
@@ -81,8 +88,12 @@ async def stt_stream(websocket: WebSocket, token: str = ""):
                 try:
                     async for message in deepgram_ws:
                         await websocket.send_text(message)
-                except (ConnectionClosed, WebSocketDisconnect, Exception):
+                except ConnectionClosed as e:
+                    logger.info("STT: Deepgram connection closed: %s", e)
+                except WebSocketDisconnect:
                     pass
+                except Exception as e:
+                    logger.warning("STT deepgram_to_client error: %s", e)
 
             await asyncio.gather(
                 client_to_deepgram(),
@@ -91,6 +102,7 @@ async def stt_stream(websocket: WebSocket, token: str = ""):
             )
 
     except Exception as exc:
+        logger.error("STT: failed to connect to Deepgram: %s", exc)
         try:
             await websocket.send_json({"error": "upstream_disconnected", "detail": str(exc)})
         except Exception:

@@ -69,6 +69,9 @@ class Settings(BaseSettings):
     HOST: str = "0.0.0.0"
     PORT: int = 8000
 
+    # ── Ngrok ─────────────────────────────────────────────────────────────────
+    NGROK_AUTHTOKEN: str = ""
+
     # ── AI Model Names ────────────────────────────────────────────────────────
     EMBEDDING_MODEL: str = "all-MiniLM-L6-v2"
     CONSULTANT_MODEL: str = "llama-3.3-70b-versatile"

@@ -1090,3 +1090,8 @@ alter table public.user_gamification
 create index if not exists idx_xp_transactions_period
     on public.xp_transactions(created_at, user_id)
     where amount > 0;
+
+
+ALTER TABLE achievements 
+  ADD COLUMN IF NOT EXISTS code TEXT UNIQUE,
+  ADD COLUMN IF NOT EXISTS tier TEXT;
