@@ -22,6 +22,8 @@ class GraphService:
 
     def load_graph(self, user_id: str):
         """Load a user's knowledge graph from DB into memory."""
+        if user_id in self.active_graphs:
+            return  # already loaded this session — skip the DB round-trip
         if not db:
             return
         try:

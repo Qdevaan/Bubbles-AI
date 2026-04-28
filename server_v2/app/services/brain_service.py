@@ -176,6 +176,8 @@ class BrainService:
         """Real-time wingman coaching. Cerebras primary → Groq fallback."""
         is_roleplay = mode == "roleplay"
         mode_instruction = self._persona_instruction(mode, persona)
+        graph_context = self._truncate_to_token_limit(graph_context, 300)
+        vector_context = self._truncate_to_token_limit(vector_context, 300)
 
         if is_roleplay:
             system_prompt = (

@@ -98,8 +98,6 @@ async def ask_consultant_endpoint(
         req.user_id, f"Q: {req.question}\nA: {answer}",
         session_id=session_id,
     )
-    await asyncio.to_thread(graph_svc.save_graph, req.user_id)
-
     # Extract entities/relations from Q&A and persist to knowledge graph
     try:
         extraction = await brain_svc.extract_all_from_transcript(
@@ -265,8 +263,6 @@ async def ask_consultant_stream_endpoint(
                 uid, f"Q: {question}\nA: {full_answer}",
                 session_id=sid,
             )
-            await asyncio.to_thread(graph_svc.save_graph, uid)
-
             try:
                 extraction = await brain_svc.extract_all_from_transcript(
                     f"Q: {question}\nA: {full_answer}", graph_ctx
