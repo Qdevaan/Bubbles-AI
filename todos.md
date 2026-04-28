@@ -63,13 +63,13 @@
 - [x] **Milestones**: Add achievements for reaching specific milestones and maintaining streaks.
 
 ## 🔧 Performance Optimization :
-- [ ] **Prompt Optimization**: Refine and shorten prompts to reduce LLM latency and token costs.
-- [ ] **API Efficiency**: Optimize backend API calls and payload sizes to reduce response times.
-- [ ] **UI Responsiveness**: Optimize Flutter rendering and state management to ensure a lag-free experience.
+- [x] **Prompt Optimization**: Refine and shorten prompts to reduce LLM latency and token costs.
+- [x] **API Efficiency**: Optimize backend API calls and payload sizes to reduce response times.
+- [x] **UI Responsiveness**: Optimize Flutter rendering and state management to ensure a lag-free experience.
 - [x] **Auto Reload**: when app connects to the server, automatically update all screens and their relevent data and keep them in cache, game related, graphs, chats, summries or orher, automatically fetch them and store them in cache
 - [x] **Supabase Update**: update everything on supabase, and our app fetches most of the data from supabase which doesent require an active server connection, like game related features or others, flutter app auto receives that from database and and also updates them on completetion.
 - [x] **Store Everythingh**: Store Everything on supabase, every little or minute details directly, and make it so we fetch it from supabase, unless it is time critical, that directly comes from server like live session, but everything is still recorded on supabase.
-- [ ] **New Prompts**: write new detailed and specific prompts to cover all of the live sessions modes and as well as consultant session mods and roleplay mods, in live session, prompt should be for suggestions from past convos using RAG and Network X graphs, work as an assistant, that silently hand overs important key points to the user and aids them in the conve, while in Consultan mode, the AI prompt should be so it acts like a professional consultant, that has all your details, background knowledge and everything, and helps you in any way possible, while in role play model, the prompt is created on the run, about the details we have about the entity, and we currate a promt according to that entity, and the AI model tries to mimic that entity in the role play model. Write the prompts and services accordingly.
+- [x] **New Prompts**: write new detailed and specific prompts to cover all of the live sessions modes and as well as consultant session mods and roleplay mods, in live session, prompt should be for suggestions from past convos using RAG and Network X graphs, work as an assistant, that silently hand overs important key points to the user and aids them in the conve, while in Consultan mode, the AI prompt should be so it acts like a professional consultant, that has all your details, background knowledge and everything, and helps you in any way possible, while in role play model, the prompt is created on the run, about the details we have about the entity, and we currate a promt according to that entity, and the AI model tries to mimic that entity in the role play model. Write the prompts and services accordingly.
 
 ## ⚙️ Notifications
 - [x] **Intelligent Alerts**: Show notifications for important events, dates, and deadlines extracted from sessions.
