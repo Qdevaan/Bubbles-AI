@@ -13,6 +13,7 @@ import 'services/analytics_service.dart';
 import 'services/device_service.dart';
 import 'services/auth_service.dart';
 import 'services/app_cache_service.dart';
+import 'services/hydration_service.dart';
 import 'cache/persistent_cache_service.dart';
 import 'repositories/profile_repository.dart';
 import 'repositories/settings_repository.dart';
@@ -106,8 +107,19 @@ Future<void> main() async {
     final event = data.event;
     if (event == AuthChangeEvent.signedIn) {
       DeviceService.instance.registerDevice();
+      final userId = data.session?.user.id;
+      if (userId != null) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          final ctx = BubblesApp.navigatorKey.currentContext;
+          ctx?.read<HydrationService>().setUserId(userId);
+        });
+      }
     } else if (event == AuthChangeEvent.signedOut) {
       AnalyticsService.instance.flushNow();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final ctx = BubblesApp.navigatorKey.currentContext;
+        ctx?.read<HydrationService>().clearUserId();
+      });
     } else if (event == AuthChangeEvent.passwordRecovery) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         BubblesApp.navigatorKey.currentState?.pushNamedAndRemoveUntil(
@@ -209,9 +221,25 @@ class BubblesApp extends StatelessWidget {
         ),
         ProxyProvider<AppCacheService, SessionsRepository>(
           update: (context, l1, _) => SessionsRepository(
-            l1: l1, 
+            l1: l1,
             l2: context.read<PersistentCacheService>(),
           ),
+        ),
+
+        // Hydration Service — parallel cache refresh + Realtime subscriptions
+        ChangeNotifierProxyProvider<ConnectionService, HydrationService>(
+          create: (context) => HydrationService(
+            connection: context.read<ConnectionService>(),
+            profile: context.read<ProfileRepository>(),
+            settings: context.read<SettingsRepository>(),
+            home: context.read<HomeRepository>(),
+            insights: context.read<InsightsRepository>(),
+            graph: context.read<GraphRepository>(),
+            entity: context.read<EntityRepository>(),
+            gamification: context.read<GamificationRepository>(),
+            sessions: context.read<SessionsRepository>(),
+          ),
+          update: (_, __, prev) => prev!,
         ),
 
         // 3. LiveKit Service (Depends on ApiService)
