@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
+<title>Knowledge Graph</title>
+<script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    width: 100%; height: 100%;
+    overflow: hidden;
+    background: #0b0e17;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+  #graph {
+    width: 100%;
+    height: 100%;
+  }
+  /* Loading overlay */
+  #loading-overlay {
+    position: fixed; inset: 0;
+    background: #0b0e17;
+    display: flex; align-items: center; justify-content: center;
+    flex-direction: column; gap: 16px;
+    z-index: 100;
+    transition: opacity 0.5s ease;
+  }
+  #loading-overlay.hidden { opacity: 0; pointer-events: none; }
+  .spinner {
+    width: 40px; height: 40px;
+    border: 3px solid rgba(99,102,241,0.2);
+    border-top-color: #6366F1;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .loading-text { color: rgba(255,255,255,0.4); font-size: 13px; }
+  /* Stats bar */
+  #stats-bar {
+    position: fixed;
+    bottom: 8px; left: 50%;
+    transform: translateX(-50%);
+    background: rgba(15,18,30,0.85);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(99,102,241,0.15);
+    border-radius: 20px;
+    padding: 6px 16px;
+    font-size: 11px;
+    color: rgba(255,255,255,0.35);
+    z-index: 50;
+    pointer-events: none;
+    white-space: nowrap;
+  }
+</style>
+</head>
+<body>
+<div id="graph"></div>
+<div id="loading-overlay">
+  <div class="spinner"></div>
+  <div class="loading-text">Building graph…</div>
+</div>
+<div id="stats-bar"></div>
+
+<script>
+// ── Entity Type Colors ────────────────────────────────────────────────────────
+const TYPE_COLORS = {
+  person:       { bg: '#6366F1', border: '#818CF8', highlight: '#A5B4FC' },
+  organization: { bg: '#F59E0B', border: '#FBBF24', highlight: '#FDE68A' },
+  place:        { bg: '#10B981', border: '#34D399', highlight: '#6EE7B7' },
+  event:        { bg: '#EC4899', border: '#F472B6', highlight: '#F9A8D4' },
+  concept:      { bg: '#8B5CF6', border: '#A78BFA', highlight: '#C4B5FD' },
+  object:       { bg: '#06B6D4', border: '#22D3EE', highlight: '#67E8F9' },
+  _default:     { bg: '#64748B', border: '#94A3B8', highlight: '#CBD5E1' },
+};
+
+function getTypeColor(type) {
+  const t = (type || '').toLowerCase();
+  return TYPE_COLORS[t] || TYPE_COLORS._default;
+}
+
+// ── Globals ───────────────────────────────────────────────────────────────────
+let network = null;
+let nodesDataset = null;
+let edgesDataset = null;
+
+// ── Graph Initialization ──────────────────────────────────────────────────────
+function updateGraph(nodesJsonStr, edgesJsonStr) {
+  try {
+    const rawNodes = JSON.parse(nodesJsonStr);
+    const rawEdges = JSON.parse(edgesJsonStr);
+
+    // Compute degree for each node
+    const degreeMap = {};
+    rawNodes.forEach(n => { degreeMap[n.id] = 0; });
+    rawEdges.forEach(e => {
+      const from = e.from || e.source;
+      const to = e.to || e.target;
+      if (degreeMap[from] !== undefined) degreeMap[from]++;
+      if (degreeMap[to] !== undefined) degreeMap[to]++;
+    });
+
+    // Build vis.js nodes
+    const visNodes = rawNodes.map(n => {
+      const type = n.type || n.rawType || n.entity_type || '';
+      const tc = getTypeColor(type);
+      const degree = n.degree || degreeMap[n.id] || 0;
+      // Size: base 12, scale with degree, cap at 50
+      const size = Math.min(50, Math.max(12, 10 + degree * 3));
+      // Font: show label for nodes with degree >= 1, scale size
+      const fontSize = degree >= 2 ? Math.min(16, Math.max(9, 8 + degree)) : 8;
+
+      return {
+        id: n.id,
+        label: n.label || n.id,
+        size: size,
+        color: {
+          background: tc.bg,
+          border: tc.border,
+          highlight: { background: tc.highlight, border: tc.border },
+          hover: { background: tc.highlight, border: tc.border },
+        },
+        font: {
+          size: fontSize,
+          color: '#ffffffdd',
+          strokeWidth: 2,
+          strokeColor: 'rgba(0,0,0,0.6)',
+          face: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+        },
+        borderWidth: 1.5,
+        borderWidthSelected: 3,
+        shadow: {
+          enabled: true,
+          color: tc.bg + '44',
+          size: 8,
+          x: 0, y: 0,
+        },
+        // Store metadata for click events
+        _entityType: type,
+        _degree: degree,
+        title: (n.label || n.id) + (type ? ' (' + type + ')' : ''),
+      };
+    });
+
+    // Build vis.js edges
+    const visEdges = rawEdges.map((e, i) => {
+      const from = e.from || e.source;
+      const to = e.to || e.target;
+      const label = e.label || e.relation || '';
+      return {
+        id: 'e' + i,
+        from: from,
+        to: to,
+        label: label,
+        font: {
+          size: 8,
+          color: 'rgba(255,255,255,0.25)',
+          strokeWidth: 0,
+          align: 'middle',
+          face: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+        },
+        color: {
+          color: 'rgba(100,116,139,0.3)',
+          highlight: 'rgba(99,102,241,0.6)',
+          hover: 'rgba(99,102,241,0.4)',
+        },
+        width: 0.8,
+        hoverWidth: 0.3,
+        selectionWidth: 1,
+        smooth: {
+          enabled: true,
+          type: 'continuous',
+          roundness: 0.15,
+        },
+        arrows: {
+          to: { enabled: true, scaleFactor: 0.4, type: 'arrow' },
+        },
+      };
+    });
+
+    // Create or update the network
+    nodesDataset = new vis.DataSet(visNodes);
+    edgesDataset = new vis.DataSet(visEdges);
+
+    if (network) {
+      network.setData({ nodes: nodesDataset, edges: edgesDataset });
+    } else {
+      createNetwork();
+    }
+
+    // Update stats
+    const statsBar = document.getElementById('stats-bar');
+    statsBar.textContent = visNodes.length + ' nodes · ' + visEdges.length + ' edges';
+
+    // Hide loading
+    setTimeout(() => {
+      document.getElementById('loading-overlay').classList.add('hidden');
+    }, 600);
+
+  } catch (err) {
+    console.error('updateGraph error:', err);
+  }
+}
+
+function createNetwork() {
+  const container = document.getElementById('graph');
+  const data = { nodes: nodesDataset, edges: edgesDataset };
+
+  const options = {
+    physics: {
+      enabled: true,
+      solver: 'barnesHut',
+      barnesHut: {
+        gravitationalConstant: -4000,
+        centralGravity: 0.2,
+        springLength: 120,
+        springConstant: 0.02,
+        damping: 0.25,
+        avoidOverlap: 0.3,
+      },
+      stabilization: {
+        enabled: true,
+        iterations: 200,
+        updateInterval: 25,
+        fit: true,
+      },
+      maxVelocity: 40,
+      minVelocity: 0.75,
+      timestep: 0.4,
+    },
+    interaction: {
+      hover: true,
+      tooltipDelay: 300,
+      hideEdgesOnDrag: true,
+      hideEdgesOnZoom: true,
+      multiselect: false,
+      navigationButtons: false,
+      keyboard: false,
+      zoomView: true,
+      dragView: true,
+      dragNodes: true,
+      zoomSpeed: 0.08,
+    },
+    nodes: {
+      shape: 'dot',
+      scaling: { min: 10, max: 50 },
+    },
+    edges: {
+      smooth: { enabled: true, type: 'continuous', roundness: 0.15 },
+    },
+    layout: {
+      improvedLayout: true,
+      randomSeed: 42,
+    },
+  };
+
+  network = new vis.Network(container, data, options);
+
+  // ── Events ──────────────────────────────────────────────────────────────────
+
+  // Node click → send to Flutter
+  network.on('click', function(params) {
+    if (params.nodes.length > 0) {
+      const nodeId = params.nodes[0];
+      const node = nodesDataset.get(nodeId);
+      if (node) {
+        sendToFlutter({
+          action: 'nodeClick',
+          id: node.id,
+          label: node.label,
+          type: node._entityType || 'unknown',
+        });
+      }
+    }
+  });
+
+  // After stabilization, disable physics for smoother manual interaction
+  network.on('stabilizationIterationsDone', function() {
+    setTimeout(() => {
+      network.setOptions({ physics: { enabled: false } });
+    }, 1000);
+  });
+
+  // Re-enable physics on double tap (to re-layout)
+  network.on('doubleClick', function(params) {
+    if (params.nodes.length === 0 && params.edges.length === 0) {
+      network.setOptions({
+        physics: {
+          enabled: true,
+          stabilization: { enabled: false },
+        },
+      });
+      setTimeout(() => {
+        network.setOptions({ physics: { enabled: false } });
+      }, 3000);
+    }
+  });
+}
+
+// ── Focus Node (for search) ───────────────────────────────────────────────────
+function focusNode(nodeId) {
+  if (!network || !nodesDataset) return;
+  const node = nodesDataset.get(nodeId);
+  if (!node) return;
+
+  network.focus(nodeId, {
+    scale: 1.5,
+    animation: {
+      duration: 800,
+      easingFunction: 'easeInOutQuad',
+    },
+  });
+
+  // Select and highlight the node
+  network.selectNodes([nodeId]);
+
+  // Send click event too
+  sendToFlutter({
+    action: 'nodeClick',
+    id: node.id,
+    label: node.label,
+    type: node._entityType || 'unknown',
+  });
+}
+
+// ── Flutter Communication ─────────────────────────────────────────────────────
+function sendToFlutter(data) {
+  try {
+    if (window.GraphChannel) {
+      GraphChannel.postMessage(JSON.stringify(data));
+    }
+  } catch (e) {
+    console.error('sendToFlutter error:', e);
+  }
+}
+
+// ── Initialization ────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', function() {
+  sendToFlutter({ action: 'ready' });
+});
+</script>
+</body>
+</html>
