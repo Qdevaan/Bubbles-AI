@@ -74,7 +74,7 @@ class Settings(BaseSettings):
     CONSULTANT_MODEL: str = "llama-3.3-70b-versatile"
     WINGMAN_MODEL: str = "llama-3.1-8b-instant"
     CEREBRAS_WINGMAN_MODEL: str = "llama3.1-8b"
-    GEMINI_CONSULTANT_MODEL: str = "gemini-1.5-flash"
+    GEMINI_CONSULTANT_MODEL: str = "gemini-3.1-flash"
 
 
 settings = Settings()
