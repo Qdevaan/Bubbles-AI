@@ -239,7 +239,7 @@ class _EntityScreenState extends State<EntityScreen> {
                     ),
                     Expanded(
                       child: Text(
-                        'Knowledge Graph',
+                        'Entities',
                         textAlign: TextAlign.center,
                         style: GoogleFonts.manrope(
                           fontSize: 20,
@@ -251,11 +251,20 @@ class _EntityScreenState extends State<EntityScreen> {
                       ),
                     ),
                     IconButton(
+                      onPressed: () => Navigator.pushNamed(context, '/graph-explorer'),
+                      icon: Icon(
+                        Icons.hub_rounded,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                      tooltip: 'Visualize Graph',
+                    ),
+                    IconButton(
                       onPressed: _loadEntities,
                       icon: Icon(
                         Icons.refresh,
                         color: isDark ? Colors.white70 : Colors.grey.shade700,
                       ),
+                      tooltip: 'Refresh',
                     ),
                   ],
                 ),
@@ -716,12 +725,23 @@ class _EntityCardState extends State<_EntityCard> {
     final rels = (e['relations'] as List?)?.map((r) {
       final m = r as Map;
       String targetName = '';
-      if (m['target'] is Map) {
-        targetName = (m['target'] as Map)['display_name']?.toString() ?? '';
+      
+      // Handle Supabase join result which might be a map or a list of maps
+      final targetData = m['target'];
+      if (targetData is Map) {
+        targetName = targetData['display_name']?.toString() ?? '';
+      } else if (targetData is List && targetData.isNotEmpty) {
+        targetName = (targetData.first as Map)['display_name']?.toString() ?? '';
       }
+
       if (targetName.isEmpty) {
-        targetName = (m['target_display_name'] ?? m['target'] ?? m['target_id'] ?? '').toString();
+        // Fallback chain: target_display_name -> target (if string) -> target_id
+        targetName = (m['target_display_name'] ?? 
+                     (targetData is String ? targetData : null) ?? 
+                     m['target_id'] ?? 
+                     '').toString();
       }
+      
       return {
         'relation': (m['relation'] ?? '').toString(),
         'target': targetName,
@@ -950,90 +970,82 @@ class _EntityCardState extends State<_EntityCard> {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.end,
                       children: [
-                      TextButton.icon(
-                        onPressed: _saving ? null : () => _editEntity(context),
-                        icon: _saving
-                            ? const SizedBox(
-                                width: 14, height: 14,
-                                child: CircularProgressIndicator(strokeWidth: 2))
-                            : Icon(Icons.edit_outlined, size: 16, color: color),
-                        label: Text('Edit',
-                            style: GoogleFonts.manrope(fontSize: 13, color: color)),
-                      ),
-                      TextButton.icon(
-                        onPressed: () async {
-                          final pTags = await context.read<TagsProvider>().getTagsForEntity(widget.entity['id'] as String);
-                          if (!mounted) return;
-                          await showModalBottomSheet(
-                            context: context,
-                            isScrollControlled: true,
-                            backgroundColor: Theme.of(context).colorScheme.surface,
-                            shape: const RoundedRectangleBorder(
-                              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-                            ),
-                            builder: (_) => TagsBottomSheet(
-                              entityId: widget.entity['id'] as String,
-                              currentTags: pTags,
-                            ),
-                          );
-                          widget.onRefresh();
-                        },
-                        icon: Icon(
-                          Icons.label_outline,
-                          size: 16,
-                          color: color,
+
+                        TextButton.icon(
+                          onPressed: _saving ? null : () => _editEntity(context),
+                          icon: _saving
+                              ? const SizedBox(
+                                  width: 14, height: 14,
+                                  child: CircularProgressIndicator(strokeWidth: 2))
+                              : Icon(Icons.edit_outlined, size: 16, color: color),
+                          label: Text('Edit',
+                              style: GoogleFonts.manrope(fontSize: 13, color: color)),
                         ),
-                        label: Text(
-                          'Tags',
-                          style: GoogleFonts.manrope(
-                            fontSize: 13,
-                            color: color,
-                          ),
-                        ),
-                      ),
-                      // Ask AI button
-                      TextButton.icon(
-                        onPressed: _askingAi
-                            ? null
-                            : () => _askAboutEntity(context),
-                        icon: _askingAi
-                            ? const SizedBox(
-                                width: 14,
-                                height: 14,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                ),
-                              )
-                            : Icon(
-                                Icons.auto_awesome,
-                                size: 16,
-                                color: Theme.of(context).colorScheme.secondary,
+                        TextButton.icon(
+                          onPressed: () async {
+                            final pTags = await context.read<TagsProvider>().getTagsForEntity(widget.entity['id'] as String);
+                            if (!mounted) return;
+                            await showModalBottomSheet(
+                              context: context,
+                              isScrollControlled: true,
+                              backgroundColor: Theme.of(context).colorScheme.surface,
+                              shape: const RoundedRectangleBorder(
+                                borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
                               ),
-                        label: Text(
-                          'Ask AI',
-                          style: GoogleFonts.manrope(
-                            fontSize: 13,
-                            color: Theme.of(context).colorScheme.secondary,
+                              builder: (_) => TagsBottomSheet(
+                                entityId: widget.entity['id'] as String,
+                                currentTags: pTags,
+                              ),
+                            );
+                            widget.onRefresh();
+                          },
+                          icon: Icon(Icons.label_outline, size: 16, color: color),
+                          label: Text('Tags',
+                              style: GoogleFonts.manrope(fontSize: 13, color: color)),
+                        ),
+                        // Ask AI button
+                        TextButton.icon(
+                          onPressed: _askingAi
+                              ? null
+                              : () => _askAboutEntity(context),
+                          icon: _askingAi
+                              ? const SizedBox(
+                                  width: 14,
+                                  height: 14,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : Icon(
+                                  Icons.auto_awesome,
+                                  size: 16,
+                                  color: Theme.of(context).colorScheme.secondary,
+                                ),
+                          label: Text(
+                            'Ask AI',
+                            style: GoogleFonts.manrope(
+                              fontSize: 13,
+                              color: Theme.of(context).colorScheme.secondary,
+                            ),
                           ),
                         ),
-                      ),
-                      TextButton.icon(
-                        onPressed: widget.onDelete,
-                        icon: Icon(
-                          Icons.delete_outline,
-                          size: 16,
-                          color: AppColors.error,
-                        ),
-                        label: Text(
-                          'Delete',
-                          style: GoogleFonts.manrope(
-                            fontSize: 13,
+                        TextButton.icon(
+                          onPressed: widget.onDelete,
+                          icon: Icon(
+                            Icons.delete_outline,
+                            size: 16,
                             color: AppColors.error,
                           ),
+                          label: Text(
+                            'Delete',
+                            style: GoogleFonts.manrope(
+                              fontSize: 13,
+                              color: AppColors.error,
+                            ),
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
+                      ],
+                    ),
                   ),
                 ],
               ),

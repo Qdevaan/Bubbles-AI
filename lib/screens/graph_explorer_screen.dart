@@ -130,7 +130,16 @@ class _GraphExplorerScreenState extends State<GraphExplorerScreen> {
 
     // Use backtick template literals for safe injection
     final js = 'updateGraph(`$nodesStr`, `$edgesStr`);';
-    _webViewController!.runJavaScript(js);
+    _webViewController!.runJavaScript(js).then((_) {
+      // Check if we need to focus on a specific node
+      final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+      final focusId = args?['focusId']?.toString();
+      if (focusId != null && focusId.isNotEmpty) {
+        Future.delayed(const Duration(milliseconds: 1000), () {
+          _webViewController?.runJavaScript("focusNode('$focusId');");
+        });
+      }
+    });
   }
 
 
