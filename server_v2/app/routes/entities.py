@@ -114,13 +114,55 @@ async def ask_entity_endpoint(request: Request, req: EntityQueryRequest):
 
 @router.get("/graph_export/{user_id}")
 async def get_graph_export(user_id: str):
-    """Return knowledge graph data as JSON."""
+    """Return knowledge graph data built from entities + entity_relations tables."""
+    if not db:
+        raise HTTPException(status_code=503, detail="Database unavailable.")
     try:
-        import networkx as nx
-        from networkx.readwrite import json_graph
-        if user_id not in graph_svc.active_graphs:
-            await asyncio.to_thread(graph_svc.load_graph, user_id)
-        return json_graph.node_link_data(graph_svc.active_graphs.get(user_id, nx.Graph()))
+        # Fetch all entities for this user
+        entities_res = await asyncio.to_thread(
+            lambda: db.table("entities")
+            .select("id, canonical_name, display_name, entity_type, description, mention_count")
+            .eq("user_id", user_id)
+            .eq("is_archived", False)
+            .execute()
+        )
+        entities = entities_res.data or []
+
+        # Fetch all relations for this user
+        relations_res = await asyncio.to_thread(
+            lambda: db.table("entity_relations")
+            .select("id, source_id, target_id, relation, strength")
+            .eq("user_id", user_id)
+            .execute()
+        )
+        relations = relations_res.data or []
+
+        # Build entity id set for filtering valid relations
+        entity_ids = {e["id"] for e in entities}
+
+        # Build nodes list
+        nodes = []
+        for e in entities:
+            nodes.append({
+                "id": e["id"],
+                "label": e.get("display_name") or e.get("canonical_name", ""),
+                "type": e.get("entity_type", ""),
+                "description": e.get("description", ""),
+                "mention_count": e.get("mention_count", 0),
+            })
+
+        # Build links list (only include relations where both entities exist)
+        links = []
+        for r in relations:
+            if r["source_id"] in entity_ids and r["target_id"] in entity_ids:
+                links.append({
+                    "source": r["source_id"],
+                    "target": r["target_id"],
+                    "relation": r.get("relation", "related_to"),
+                    "strength": r.get("strength", 1.0),
+                })
+
+        return {"nodes": nodes, "links": links}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

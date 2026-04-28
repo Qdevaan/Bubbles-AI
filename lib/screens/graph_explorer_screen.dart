@@ -77,11 +77,7 @@ class _GraphExplorerScreenState extends State<GraphExplorerScreen> {
             if (data['action'] == 'ready') {
               _injectGraphData();
             } else if (data['action'] == 'nodeClick') {
-              _onNodeTap(
-                data['id'].toString(),
-                data['label']?.toString() ?? 'Unknown',
-                data['type']?.toString() ?? 'unknown',
-              );
+              _onNodeTap(data);
             }
           } catch (e) {
             debugPrint('Error parsing webview message: $e');
@@ -193,7 +189,14 @@ class _GraphExplorerScreenState extends State<GraphExplorerScreen> {
     _webViewController?.loadHtmlString(template);
   }
 
-  void _onNodeTap(String id, String label, String entityType) {
+  void _onNodeTap(Map<String, dynamic> data) {
+    final label = data['label']?.toString() ?? 'Unknown';
+    final entityType = data['type']?.toString() ?? '';
+    final typeLabel = data['typeLabel']?.toString() ?? entityType;
+    final description = data['description']?.toString() ?? '';
+    final degree = data['degree'] ?? 0;
+    final mentionCount = data['mentionCount'] ?? 0;
+    final connections = (data['connections'] as List<dynamic>?)?.map((c) => Map<String, dynamic>.from(c)).toList() ?? [];
     final color = _colorForType(entityType);
     final icon = _iconForType(entityType);
     final userId = AuthService.instance.currentUser?.id ?? '';
@@ -207,7 +210,11 @@ class _GraphExplorerScreenState extends State<GraphExplorerScreen> {
       builder: (ctx) {
         return _EntityQuickReferenceSheet(
           label: label,
-          entityType: entityType,
+          entityType: typeLabel.isNotEmpty ? typeLabel : entityType,
+          description: description,
+          degree: degree is int ? degree : int.tryParse(degree.toString()) ?? 0,
+          mentionCount: mentionCount is int ? mentionCount : int.tryParse(mentionCount.toString()) ?? 0,
+          connections: connections,
           color: color,
           icon: icon,
           userId: userId,
@@ -641,6 +648,10 @@ class _GraphQueryResultSheet extends StatelessWidget {
 class _EntityQuickReferenceSheet extends StatefulWidget {
   final String label;
   final String entityType;
+  final String description;
+  final int degree;
+  final int mentionCount;
+  final List<Map<String, dynamic>> connections;
   final Color color;
   final IconData icon;
   final String userId;
@@ -651,6 +662,10 @@ class _EntityQuickReferenceSheet extends StatefulWidget {
   const _EntityQuickReferenceSheet({
     required this.label,
     required this.entityType,
+    this.description = '',
+    this.degree = 0,
+    this.mentionCount = 0,
+    this.connections = const [],
     required this.color,
     required this.icon,
     required this.userId,
@@ -693,14 +708,14 @@ class _EntityQuickReferenceSheetState
     final cs = Theme.of(context).colorScheme;
 
     return DraggableScrollableSheet(
-      initialChildSize: 0.45,
-      maxChildSize: 0.85,
+      initialChildSize: 0.5,
+      maxChildSize: 0.88,
       minChildSize: 0.25,
       builder: (_, scrollController) => Container(
         margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
         decoration: BoxDecoration(
           color: isDark
-              ? const Color(0xFF111827).withOpacity(0.97)
+              ? const Color(0xFF192B33).withOpacity(0.97)
               : Colors.white.withOpacity(0.97),
           borderRadius: BorderRadius.circular(24),
           border: Border.all(color: widget.color.withOpacity(0.3)),
@@ -709,6 +724,7 @@ class _EntityQuickReferenceSheetState
           controller: scrollController,
           padding: const EdgeInsets.all(20),
           children: [
+            // Drag handle
             Center(
               child: Container(
                 width: 40,
@@ -720,13 +736,16 @@ class _EntityQuickReferenceSheetState
               ),
             ),
             const SizedBox(height: 16),
+
+            // Header: icon + name + type badge
             Row(
               children: [
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: widget.color.withOpacity(0.12),
+                    color: widget.color.withOpacity(0.15),
                     borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: widget.color.withOpacity(0.3)),
                   ),
                   child: Icon(widget.icon, color: widget.color, size: 22),
                 ),
@@ -743,13 +762,21 @@ class _EntityQuickReferenceSheetState
                           color: isDark ? Colors.white : const Color(0xFF0F172A),
                         ),
                       ),
-                      Text(
-                        widget.entityType.toUpperCase(),
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                          color: widget.color,
-                          letterSpacing: 1.2,
+                      const SizedBox(height: 4),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: widget.color.withOpacity(0.15),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          widget.entityType.toUpperCase(),
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w700,
+                            color: widget.color,
+                            letterSpacing: 1.2,
+                          ),
                         ),
                       ),
                     ],
@@ -757,32 +784,187 @@ class _EntityQuickReferenceSheetState
                 ),
               ],
             ),
-            const SizedBox(height: 16),
-            if (_loading)
-              Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: CircularProgressIndicator(color: widget.color),
-                ),
-              )
-            else
+
+            // Stats row
+            if (widget.degree > 0 || widget.mentionCount > 0) ...[
+              const SizedBox(height: 14),
+              Row(
+                children: [
+                  if (widget.degree > 0)
+                    _StatChip(
+                      icon: Icons.hub_rounded,
+                      label: '${widget.degree} connections',
+                      color: widget.color,
+                      isDark: isDark,
+                    ),
+                  if (widget.degree > 0 && widget.mentionCount > 0)
+                    const SizedBox(width: 8),
+                  if (widget.mentionCount > 0)
+                    _StatChip(
+                      icon: Icons.chat_bubble_outline_rounded,
+                      label: '${widget.mentionCount} mentions',
+                      color: widget.color,
+                      isDark: isDark,
+                    ),
+                ],
+              ),
+            ],
+
+            // Description
+            if (widget.description.isNotEmpty) ...[
+              const SizedBox(height: 14),
               Container(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
                   color: widget.color.withOpacity(0.06),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: widget.color.withOpacity(0.15)),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: widget.color.withOpacity(0.12)),
                 ),
                 child: Text(
-                  _answer ?? '—',
+                  widget.description,
                   style: TextStyle(
-                    fontSize: 14,
-                    height: 1.6,
+                    fontSize: 13,
+                    height: 1.5,
                     color: isDark ? Colors.white70 : const Color(0xFF334155),
                   ),
                 ),
               ),
-            const SizedBox(height: 12),
+            ],
+
+            // Connections list
+            if (widget.connections.isNotEmpty) ...[
+              const SizedBox(height: 16),
+              Text(
+                'CONNECTIONS',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  color: isDark ? Colors.white38 : const Color(0xFF94A3B8),
+                  letterSpacing: 1.2,
+                ),
+              ),
+              const SizedBox(height: 8),
+              ...widget.connections.take(8).map((conn) {
+                final connType = conn['nodeType']?.toString() ?? '';
+                final connColor = _colorForType(connType);
+                final relation = conn['relation']?.toString() ?? '';
+                final nodeLabel = conn['nodeLabel']?.toString() ?? '';
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 6),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 8,
+                        height: 8,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: connColor,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: RichText(
+                          text: TextSpan(
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: isDark ? Colors.white70 : const Color(0xFF334155),
+                            ),
+                            children: [
+                              TextSpan(
+                                text: nodeLabel,
+                                style: const TextStyle(fontWeight: FontWeight.w600),
+                              ),
+                              if (relation.isNotEmpty) ...[
+                                TextSpan(
+                                  text: '  ·  ',
+                                  style: TextStyle(
+                                    color: isDark ? Colors.white24 : Colors.grey,
+                                  ),
+                                ),
+                                TextSpan(
+                                  text: relation,
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontStyle: FontStyle.italic,
+                                    color: isDark ? Colors.white38 : const Color(0xFF94A3B8),
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }),
+              if (widget.connections.length > 8)
+                Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: Text(
+                    '+${widget.connections.length - 8} more',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: isDark ? Colors.white38 : const Color(0xFF94A3B8),
+                    ),
+                  ),
+                ),
+            ],
+
+            // AI Summary
+            const SizedBox(height: 16),
+            Text(
+              'AI SUMMARY',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                color: isDark ? Colors.white38 : const Color(0xFF94A3B8),
+                letterSpacing: 1.2,
+              ),
+            ),
+            const SizedBox(height: 8),
+            if (_loading)
+              Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: widget.color,
+                    ),
+                  ),
+                ),
+              )
+            else
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: cs.primary.withOpacity(0.06),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: cs.primary.withOpacity(0.12)),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(Icons.psychology_rounded, color: cs.primary, size: 18),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        _answer ?? '—',
+                        style: TextStyle(
+                          fontSize: 13,
+                          height: 1.6,
+                          color: isDark ? Colors.white70 : const Color(0xFF334155),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+            const SizedBox(height: 14),
             OutlinedButton.icon(
               onPressed: widget.onViewInEntities,
               icon: Icon(Icons.open_in_new_rounded, size: 16, color: cs.primary),
@@ -796,6 +978,49 @@ class _EntityQuickReferenceSheetState
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+// ── Small stat chip ────────────────────────────────────────────────────────────
+
+class _StatChip extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Color color;
+  final bool isDark;
+
+  const _StatChip({
+    required this.icon,
+    required this.label,
+    required this.color,
+    required this.isDark,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.withOpacity(0.15)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 13, color: color.withOpacity(0.7)),
+          const SizedBox(width: 5),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: isDark ? Colors.white60 : const Color(0xFF475569),
+            ),
+          ),
+        ],
       ),
     );
   }

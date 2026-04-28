@@ -10,7 +10,8 @@
   html, body {
     width: 100%; height: 100%;
     overflow: hidden;
-    background: #0b0e17;
+    /* Match app dark theme: AppColors.backgroundDark = #101E22 */
+    background: #101E22;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     -webkit-tap-highlight-color: transparent;
     touch-action: manipulation;
@@ -22,34 +23,37 @@
   /* Loading overlay */
   #loading-overlay {
     position: fixed; inset: 0;
-    background: #0b0e17;
+    background: #101E22;
     display: flex; align-items: center; justify-content: center;
     flex-direction: column; gap: 16px;
     z-index: 100;
-    transition: opacity 0.5s ease;
+    transition: opacity 0.6s ease;
   }
   #loading-overlay.hidden { opacity: 0; pointer-events: none; }
   .spinner {
     width: 40px; height: 40px;
-    border: 3px solid rgba(99,102,241,0.2);
-    border-top-color: #6366F1;
+    border: 3px solid rgba(19,189,236,0.15);
+    border-top-color: #13BDEC;
     border-radius: 50%;
     animation: spin 0.8s linear infinite;
   }
   @keyframes spin { to { transform: rotate(360deg); } }
-  .loading-text { color: rgba(255,255,255,0.4); font-size: 13px; }
+  .loading-text {
+    color: rgba(148,163,184,0.6); /* slate400 */
+    font-size: 13px;
+  }
   /* Stats bar */
   #stats-bar {
     position: fixed;
     bottom: 8px; left: 50%;
     transform: translateX(-50%);
-    background: rgba(15,18,30,0.85);
+    background: rgba(25,43,51,0.85); /* surfaceDark */
     backdrop-filter: blur(10px);
-    border: 1px solid rgba(99,102,241,0.15);
+    border: 1px solid rgba(255,255,255,0.1); /* glassBorder */
     border-radius: 20px;
     padding: 6px 16px;
     font-size: 11px;
-    color: rgba(255,255,255,0.35);
+    color: rgba(148,163,184,0.6);
     z-index: 50;
     pointer-events: none;
     white-space: nowrap;
@@ -65,20 +69,35 @@
 <div id="stats-bar"></div>
 
 <script>
-// ── Entity Type Colors ────────────────────────────────────────────────────────
+// ── Entity Type Colors (matching Flutter _colorForType) ───────────────────────
 const TYPE_COLORS = {
-  person:       { bg: '#6366F1', border: '#818CF8', highlight: '#A5B4FC' },
-  organization: { bg: '#F59E0B', border: '#FBBF24', highlight: '#FDE68A' },
-  place:        { bg: '#10B981', border: '#34D399', highlight: '#6EE7B7' },
-  event:        { bg: '#EC4899', border: '#F472B6', highlight: '#F9A8D4' },
-  concept:      { bg: '#8B5CF6', border: '#A78BFA', highlight: '#C4B5FD' },
-  object:       { bg: '#06B6D4', border: '#22D3EE', highlight: '#67E8F9' },
-  _default:     { bg: '#64748B', border: '#94A3B8', highlight: '#CBD5E1' },
+  person:       { bg: '#6366F1', border: '#818CF8', highlight: '#A5B4FC', glow: 'rgba(99,102,241,0.35)' },
+  organization: { bg: '#F59E0B', border: '#FBBF24', highlight: '#FDE68A', glow: 'rgba(245,158,11,0.35)' },
+  place:        { bg: '#10B981', border: '#34D399', highlight: '#6EE7B7', glow: 'rgba(16,185,129,0.35)' },
+  event:        { bg: '#EC4899', border: '#F472B6', highlight: '#F9A8D4', glow: 'rgba(236,72,153,0.35)' },
+  concept:      { bg: '#8B5CF6', border: '#A78BFA', highlight: '#C4B5FD', glow: 'rgba(139,92,246,0.35)' },
+  object:       { bg: '#06B6D4', border: '#22D3EE', highlight: '#67E8F9', glow: 'rgba(6,182,212,0.35)' },
 };
 
+// Default fallback uses the app's primary cyan color
+const DEFAULT_COLOR = { bg: '#13BDEC', border: '#6ECBF5', highlight: '#A0E4F8', glow: 'rgba(19,189,236,0.35)' };
+
 function getTypeColor(type) {
-  const t = (type || '').toLowerCase();
-  return TYPE_COLORS[t] || TYPE_COLORS._default;
+  const t = (type || '').toLowerCase().trim();
+  return TYPE_COLORS[t] || DEFAULT_COLOR;
+}
+
+function getTypeLabel(type) {
+  const t = (type || '').toLowerCase().trim();
+  const labels = {
+    person: 'Person',
+    organization: 'Organization',
+    place: 'Place',
+    event: 'Event',
+    concept: 'Concept',
+    object: 'Object',
+  };
+  return labels[t] || (type || 'Entity');
 }
 
 // ── Globals ───────────────────────────────────────────────────────────────────
@@ -104,13 +123,14 @@ function updateGraph(nodesJsonStr, edgesJsonStr) {
 
     // Build vis.js nodes
     const visNodes = rawNodes.map(n => {
-      const type = n.type || n.rawType || n.entity_type || '';
+      const type = n.type || n.entity_type || '';
       const tc = getTypeColor(type);
       const degree = n.degree || degreeMap[n.id] || 0;
-      // Size: base 12, scale with degree, cap at 50
-      const size = Math.min(50, Math.max(12, 10 + degree * 3));
-      // Font: show label for nodes with degree >= 1, scale size
-      const fontSize = degree >= 2 ? Math.min(16, Math.max(9, 8 + degree)) : 8;
+      const mentions = n.mention_count || 0;
+      // Size: base 14, scale with degree + mentions, cap at 55
+      const size = Math.min(55, Math.max(14, 12 + degree * 3 + Math.min(mentions, 10)));
+      // Font: scale with degree
+      const fontSize = Math.min(18, Math.max(9, 8 + degree * 1.2));
 
       return {
         id: n.id,
@@ -119,63 +139,69 @@ function updateGraph(nodesJsonStr, edgesJsonStr) {
         color: {
           background: tc.bg,
           border: tc.border,
-          highlight: { background: tc.highlight, border: tc.border },
+          highlight: { background: tc.highlight, border: '#ffffff' },
           hover: { background: tc.highlight, border: tc.border },
         },
         font: {
           size: fontSize,
-          color: '#ffffffdd',
-          strokeWidth: 2,
-          strokeColor: 'rgba(0,0,0,0.6)',
+          color: '#ffffffcc',
+          strokeWidth: 3,
+          strokeColor: 'rgba(16,30,34,0.85)',
           face: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
         },
-        borderWidth: 1.5,
-        borderWidthSelected: 3,
+        borderWidth: 2,
+        borderWidthSelected: 3.5,
         shadow: {
           enabled: true,
-          color: tc.bg + '44',
-          size: 8,
+          color: tc.glow,
+          size: 12,
           x: 0, y: 0,
         },
         // Store metadata for click events
         _entityType: type,
+        _entityTypeLabel: getTypeLabel(type),
         _degree: degree,
-        title: (n.label || n.id) + (type ? ' (' + type + ')' : ''),
+        _description: n.description || '',
+        _mentionCount: mentions,
       };
     });
 
-    // Build vis.js edges
+    // Build vis.js edges — always visible with clear connection lines
     const visEdges = rawEdges.map((e, i) => {
       const from = e.from || e.source;
       const to = e.to || e.target;
       const label = e.label || e.relation || '';
+      const strength = e.strength || 1.0;
+
       return {
         id: 'e' + i,
         from: from,
         to: to,
-        label: label,
+        label: label.replace(/_/g, ' '),
         font: {
-          size: 8,
-          color: 'rgba(255,255,255,0.25)',
-          strokeWidth: 0,
+          size: 9,
+          color: 'rgba(148,163,184,0.5)',
+          strokeWidth: 2,
+          strokeColor: 'rgba(16,30,34,0.7)',
           align: 'middle',
           face: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
         },
         color: {
-          color: 'rgba(100,116,139,0.3)',
-          highlight: 'rgba(99,102,241,0.6)',
-          hover: 'rgba(99,102,241,0.4)',
+          color: 'rgba(19,189,236,0.2)',       /* primary at 20% */
+          highlight: 'rgba(19,189,236,0.7)',    /* primary at 70% */
+          hover: 'rgba(19,189,236,0.45)',        /* primary at 45% */
+          opacity: 1.0,
         },
-        width: 0.8,
-        hoverWidth: 0.3,
-        selectionWidth: 1,
+        width: Math.max(0.8, Math.min(2.5, strength)),
+        hoverWidth: 0.5,
+        selectionWidth: 1.5,
         smooth: {
           enabled: true,
           type: 'continuous',
-          roundness: 0.15,
+          roundness: 0.2,
         },
         arrows: {
-          to: { enabled: true, scaleFactor: 0.4, type: 'arrow' },
+          to: { enabled: true, scaleFactor: 0.35, type: 'arrow' },
         },
       };
     });
@@ -192,7 +218,16 @@ function updateGraph(nodesJsonStr, edgesJsonStr) {
 
     // Update stats
     const statsBar = document.getElementById('stats-bar');
-    statsBar.textContent = visNodes.length + ' nodes · ' + visEdges.length + ' edges';
+    const typeCount = {};
+    rawNodes.forEach(n => {
+      const t = getTypeLabel(n.type || n.entity_type || '');
+      typeCount[t] = (typeCount[t] || 0) + 1;
+    });
+    const typeStr = Object.entries(typeCount)
+      .sort((a,b) => b[1] - a[1])
+      .map(([t,c]) => c + ' ' + t)
+      .join(' · ');
+    statsBar.textContent = visNodes.length + ' entities · ' + visEdges.length + ' relations';
 
     // Hide loading
     setTimeout(() => {
@@ -213,42 +248,42 @@ function createNetwork() {
       enabled: true,
       solver: 'barnesHut',
       barnesHut: {
-        gravitationalConstant: -4000,
-        centralGravity: 0.2,
-        springLength: 120,
-        springConstant: 0.02,
-        damping: 0.25,
-        avoidOverlap: 0.3,
+        gravitationalConstant: -3500,
+        centralGravity: 0.25,
+        springLength: 140,
+        springConstant: 0.018,
+        damping: 0.3,
+        avoidOverlap: 0.4,
       },
       stabilization: {
         enabled: true,
-        iterations: 200,
+        iterations: 250,
         updateInterval: 25,
         fit: true,
       },
-      maxVelocity: 40,
+      maxVelocity: 35,
       minVelocity: 0.75,
       timestep: 0.4,
     },
     interaction: {
       hover: true,
-      tooltipDelay: 300,
-      hideEdgesOnDrag: true,
-      hideEdgesOnZoom: true,
+      tooltipDelay: 200,
+      hideEdgesOnDrag: false,   /* keep edges visible during drag */
+      hideEdgesOnZoom: false,   /* keep edges visible during zoom */
       multiselect: false,
       navigationButtons: false,
       keyboard: false,
       zoomView: true,
       dragView: true,
       dragNodes: true,
-      zoomSpeed: 0.08,
+      zoomSpeed: 0.06,
     },
     nodes: {
       shape: 'dot',
-      scaling: { min: 10, max: 50 },
+      scaling: { min: 10, max: 55 },
     },
     edges: {
-      smooth: { enabled: true, type: 'continuous', roundness: 0.15 },
+      smooth: { enabled: true, type: 'continuous', roundness: 0.2 },
     },
     layout: {
       improvedLayout: true,
@@ -260,17 +295,39 @@ function createNetwork() {
 
   // ── Events ──────────────────────────────────────────────────────────────────
 
-  // Node click → send to Flutter
+  // Node click → send to Flutter with full metadata
   network.on('click', function(params) {
     if (params.nodes.length > 0) {
       const nodeId = params.nodes[0];
       const node = nodesDataset.get(nodeId);
       if (node) {
+        // Get connected edges for this node
+        const connEdges = network.getConnectedEdges(nodeId);
+        const connNodes = network.getConnectedNodes(nodeId);
+        const connections = [];
+        connEdges.forEach(edgeId => {
+          const edge = edgesDataset.get(edgeId);
+          if (edge) {
+            const otherId = edge.from === nodeId ? edge.to : edge.from;
+            const otherNode = nodesDataset.get(otherId);
+            connections.push({
+              nodeLabel: otherNode ? otherNode.label : otherId,
+              nodeType: otherNode ? otherNode._entityType : '',
+              relation: edge.label || '',
+            });
+          }
+        });
+
         sendToFlutter({
           action: 'nodeClick',
           id: node.id,
           label: node.label,
-          type: node._entityType || 'unknown',
+          type: node._entityType || '',
+          typeLabel: node._entityTypeLabel || 'Entity',
+          description: node._description || '',
+          degree: node._degree || 0,
+          mentionCount: node._mentionCount || 0,
+          connections: connections,
         });
       }
     }
@@ -280,7 +337,7 @@ function createNetwork() {
   network.on('stabilizationIterationsDone', function() {
     setTimeout(() => {
       network.setOptions({ physics: { enabled: false } });
-    }, 1000);
+    }, 800);
   });
 
   // Re-enable physics on double tap (to re-layout)
@@ -317,11 +374,31 @@ function focusNode(nodeId) {
   network.selectNodes([nodeId]);
 
   // Send click event too
+  const connEdges = network.getConnectedEdges(nodeId);
+  const connections = [];
+  connEdges.forEach(edgeId => {
+    const edge = edgesDataset.get(edgeId);
+    if (edge) {
+      const otherId = edge.from === nodeId ? edge.to : edge.from;
+      const otherNode = nodesDataset.get(otherId);
+      connections.push({
+        nodeLabel: otherNode ? otherNode.label : otherId,
+        nodeType: otherNode ? otherNode._entityType : '',
+        relation: edge.label || '',
+      });
+    }
+  });
+
   sendToFlutter({
     action: 'nodeClick',
     id: node.id,
     label: node.label,
-    type: node._entityType || 'unknown',
+    type: node._entityType || '',
+    typeLabel: node._entityTypeLabel || 'Entity',
+    description: node._description || '',
+    degree: node._degree || 0,
+    mentionCount: node._mentionCount || 0,
+    connections: connections,
   });
 }
 
