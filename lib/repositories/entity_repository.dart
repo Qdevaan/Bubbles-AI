@@ -19,7 +19,7 @@ class EntityRepository extends BaseRepository {
       networkFetch: () async {
         final res = await _client
             .from('entities')
-            .select('*, attributes:entity_attributes(*), relations:entity_relations!entity_relations_source_id_fkey(*)')
+            .select('*, attributes:entity_attributes(*), relations:entity_relations!entity_relations_source_id_fkey(*, target:entities!target_id(display_name))')
             .eq('user_id', userId)
             .order('display_name', ascending: true);
         return List<Map<String, dynamic>>.from(res);

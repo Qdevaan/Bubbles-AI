@@ -705,9 +705,30 @@ class _EntityCardState extends State<_EntityCard> {
     final entityType = e['entity_type'] as String? ?? 'concept';
     final color = widget.typeColors[entityType] ?? AppColors.slate400;
     final icon = widget.typeIcons[entityType] ?? Icons.circle_outlined;
-    final attrs = e['attributes'] as List<Map<String, String>>? ?? [];
-    final rels = e['relations'] as List<Map<String, String>>? ?? [];
-    final tags = e['tags'] as List<Map<String, dynamic>>? ?? [];
+    final attrs = (e['attributes'] as List?)?.map((a) {
+      final m = a as Map;
+      return {
+        'key': (m['attribute_key'] ?? m['key'] ?? '').toString(),
+        'value': (m['attribute_value'] ?? m['value'] ?? '').toString(),
+      };
+    }).toList() ?? [];
+
+    final rels = (e['relations'] as List?)?.map((r) {
+      final m = r as Map;
+      String targetName = '';
+      if (m['target'] is Map) {
+        targetName = (m['target'] as Map)['display_name']?.toString() ?? '';
+      }
+      if (targetName.isEmpty) {
+        targetName = (m['target_display_name'] ?? m['target'] ?? m['target_id'] ?? '').toString();
+      }
+      return {
+        'relation': (m['relation'] ?? '').toString(),
+        'target': targetName,
+      };
+    }).toList() ?? [];
+
+    final tags = (e['tags'] as List?)?.map((t) => Map<String, dynamic>.from(t as Map)).toList() ?? [];
     final mentionCount = e['mention_count'] as int? ?? 1;
 
     Color hexToColor(String hexString) {
@@ -885,14 +906,31 @@ class _EntityCardState extends State<_EntityCard> {
                                 Icon(Icons.arrow_forward, size: 14, color: color),
                                 const SizedBox(width: 6),
                                 Flexible(
-                                  child: Text(
-                                    '${r['relation']} -> ${r['target']}',
-                                    style: GoogleFonts.manrope(
-                                      fontSize: 13,
-                                      color: widget.isDark
-                                          ? AppColors.slate300
-                                          : AppColors.slate700,
-                                      decoration: TextDecoration.underline,
+                                  child: RichText(
+                                    text: TextSpan(
+                                      style: GoogleFonts.manrope(
+                                        fontSize: 13,
+                                        color: widget.isDark
+                                            ? AppColors.slate300
+                                            : AppColors.slate700,
+                                      ),
+                                      children: [
+                                        TextSpan(
+                                          text: r['relation'],
+                                          style: TextStyle(
+                                            fontStyle: FontStyle.italic,
+                                            color: color.withOpacity(0.8),
+                                          ),
+                                        ),
+                                        const TextSpan(text: '  →  '),
+                                        TextSpan(
+                                          text: r['target'],
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.w600,
+                                            decoration: TextDecoration.underline,
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ),
                                 ),
