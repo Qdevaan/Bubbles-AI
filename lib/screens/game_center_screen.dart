@@ -1664,6 +1664,13 @@ class _ConversationMissionSheetState
     final persona = brief['persona'] as String?;
     final minTurns = brief['min_turns'];
     final criteria = brief['completion_criteria'] as String?;
+
+    final briefState = widget.quest['brief_state'] as Map<String, dynamic>? ?? {};
+    final personalized = briefState['personalized_brief'] as Map<String, dynamic>?;
+    final pScenario = personalized?['scenario'] as String?;
+    final pContext = personalized?['context'] as String?;
+    final pCriteria = (personalized?['criteria'] as List?)?.map((e) => e.toString()).toList();
+    final pHint = personalized?['success_hint'] as String?;
     final title = widget.quest['title'] as String? ?? 'Conversation Mission';
 
     final feedback = _lastResult?['feedback'] as String?;
@@ -1733,14 +1740,26 @@ class _ConversationMissionSheetState
                                 fontWeight: FontWeight.w800,
                                 color: theme.colorScheme.primary)),
                         const SizedBox(height: 8),
-                        if (topic != null) _BriefRow(label: 'Topic', value: topic),
-                        if (persona != null)
-                          _BriefRow(label: 'Persona', value: persona),
-                        if (minTurns != null)
-                          _BriefRow(
-                              label: 'Min turns', value: minTurns.toString()),
-                        if (criteria != null)
-                          _BriefRow(label: 'Goal', value: criteria),
+                        if (personalized != null) ...[
+                          if (pScenario != null)
+                            _BriefRow(label: 'Scenario', value: pScenario),
+                          if (pContext != null)
+                            _BriefRow(label: 'Context', value: pContext),
+                          if (pCriteria != null && pCriteria.isNotEmpty)
+                            _BriefRow(label: 'Goal', value: pCriteria.join(' • ')),
+                          if (minTurns != null)
+                            _BriefRow(label: 'Min turns', value: minTurns.toString()),
+                          if (pHint != null)
+                            _BriefRow(label: 'Tip', value: pHint),
+                        ] else ...[
+                          if (topic != null) _BriefRow(label: 'Topic', value: topic),
+                          if (persona != null)
+                            _BriefRow(label: 'Persona', value: persona),
+                          if (minTurns != null)
+                            _BriefRow(label: 'Min turns', value: minTurns.toString()),
+                          if (criteria != null)
+                            _BriefRow(label: 'Goal', value: criteria),
+                        ],
                       ],
                     ),
                   ),
