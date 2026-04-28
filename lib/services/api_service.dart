@@ -839,7 +839,7 @@ class ApiService {
     try {
       final res = await http
           .post(
-            Uri.parse('$_baseUrl/v1/consultant/ask'),
+            Uri.parse('$_baseUrl/v1/ask'),
             headers: await _authHeaders(),
             body: jsonEncode({
               'user_id': userId,

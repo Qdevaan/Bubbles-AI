@@ -232,21 +232,55 @@ class _GraphExplorerScreenState extends State<GraphExplorerScreen> {
   Future<void> _submitGraphQuery() async {
     final query = _graphQueryController.text.trim();
     if (query.isEmpty) return;
-    
-    // find matching node
+
+    final queryLower = query.toLowerCase();
+
+    // 1. Try to find a matching entity (case-insensitive)
     final match = _rawNodes.firstWhere(
-      (n) => (n['label']?.toString().toLowerCase() ?? '').contains(query.toLowerCase()),
+      (n) => (n['label']?.toString().toLowerCase() ?? '').contains(queryLower),
       orElse: () => <String, dynamic>{},
     );
-    
+
     if (match.isNotEmpty) {
+      // Found an entity → focus the graph camera on it
       final id = match['id'].toString();
-      _webViewController?.runJavaScript("focusNode('" + id + "');");
+      _webViewController?.runJavaScript("focusNode('$id');");
       _graphQueryController.clear();
       FocusScope.of(context).unfocus();
-    } else {
+      return;
+    }
+
+    // 2. No entity match → treat as a natural language question about the graph
+    final userId = AuthService.instance.currentUser?.id ?? '';
+    if (userId.isEmpty) return;
+
+    setState(() => _graphQueryLoading = true);
+    _graphQueryController.clear();
+    FocusScope.of(context).unfocus();
+
+    try {
+      final api = context.read<ApiService>();
+      final answer = await api.askGraphQuery(userId, query);
+
+      if (!mounted) return;
+      setState(() => _graphQueryLoading = false);
+
+      final isDark = Theme.of(context).brightness == Brightness.dark;
+      showModalBottomSheet(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (_) => _GraphQueryResultSheet(
+          query: query,
+          answer: answer,
+          isDark: isDark,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _graphQueryLoading = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("No entity found matching \"" + query + "\"")),
+        SnackBar(content: Text('Could not get an answer: $e')),
       );
     }
   }
