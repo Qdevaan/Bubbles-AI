@@ -20,15 +20,16 @@ class GamificationRepository extends BaseRepository {
       ttlSeconds: CacheTtl.gamification.inSeconds,
       schemaVersion: CacheSchemaVersion.gamification,
       networkFetch: () async {
-        final profileRes = await _client
-            .from('user_gamification')
-            .select('*')
-            .eq('user_id', userId)
-            .maybeSingle();
+        final results = await Future.wait<dynamic>([
+          _client.from('user_gamification').select('*').eq('user_id', userId).maybeSingle(),
+          _client.from('user_achievements').select('achievement_id, awarded_at, achievements(id, title, description, icon, category, tier, code)').eq('user_id', userId),
+          _client.from('xp_transactions').select('amount, reason, created_at').eq('user_id', userId).order('created_at', ascending: false).limit(10),
+        ]);
 
+        final profileRes = results[0];
         if (profileRes == null) return _defaultGamificationProfile();
 
-        final profile = Map<String, dynamic>.from(profileRes);
+        final profile = Map<String, dynamic>.from(profileRes as Map);
         final totalXp = (profile['total_xp'] as num? ?? 0).toInt();
         final xpSpent = (profile['xp_spent'] as num? ?? 0).toInt();
         final level = levelForXp(totalXp);
@@ -36,13 +37,10 @@ class GamificationRepository extends BaseRepository {
         final xpNextLevel = xpForLevel(level + 1);
         final range = xpNextLevel - xpCurrentLevel;
 
-        final badgesRes = await _client
-            .from('user_achievements')
-            .select('achievement_id, awarded_at, achievements(id, title, description, icon, category, tier, code)')
-            .eq('user_id', userId);
-
-        final badges = (badgesRes as List).map((row) {
-          final a = Map<String, dynamic>.from(row['achievements'] as Map? ?? {});
+        final badgesRes = results[1] as List;
+        final badges = badgesRes.map((row) {
+          final rawAchiev = row['achievements'];
+          final a = rawAchiev != null ? Map<String, dynamic>.from(rawAchiev as Map) : <String, dynamic>{};
           return <String, dynamic>{
             'id': a['id'] ?? row['achievement_id'],
             'title': a['title'] ?? '',
@@ -55,12 +53,7 @@ class GamificationRepository extends BaseRepository {
           };
         }).toList();
 
-        final xpRes = await _client
-            .from('xp_transactions')
-            .select('amount, reason, created_at')
-            .eq('user_id', userId)
-            .order('created_at', ascending: false)
-            .limit(10);
+        final xpRes = results[2] as List;
 
         return <String, dynamic>{
           'xp': totalXp,
@@ -68,7 +61,7 @@ class GamificationRepository extends BaseRepository {
           'xp_current_level': xpCurrentLevel,
           'xp_next_level': xpNextLevel,
           'xp_to_next_level': xpNextLevel - totalXp,
-          'xp_progress_pct': range <= 0 ? 1.0 : (totalXp - xpCurrentLevel) / range,
+          'xp_progress_pct': range <= 0 ? 1.0 : ((totalXp - xpCurrentLevel) / range).clamp(0.0, 1.0),
           'current_streak': profile['current_streak'] ?? 0,
           'longest_streak': profile['longest_streak'] ?? 0,
           'streak_freezes': profile['streak_freezes'] ?? 0,
