@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// Data-access layer for sessions and session-log tables.
@@ -27,28 +28,42 @@ class SessionsService {
 
   /// Fetches the list of live sessions once (Future-based).
   Future<List<Map<String, dynamic>>> fetchLiveSessions(String userId) async {
-    final data = await _client
-        .from('sessions')
-        .select('id, user_id, title, summary, session_type, mode, status, created_at, end_time, ended_at')
-        .eq('user_id', userId)
-        .or('mode.eq.live_wingman,session_type.eq.live_wingman')
-        .order('created_at', ascending: false)
-        .limit(50);
-    return List<Map<String, dynamic>>.from(data as List);
+    final stopwatch = Stopwatch()..start();
+    try {
+      final data = await _client
+          .from('sessions')
+          .select('id, user_id, title, session_type, mode, status, created_at, end_time, ended_at')
+          .eq('user_id', userId)
+          .or('mode.eq.live_wingman,session_type.eq.live_wingman')
+          .order('created_at', ascending: false)
+          .limit(50);
+      debugPrint('⏱️ fetchLiveSessions took ${stopwatch.elapsedMilliseconds}ms');
+      return List<Map<String, dynamic>>.from(data as List);
+    } catch (e) {
+      debugPrint('❌ fetchLiveSessions error after ${stopwatch.elapsedMilliseconds}ms: $e');
+      rethrow;
+    }
   }
 
   /// Returns a one-time fetch of consultant sessions for [userId],
   /// ordered newest-first (max 50 rows).
   Future<List<Map<String, dynamic>>> fetchConsultantSessions(
       String userId) async {
-    final data = await _client
-        .from('sessions')
-        .select('id, user_id, title, summary, session_type, mode, status, created_at, end_time, ended_at')
-        .eq('user_id', userId)
-        .or('mode.eq.consultant,session_type.eq.consultant')
-        .order('created_at', ascending: false)
-        .limit(50);
-    return List<Map<String, dynamic>>.from(data as List);
+    final stopwatch = Stopwatch()..start();
+    try {
+      final data = await _client
+          .from('sessions')
+          .select('id, user_id, title, session_type, mode, status, created_at, end_time, ended_at')
+          .eq('user_id', userId)
+          .or('mode.eq.consultant,session_type.eq.consultant')
+          .order('created_at', ascending: false)
+          .limit(50);
+      debugPrint('⏱️ fetchConsultantSessions took ${stopwatch.elapsedMilliseconds}ms');
+      return List<Map<String, dynamic>>.from(data as List);
+    } catch (e) {
+      debugPrint('❌ fetchConsultantSessions error after ${stopwatch.elapsedMilliseconds}ms: $e');
+      rethrow;
+    }
   }
 
   /// Deletes the session row with the given [sessionId].

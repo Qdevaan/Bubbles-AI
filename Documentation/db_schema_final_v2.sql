@@ -808,6 +808,7 @@ create table public.app_feedback (
 
 create index idx_sessions_user_date on public.sessions(user_id, created_at desc);
 create index idx_sessions_mode on public.sessions(user_id, mode);
+create index idx_sessions_type on public.sessions(user_id, session_type);
 create index idx_session_logs_session on public.session_logs(session_id, turn_index);
 create index idx_memory_vector on public.memory using hnsw (embedding vector_cosine_ops);
 create index idx_memory_session on public.memory(user_id, session_id);

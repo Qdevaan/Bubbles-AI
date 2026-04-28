@@ -831,10 +831,10 @@ class ApiService {
 
   // --- 15. GRAPH QUERY ENGINE ---
   /// Sends a natural language question about a graph entity/topic and returns
-  /// the AI answer string. Used by graph quick-reference and query bar.
-  Future<String> askGraphQuery(String userId, String query) async {
+  /// the AI answer and session_id. Used by graph quick-reference and query bar.
+  Future<Map<String, dynamic>> askGraphQuery(String userId, String query, {String? sessionId}) async {
     if (!_connectionService.isConnected) {
-      return 'Server is offline. Connect to get AI insights.';
+      return {'answer': 'Server is offline. Connect to get AI insights.', 'session_id': null};
     }
     try {
       final res = await http
@@ -844,20 +844,22 @@ class ApiService {
             body: jsonEncode({
               'user_id': userId,
               'question': query,
+              'session_id': sessionId,
               'context': 'knowledge_graph',
             }),
           )
           .timeout(const Duration(seconds: 20));
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body) as Map<String, dynamic>;
-        return data['answer'] as String? ??
-            data['response'] as String? ??
-            'No answer available.';
+        return {
+          'answer': data['answer'] as String? ?? data['response'] as String? ?? 'No answer available.',
+          'session_id': data['session_id'] as String?,
+        };
       }
-      return 'Could not get an answer right now (${res.statusCode}).';
+      return {'answer': 'Could not get an answer right now (${res.statusCode}).', 'session_id': null};
     } catch (e) {
-      debugPrint('askAboutEntity error: $e');
-      return 'Error: $e';
+      debugPrint('askGraphQuery error: $e');
+      return {'answer': 'Error: $e', 'session_id': null};
     }
   }
 }

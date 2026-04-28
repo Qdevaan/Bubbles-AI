@@ -152,7 +152,16 @@ async def ask_endpoint(
     user: VerifiedUser = Depends(get_verified_user),
 ):
     """Lightweight Q&A used by the graph query bar and node quick-reference.
-    Skips session logging and gamification for a fast, conversational response."""
+    Now supports session history for follow-up questions."""
+    session_id = req.session_id
+    
+    # If this is a follow-up, fetch context
+    h_ctx = ""
+    if session_id:
+        h_ctx = await asyncio.to_thread(
+            session_svc.fetch_consultant_history, req.user_id, 5, session_id
+        )
+
     def _graph_ctx():
         graph_svc.load_graph(req.user_id)
         return graph_svc.find_context(req.user_id, req.question, top_k=12)
@@ -164,10 +173,35 @@ async def ask_endpoint(
 
     safe_q = sanitize_input(req.question)
     result = await brain_svc.ask_consultant(
-        req.user_id, safe_q, "", g_ctx, v_ctx,
+        req.user_id, safe_q, h_ctx, g_ctx, v_ctx,
         session_summaries="", mode="standard", persona="consultant",
     )
-    return {"answer": result.get("answer", ""), "model_used": result.get("model_used")}
+    
+    answer = result.get("answer", "")
+    
+    # Log the interaction if it's part of a session
+    if not session_id:
+        # Create a transient session for the first graph query if it's conversational
+        session_id = await asyncio.to_thread(
+            session_svc.create_session_record,
+            req.user_id,
+            title=f"Graph: {safe_q[:30]}...",
+            mode="consultant",
+        )
+    
+    await asyncio.to_thread(
+        session_svc.log_consultant_qa,
+        req.user_id, req.question, answer, session_id=session_id,
+        model_used=result.get("model_used"),
+        latency_ms=result.get("latency_ms"),
+        tokens_used=result.get("tokens_used"),
+    )
+
+    return {
+        "answer": answer, 
+        "session_id": session_id,
+        "model_used": result.get("model_used")
+    }
 
 
 

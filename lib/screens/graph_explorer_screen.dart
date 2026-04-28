@@ -1,6 +1,8 @@
 import 'dart:math';
+import 'dart:ui';
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:webview_flutter/webview_flutter.dart';
@@ -10,6 +12,7 @@ import '../services/api_service.dart';
 import '../services/connection_service.dart';
 import '../repositories/graph_repository.dart';
 import '../widgets/animated_background.dart';
+import '../theme/design_tokens.dart';
 
 Color _colorForType(String? type) {
   switch ((type ?? '').toLowerCase()) {
@@ -57,6 +60,7 @@ class _GraphExplorerScreenState extends State<GraphExplorerScreen> {
 
   final TextEditingController _graphQueryController = TextEditingController();
   bool _graphQueryLoading = false;
+  String? _currentGraphSessionId;
 
   @override
   void initState() {
@@ -269,10 +273,15 @@ class _GraphExplorerScreenState extends State<GraphExplorerScreen> {
 
     try {
       final api = context.read<ApiService>();
-      final answer = await api.askGraphQuery(userId, query);
+      final result = await api.askGraphQuery(userId, query, sessionId: _currentGraphSessionId);
+      final answer = result['answer'] as String;
+      final sid = result['session_id'] as String?;
 
       if (!mounted) return;
-      setState(() => _graphQueryLoading = false);
+      setState(() {
+        _graphQueryLoading = false;
+        if (sid != null) _currentGraphSessionId = sid;
+      });
 
       final isDark = Theme.of(context).brightness == Brightness.dark;
       showModalBottomSheet(
@@ -280,8 +289,11 @@ class _GraphExplorerScreenState extends State<GraphExplorerScreen> {
         isScrollControlled: true,
         backgroundColor: Colors.transparent,
         builder: (_) => _GraphQueryResultSheet(
-          query: query,
-          answer: answer,
+          initialQuery: query,
+          initialAnswer: answer,
+          sessionId: _currentGraphSessionId,
+          userId: userId,
+          api: api,
           isDark: isDark,
         ),
       );
@@ -505,77 +517,70 @@ class _GraphQueryBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     return Container(
-      height: 48,
-      decoration: BoxDecoration(
-        color: isDark
-            ? const Color(0xFF1A2632).withOpacity(0.92)
-            : Colors.white.withOpacity(0.94),
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: cs.primary.withOpacity(0.25), width: 1.2),
-        boxShadow: [
-          BoxShadow(
-            color: cs.primary.withOpacity(0.12),
-            blurRadius: 14,
-            offset: const Offset(0, 4),
+      height: 54,
+      child: TextField(
+        controller: controller,
+        style: GoogleFonts.manrope(
+          fontSize: 14,
+          fontWeight: FontWeight.w600,
+          color: isDark ? Colors.white : AppColors.slate900,
+        ),
+        decoration: InputDecoration(
+          hintText: 'Ask anything about your graph...',
+          hintStyle: GoogleFonts.manrope(
+            fontSize: 14,
+            color: isDark ? AppColors.slate400 : AppColors.slate500,
           ),
-        ],
-      ),
-      child: Row(
-        children: [
-          const SizedBox(width: 14),
-          Icon(Icons.search_rounded, size: 20, color: cs.primary),
-          const SizedBox(width: 8),
-          Expanded(
-            child: TextField(
-              controller: controller,
-              style: TextStyle(
-                fontSize: 14,
-                color: isDark ? Colors.white : const Color(0xFF0F172A),
-              ),
-              decoration: InputDecoration(
-                hintText: 'Ask anything about your graph…',
-                hintStyle: TextStyle(
-                  fontSize: 14,
-                  color: isDark
-                      ? Colors.white38
-                      : const Color(0xFF94A3B8),
+          prefixIcon: Icon(Icons.psychology_rounded, size: 22, color: cs.primary),
+          suffixIcon: isLoading
+              ? Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: cs.primary,
+                    ),
+                  ),
+                )
+              : Padding(
+                  padding: const EdgeInsets.only(right: 6),
+                  child: IconButton.filled(
+                    onPressed: onSubmit,
+                    icon: const Icon(Icons.arrow_upward_rounded, size: 20),
+                    style: IconButton.styleFrom(
+                      backgroundColor: cs.primary,
+                      foregroundColor: Colors.white,
+                      minimumSize: const Size(38, 38),
+                    ),
+                  ),
                 ),
-                border: InputBorder.none,
-                isDense: true,
-                contentPadding: EdgeInsets.zero,
-              ),
-              onSubmitted: (_) => onSubmit(),
-              textInputAction: TextInputAction.search,
+          filled: true,
+          fillColor: isDark ? const Color(0xFF1E293B).withOpacity(0.9) : Colors.white.withOpacity(0.95),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(AppRadius.full),
+            borderSide: BorderSide(
+              color: isDark ? AppColors.glassBorder : Colors.grey.shade300,
             ),
           ),
-          if (isLoading)
-            Padding(
-              padding: const EdgeInsets.only(right: 12),
-              child: SizedBox(
-                width: 18,
-                height: 18,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  color: cs.primary,
-                ),
-              ),
-            )
-          else
-            GestureDetector(
-              onTap: onSubmit,
-              child: Container(
-                margin: const EdgeInsets.only(right: 6),
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  color: cs.primary,
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(Icons.arrow_forward_rounded,
-                    color: Colors.white, size: 18),
-              ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(AppRadius.full),
+            borderSide: BorderSide(
+              color: isDark ? AppColors.glassBorder : Colors.grey.shade300,
             ),
-        ],
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(AppRadius.full),
+            borderSide: BorderSide(
+              color: cs.primary,
+              width: 1.5,
+            ),
+          ),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        ),
+        onSubmitted: (_) => onSubmit(),
+        textInputAction: TextInputAction.search,
       ),
     );
   }
@@ -583,101 +588,257 @@ class _GraphQueryBar extends StatelessWidget {
 
 // ── Graph Query Result Sheet ───────────────────────────────────────────────────
 
-class _GraphQueryResultSheet extends StatelessWidget {
-  final String query;
-  final String answer;
+class _GraphQueryResultSheet extends StatefulWidget {
+  final String initialQuery;
+  final String initialAnswer;
+  final String? sessionId;
+  final String userId;
+  final ApiService api;
   final bool isDark;
 
   const _GraphQueryResultSheet({
-    required this.query,
-    required this.answer,
+    required this.initialQuery,
+    required this.initialAnswer,
+    this.sessionId,
+    required this.userId,
+    required this.api,
     required this.isDark,
   });
 
   @override
+  State<_GraphQueryResultSheet> createState() => _GraphQueryResultSheetState();
+}
+
+class _GraphQueryResultSheetState extends State<_GraphQueryResultSheet> {
+  late List<Map<String, String>> _messages;
+  final TextEditingController _followUpController = TextEditingController();
+  final ScrollController _scrollController = ScrollController();
+  bool _loading = false;
+  String? _sessionId;
+
+  @override
+  void initState() {
+    super.initState();
+    _sessionId = widget.sessionId;
+    _messages = [
+      {'role': 'user', 'content': widget.initialQuery},
+      {'role': 'ai', 'content': widget.initialAnswer},
+    ];
+  }
+
+  @override
+  void dispose() {
+    _followUpController.dispose();
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _scrollToBottom() {
+    Future.delayed(const Duration(milliseconds: 100), () {
+      if (_scrollController.hasClients) {
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      }
+    });
+  }
+
+  Future<void> _submitFollowUp() async {
+    final text = _followUpController.text.trim();
+    if (text.isEmpty || _loading) return;
+
+    setState(() {
+      _messages.add({'role': 'user', 'content': text});
+      _loading = true;
+      _followUpController.clear();
+    });
+    _scrollToBottom();
+
+    try {
+      final result = await widget.api.askGraphQuery(
+        widget.userId,
+        text,
+        sessionId: _sessionId,
+      );
+
+      if (!mounted) return;
+      setState(() {
+        _messages.add({'role': 'ai', 'content': result['answer'] as String});
+        if (result['session_id'] != null) _sessionId = result['session_id'] as String;
+        _loading = false;
+      });
+      _scrollToBottom();
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _messages.add({'role': 'ai', 'content': 'Sorry, I couldn\'t get an answer: $e'});
+        _loading = false;
+      });
+      _scrollToBottom();
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+
     return DraggableScrollableSheet(
-      initialChildSize: 0.5,
-      maxChildSize: 0.9,
-      minChildSize: 0.3,
+      initialChildSize: 0.7,
+      maxChildSize: 0.95,
+      minChildSize: 0.5,
       builder: (_, scrollController) => Container(
-        margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+        margin: EdgeInsets.fromLTRB(12, 0, 12, 12 + bottomInset),
         decoration: BoxDecoration(
-          color: isDark
-              ? const Color(0xFF111827).withOpacity(0.97)
-              : Colors.white.withOpacity(0.97),
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: cs.primary.withOpacity(0.2)),
+          color: widget.isDark
+              ? const Color(0xFF0F172A).withOpacity(0.98)
+              : Colors.white.withOpacity(0.98),
+          borderRadius: BorderRadius.circular(28),
+          border: Border.all(color: cs.primary.withOpacity(0.2), width: 1.5),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.2),
+              blurRadius: 20,
+              spreadRadius: 2,
+            ),
+          ],
         ),
-        child: ListView(
-          controller: scrollController,
-          padding: const EdgeInsets.all(20),
+        child: Column(
           children: [
-            Center(
-              child: Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: isDark ? Colors.white24 : Colors.grey.shade300,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: cs.primary.withOpacity(0.12),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Icon(Icons.search_rounded, color: cs.primary, size: 18),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    query,
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
-                      color: isDark ? Colors.white : const Color(0xFF0F172A),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
             Container(
-              padding: const EdgeInsets.all(16),
+              width: 40,
+              height: 4,
               decoration: BoxDecoration(
-                color: cs.primary.withOpacity(0.06),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: cs.primary.withOpacity(0.15)),
+                color: widget.isDark ? Colors.white24 : Colors.grey.shade300,
+                borderRadius: BorderRadius.circular(2),
               ),
+            ),
+            const SizedBox(height: 16),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(Icons.psychology_rounded, color: cs.primary, size: 20),
+                  Icon(Icons.auto_awesome, color: cs.primary, size: 20),
                   const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      answer,
-                      style: TextStyle(
-                        fontSize: 14,
-                        height: 1.6,
-                        color: isDark ? Colors.white70 : const Color(0xFF334155),
-                      ),
+                  Text(
+                    'Graph Insights',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                      color: widget.isDark ? Colors.white : const Color(0xFF0F172A),
                     ),
+                  ),
+                  const Spacer(),
+                  IconButton(
+                    icon: const Icon(Icons.close, size: 20),
+                    onPressed: () => Navigator.pop(context),
+                    color: widget.isDark ? Colors.white54 : Colors.black54,
                   ),
                 ],
               ),
             ),
-            const SizedBox(height: 12),
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: Text('Dismiss', style: TextStyle(color: cs.primary)),
+            const Divider(height: 1, thickness: 0.5),
+            Expanded(
+              child: ListView.builder(
+                controller: _scrollController,
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+                itemCount: _messages.length,
+                itemBuilder: (ctx, index) {
+                  final msg = _messages[index];
+                  final isUser = msg['role'] == 'user';
+                  return Align(
+                    alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
+                    child: Container(
+                      margin: const EdgeInsets.only(bottom: 16),
+                      padding: const EdgeInsets.all(14),
+                      constraints: BoxConstraints(
+                        maxWidth: MediaQuery.of(context).size.width * 0.75,
+                      ),
+                      decoration: BoxDecoration(
+                        color: isUser
+                            ? cs.primary
+                            : (widget.isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9)),
+                        borderRadius: BorderRadius.only(
+                          topLeft: const Radius.circular(16),
+                          topRight: const Radius.circular(16),
+                          bottomLeft: Radius.circular(isUser ? 16 : 4),
+                          bottomRight: Radius.circular(isUser ? 4 : 16),
+                        ),
+                      ),
+                      child: Text(
+                        msg['content']!,
+                        style: TextStyle(
+                          fontSize: 14,
+                          height: 1.5,
+                          color: isUser ? Colors.white : (widget.isDark ? Colors.white.withOpacity(0.9) : const Color(0xFF334155)),
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+            if (_loading)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: Center(
+                  child: SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: cs.primary,
+                    ),
+                  ),
+                ),
+              ),
+            Container(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
+              decoration: BoxDecoration(
+                border: Border(top: BorderSide(color: Theme.of(context).dividerColor.withOpacity(0.1))),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: widget.isDark ? const Color(0xFF1E293B) : const Color(0xFFF8FAFC),
+                        borderRadius: BorderRadius.circular(24),
+                        border: Border.all(
+                          color: cs.primary.withOpacity(0.1),
+                        ),
+                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: TextField(
+                        controller: _followUpController,
+                        onSubmitted: (_) => _submitFollowUp(),
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: widget.isDark ? Colors.white : Colors.black87,
+                        ),
+                        decoration: const InputDecoration(
+                          hintText: 'Ask a follow-up...',
+                          border: InputBorder.none,
+                          focusedBorder: InputBorder.none,
+                          enabledBorder: InputBorder.none,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  IconButton.filled(
+                    onPressed: _submitFollowUp,
+                    icon: const Icon(Icons.send_rounded, size: 18),
+                    style: IconButton.styleFrom(
+                      backgroundColor: cs.primary,
+                      foregroundColor: Colors.white,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ],
         ),

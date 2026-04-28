@@ -703,7 +703,7 @@ class _ConsultantHistoryListState extends State<ConsultantHistoryList> {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    if (_loading) return const Center(child: CircularProgressIndicator());
+    if (_loading && _sessions.isEmpty) return const Center(child: CircularProgressIndicator());
     var sessions = _sessions;
 
     // Apply search

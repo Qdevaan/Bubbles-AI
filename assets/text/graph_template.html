@@ -167,11 +167,33 @@ function updateGraph(nodesJsonStr, edgesJsonStr) {
     });
 
     // Build vis.js edges — always visible with clear connection lines
+    // Calculate parallel edges to avoid overlap
+    const pairCounts = {};
+    rawEdges.forEach(e => {
+      const from = e.from || e.source;
+      const to = e.to || e.target;
+      const key = from < to ? `${from}_${to}` : `${to}_${from}`;
+      pairCounts[key] = (pairCounts[key] || 0) + 1;
+    });
+
+    const pairIndices = {};
     const visEdges = rawEdges.map((e, i) => {
       const from = e.from || e.source;
       const to = e.to || e.target;
       const label = e.label || e.relation || '';
       const strength = e.strength || 1.0;
+
+      const key = from < to ? `${from}_${to}` : `${to}_${from}`;
+      const totalForPair = pairCounts[key];
+      const indexInPair = pairIndices[key] || 0;
+      pairIndices[key] = indexInPair + 1;
+
+      // Calculate roundness to separate parallel edges
+      let roundness = 0;
+      if (totalForPair > 1) {
+        // Spread them out: -0.4, -0.2, 0, 0.2, 0.4 etc.
+        roundness = (indexInPair - (totalForPair - 1) / 2) * 0.4;
+      }
 
       return {
         id: 'e' + i,
@@ -197,11 +219,11 @@ function updateGraph(nodesJsonStr, edgesJsonStr) {
         selectionWidth: 1.5,
         smooth: {
           enabled: true,
-          type: 'continuous',
-          roundness: 0.2,
+          type: totalForPair > 1 ? 'curvedCW' : 'continuous',
+          roundness: roundness || 0.15,
         },
         arrows: {
-          to: { enabled: true, scaleFactor: 0.35, type: 'arrow' },
+          to: { enabled: true, scaleFactor: 0.5, type: 'arrow' },
         },
       };
     });
