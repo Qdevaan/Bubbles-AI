@@ -67,7 +67,7 @@ async def stt_stream(websocket: WebSocket, token: str = ""):
         logger.info("STT: connecting to Deepgram...")
         async with ws_connect(
             _DEEPGRAM_STT_URL,
-            extra_headers={"Authorization": f"Token {settings.DEEPGRAM_API_KEY}"},
+            additional_headers={"Authorization": f"Token {settings.DEEPGRAM_API_KEY}"},
         ) as deepgram_ws:
             logger.info("STT: Deepgram connected")
 
@@ -80,8 +80,6 @@ async def stt_stream(websocket: WebSocket, token: str = ""):
                     logger.info("STT: Flutter client disconnected")
                 except Exception as e:
                     logger.warning("STT client_to_deepgram error: %s", e)
-                finally:
-                    await deepgram_ws.close()
 
             async def deepgram_to_client():
                 """Forward transcript JSON from Deepgram → Flutter."""
@@ -95,11 +93,16 @@ async def stt_stream(websocket: WebSocket, token: str = ""):
                 except Exception as e:
                     logger.warning("STT deepgram_to_client error: %s", e)
 
-            await asyncio.gather(
-                client_to_deepgram(),
-                deepgram_to_client(),
-                return_exceptions=True,
+            # Wait for either side to close
+            done, pending = await asyncio.wait(
+                [
+                    asyncio.create_task(client_to_deepgram()),
+                    asyncio.create_task(deepgram_to_client()),
+                ],
+                return_when=asyncio.FIRST_COMPLETED,
             )
+            for task in pending:
+                task.cancel()
 
     except Exception as exc:
         logger.error("STT: failed to connect to Deepgram: %s", exc)

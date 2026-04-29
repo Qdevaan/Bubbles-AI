@@ -19,6 +19,9 @@ class SessionProvider extends ChangeNotifier {
   bool _isSaving = false;
   bool get isSaving => _isSaving;
 
+  bool _isConnecting = false;
+  bool get isConnecting => _isConnecting;
+
   bool _swapSpeakers = false;
   bool get swapSpeakers => _swapSpeakers;
 
@@ -75,7 +78,24 @@ class SessionProvider extends ChangeNotifier {
 
     if (finalSpeaker == "Other") {
       _askWingman(deepgram.currentTranscript, api);
+    } else if (_sessionId != null) {
+      // Log user's own speech to server for session history
+      _logUserTurn(deepgram.currentTranscript, api);
     }
+  }
+
+  /// Fire-and-forget: log user turn to server (no advice needed, just persistence).
+  void _logUserTurn(String transcript, ApiService api) {
+    final user = AuthService.instance.currentUser;
+    if (user == null) return;
+    api.sendTranscriptToWingman(
+      user.id,
+      transcript,
+      sessionId: _sessionId,
+      speakerRole: 'user',
+      mode: 'live_wingman',
+      persona: _currentLiveTone,
+    );
   }
 
   Future<void> _askWingman(String transcript, ApiService api) async {
@@ -188,6 +208,7 @@ class SessionProvider extends ChangeNotifier {
     if (user == null) return;
 
     _isSessionActive = true;
+    _isConnecting = true;
     _sessionLogs.clear();
     _currentSuggestion = "Connecting to Deepgram...";
     _sessionId = null;
@@ -211,6 +232,7 @@ class SessionProvider extends ChangeNotifier {
 
     await deepgram.connect(serverUrl: serverUrl, jwt: jwt);
 
+    _isConnecting = false;
     if (deepgram.isConnected) {
       _currentSuggestion = "Listening...";
     } else {

@@ -418,15 +418,19 @@ class _NewSessionScreenState extends State<NewSessionScreen>
     return MeshGradientBackground(
       child: Scaffold(
         backgroundColor: Colors.transparent,
-        body: Selector<SessionProvider, bool>(
-          selector: (_, s) => s.isSessionActive,
-          builder: (context, isSessionActive, _) {
+        body: Selector<SessionProvider, (bool, bool)>(
+          selector: (_, s) => (s.isSessionActive, s.isConnecting),
+          builder: (context, state, _) {
+            final isSessionActive = state.$1;
+            final isConnecting = state.$2;
             return Stack(
               children: [
                 ..._buildBlobs(isDark, isSessionActive),
                 SafeArea(
                   child: isSessionActive
-                      ? _buildActiveSession(isDark)
+                      ? (isConnecting
+                          ? _buildConnectingState(isDark)
+                          : _buildActiveSession(isDark))
                       : _buildPreSession(isDark),
                 ),
               ],
@@ -725,6 +729,125 @@ class _NewSessionScreenState extends State<NewSessionScreen>
                     ),
                   ),
                 ],
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ========================
+  // GETTING READY STATE
+  // ========================
+  Widget _buildConnectingState(bool isDark) {
+    return Column(
+      children: [
+        // Minimal header with LIVE badge
+        Padding(
+          padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
+          child: Center(
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+              decoration: BoxDecoration(
+                color: AppColors.error.withAlpha(51),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: AppColors.error.withAlpha(102)),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 8, height: 8,
+                    decoration: const BoxDecoration(
+                      color: AppColors.error, shape: BoxShape.circle,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    'LIVE',
+                    style: GoogleFonts.manrope(
+                      fontSize: 13, fontWeight: FontWeight.w700,
+                      color: AppColors.error, letterSpacing: 1,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        // Centered connecting animation
+        Expanded(
+          child: AnimatedBuilder(
+            animation: _pulseController,
+            builder: (_, __) {
+              final pulse = (sin(_pulseController.value * 2 * pi) + 1) / 2;
+              return Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        // Outer glow ring
+                        Container(
+                          width: 120 + pulse * 20,
+                          height: 120 + pulse * 20,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: Theme.of(context).colorScheme.primary
+                                .withAlpha((20 + (pulse * 30).toInt())),
+                          ),
+                        ),
+                        // Inner circle
+                        Container(
+                          width: 90,
+                          height: 90,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: Theme.of(context).colorScheme.primary
+                                .withAlpha(40),
+                            border: Border.all(
+                              color: Theme.of(context).colorScheme.primary
+                                  .withAlpha(120),
+                              width: 2,
+                            ),
+                          ),
+                          child: Center(
+                            child: SizedBox(
+                              width: 36,
+                              height: 36,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2.5,
+                                color: Theme.of(context).colorScheme.primary,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 32),
+                    Text(
+                      'Getting Ready',
+                      style: GoogleFonts.manrope(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w700,
+                        color: isDark ? Colors.white : AppColors.slate900,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Selector<SessionProvider, String>(
+                      selector: (_, s) => s.currentSuggestion,
+                      builder: (_, status, __) => Text(
+                        status,
+                        style: GoogleFonts.manrope(
+                          fontSize: 14,
+                          color: isDark ? AppColors.slate400 : AppColors.slate500,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               );
             },
           ),

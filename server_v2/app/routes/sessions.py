@@ -135,6 +135,133 @@ async def start_session_endpoint(
 # POST /process_transcript_wingman
 # ══════════════════════════════════════════════════════════════════════════════
 
+async def _wingman_post_process(
+    *,
+    user_id: str,
+    session_id: str | None,
+    transcript: str,
+    g_ctx: str,
+    is_ephemeral: bool,
+    advice_text: str,
+    advice_meta: dict,
+) -> None:
+    """Background task: log LLM advice, extract, update graph, persist memory."""
+    try:
+        if session_id and advice_text and advice_text != "WAITING":
+            await asyncio.to_thread(
+                session_svc.log_message,
+                session_id, "llm", advice_text,
+                is_ephemeral=is_ephemeral,
+                model_used=advice_meta.get("model_used"),
+                latency_ms=advice_meta.get("latency_ms"),
+                tokens_used=advice_meta.get("tokens_used"),
+                finish_reason=advice_meta.get("finish_reason"),
+            )
+            if not is_ephemeral:
+                await asyncio.to_thread(
+                    session_svc.update_session_token_usage,
+                    session_id,
+                    tokens_prompt=advice_meta.get("tokens_prompt", 0),
+                    tokens_completion=advice_meta.get("tokens_completion", 0),
+                )
+
+        extraction = await brain_svc.extract_all_from_transcript(transcript, g_ctx)
+        new_rels  = extraction.get("relations", [])
+        entities  = extraction.get("entities", [])
+        events    = extraction.get("events", [])
+        tasks     = extraction.get("tasks", [])
+        conflicts = extraction.get("conflicts", [])
+
+        if entities:
+            await asyncio.to_thread(
+                entity_svc.persist_extraction, user_id,
+                {"entities": entities, "relations": new_rels}, session_id,
+            )
+            entity_count = min(len(entities), 5)
+            fire_and_forget(gamification_svc.award_xp(
+                user_id, entity_count * 5, "entity_extraction",
+                source_id=f"extract_{session_id}_{datetime.now().isoformat()[:16]}",
+                description=f"Extracted {entity_count} entities",
+            ))
+            fire_and_forget(gamification_svc.increment_quest_progress(
+                user_id, "extract_entities", entity_count,
+            ))
+
+        if session_id and not is_ephemeral and extraction.get("tokens_used"):
+            await asyncio.to_thread(
+                session_svc.update_session_token_usage,
+                session_id,
+                tokens_prompt=extraction.get("tokens_prompt", 0),
+                tokens_completion=extraction.get("tokens_completion", 0),
+            )
+
+        if new_rels:
+            graph_svc.update_local_graph(user_id, new_rels)
+            if conflicts:
+                await asyncio.to_thread(entity_svc.save_conflicts, user_id, conflicts, session_id)
+        await asyncio.to_thread(graph_svc.save_graph, user_id)
+
+        if events:
+            await asyncio.to_thread(entity_svc.save_events, user_id, events, session_id)
+        if tasks:
+            await asyncio.to_thread(entity_svc.save_tasks, user_id, tasks, session_id)
+
+        await vector_svc.save_memory(
+            user_id, f"Others: {transcript}", session_id=session_id,
+        )
+        fire_and_forget(gamification_svc.increment_quest_progress(user_id, "save_memory", 1))
+        fire_and_forget(gamification_svc.increment_quest_progress(user_id, "use_wingman_turns", 1))
+
+        if session_id:
+            turn_count = await session_store.increment_turn_count(session_id)
+            if turn_count % 20 == 0:
+                _sid = session_id
+                _turn = turn_count
+
+                async def _rolling_summarize():
+                    from app.database import db as _db
+                    try:
+                        logs_res = await asyncio.to_thread(
+                            lambda: _db.table("session_logs")
+                            .select("role, content")
+                            .eq("session_id", _sid)
+                            .order("created_at")
+                            .execute()
+                        )
+                        recent_rows = (logs_res.data or [])[-40:]
+                        partial_transcript = "\n".join(
+                            f"{r['role'].upper()}: {r['content']}" for r in recent_rows
+                        )
+                        if partial_transcript:
+                            rolling_summary = await brain_svc.generate_summary(partial_transcript)
+                            if rolling_summary:
+                                prev_res = await asyncio.to_thread(
+                                    lambda: _db.table("sessions")
+                                    .select("summary")
+                                    .eq("id", _sid)
+                                    .execute()
+                                )
+                                prev_summary = ""
+                                if prev_res.data and prev_res.data[0].get("summary"):
+                                    prev_summary = prev_res.data[0]["summary"]
+                                combined = (
+                                    f"{prev_summary}\n---\n[Turn {_turn}] {rolling_summary}"
+                                ).strip()
+                                await asyncio.to_thread(
+                                    lambda: _db.table("sessions")
+                                    .update({"summary": combined})
+                                    .eq("id", _sid)
+                                    .execute()
+                                )
+                    except Exception as e:
+                        print(f"❌ Rolling summarize error: {e}")
+
+                asyncio.create_task(_rolling_summarize())
+
+    except Exception as exc:
+        print(f"❌ Wingman post-process error: {exc}")
+
+
 @router.post("/process_transcript_wingman")
 @limiter.limit("30/minute")
 async def process_transcript_wingman(
@@ -154,17 +281,27 @@ async def process_transcript_wingman(
     meta = await session_store.get_metadata(session_id) if session_id else {}
     is_ephemeral = meta.get("is_ephemeral", False)
 
-    # 0. Log incoming transcript
+    # 0. Log incoming transcript — fire-and-forget so it never blocks advice
     if session_id:
-        await asyncio.to_thread(
+        _sl = req.speaker_label
+        _conf = req.confidence
+        asyncio.create_task(asyncio.to_thread(
             session_svc.log_message,
             session_id, speaker_role, transcript,
-            speaker_label=req.speaker_label,
-            confidence=req.confidence,
+            speaker_label=_sl,
+            confidence=_conf,
             is_ephemeral=is_ephemeral,
-        )
+        ))
 
-    # 1. Load contexts in parallel
+    # Fast-path for user turns: already logging, save memory in background and return
+    if speaker_role == "user":
+        asyncio.create_task(vector_svc.save_memory(
+            user_id, f"User: {transcript}", session_id=session_id,
+        ))
+        fire_and_forget(gamification_svc.increment_quest_progress(user_id, "save_memory", 1))
+        return {"advice": "WAITING"}
+
+    # 1. Load contexts in parallel (others turns only)
     def _graph_ctx():
         graph_svc.load_graph(user_id)
         return graph_svc.find_context(user_id, transcript)
@@ -185,137 +322,22 @@ async def process_transcript_wingman(
     if e_ctx:
         g_ctx = f"ROLEPLAY TARGET ENTITY CONTEXT:\n{e_ctx}\n\n" + g_ctx
 
-    # 2. Get wingman advice
-    advice_text = "WAITING"
-    advice_meta = {}
-    if speaker_role == "others":
-        result = await brain_svc.get_wingman_advice(
-            user_id, transcript, g_ctx, v_ctx, req.mode, req.persona,
-        )
-        advice_text = result.get("answer", "WAITING")
-        advice_meta = result
-
-    # 3. Log LLM advice
-    if session_id and advice_text and advice_text != "WAITING":
-        await asyncio.to_thread(
-            session_svc.log_message,
-            session_id, "llm", advice_text,
-            is_ephemeral=is_ephemeral,
-            model_used=advice_meta.get("model_used"),
-            latency_ms=advice_meta.get("latency_ms"),
-            tokens_used=advice_meta.get("tokens_used"),
-            finish_reason=advice_meta.get("finish_reason"),
-        )
-        if session_id and not is_ephemeral:
-            await asyncio.to_thread(
-                session_svc.update_session_token_usage,
-                session_id,
-                tokens_prompt=advice_meta.get("tokens_prompt", 0),
-                tokens_completion=advice_meta.get("tokens_completion", 0),
-            )
-
-    # 4. UNIFIED EXTRACTION
-    extraction = await brain_svc.extract_all_from_transcript(transcript, g_ctx)
-
-    new_rels = extraction.get("relations", [])
-    entities = extraction.get("entities", [])
-    events = extraction.get("events", [])
-    tasks = extraction.get("tasks", [])
-    conflicts = extraction.get("conflicts", [])
-
-    if entities:
-        await asyncio.to_thread(
-            entity_svc.persist_extraction, user_id,
-            {"entities": entities, "relations": new_rels}, session_id,
-        )
-        # Gamification: XP per extracted entity (capped at 5 per session)
-        entity_count = min(len(entities), 5)
-        fire_and_forget(gamification_svc.award_xp(
-            user_id, entity_count * 5, "entity_extraction",
-            source_id=f"extract_{session_id}_{datetime.now().isoformat()[:16]}",
-            description=f"Extracted {entity_count} entities",
-        ))
-        fire_and_forget(gamification_svc.increment_quest_progress(
-            user_id, "extract_entities", entity_count,
-        ))
-
-    if session_id and not is_ephemeral and extraction.get("tokens_used"):
-        await asyncio.to_thread(
-            session_svc.update_session_token_usage,
-            session_id,
-            tokens_prompt=extraction.get("tokens_prompt", 0),
-            tokens_completion=extraction.get("tokens_completion", 0),
-        )
-
-    # 5. Update graph
-    if new_rels:
-        graph_svc.update_local_graph(user_id, new_rels)
-        if conflicts:
-            await asyncio.to_thread(entity_svc.save_conflicts, user_id, conflicts, session_id)
-    await asyncio.to_thread(graph_svc.save_graph, user_id)
-
-    # 6. Persist events
-    if events:
-        await asyncio.to_thread(entity_svc.save_events, user_id, events, session_id)
-
-    # 7. Persist tasks
-    if tasks:
-        await asyncio.to_thread(entity_svc.save_tasks, user_id, tasks, session_id)
-
-    # 8. Save to long-term memory
-    await vector_svc.save_memory(
-        user_id, f"{speaker_role.capitalize()}: {transcript}",
-        session_id=session_id,
+    # 2. Get wingman advice — this is what the client is waiting for
+    result = await brain_svc.get_wingman_advice(
+        user_id, transcript, g_ctx, v_ctx, req.mode, req.persona,
     )
-    fire_and_forget(gamification_svc.increment_quest_progress(user_id, "save_memory", 1))
-    fire_and_forget(gamification_svc.increment_quest_progress(user_id, "use_wingman_turns", 1))
+    advice_text = result.get("answer", "WAITING")
 
-    # 9. Rolling summarization every 20 turns
-    if session_id:
-        turn_count = await session_store.increment_turn_count(session_id)
-        if turn_count % 20 == 0:
-            _sid = session_id
-            _turn = turn_count
-
-            async def _rolling_summarize():
-                from app.database import db as _db
-                try:
-                    logs_res = await asyncio.to_thread(
-                        lambda: _db.table("session_logs")
-                        .select("role, content")
-                        .eq("session_id", _sid)
-                        .order("created_at")
-                        .execute()
-                    )
-                    recent_rows = (logs_res.data or [])[-40:]
-                    partial_transcript = "\n".join(
-                        f"{r['role'].upper()}: {r['content']}" for r in recent_rows
-                    )
-                    if partial_transcript:
-                        rolling_summary = await brain_svc.generate_summary(partial_transcript)
-                        if rolling_summary:
-                            prev_res = await asyncio.to_thread(
-                                lambda: _db.table("sessions")
-                                .select("summary")
-                                .eq("id", _sid)
-                                .execute()
-                            )
-                            prev_summary = ""
-                            if prev_res.data and prev_res.data[0].get("summary"):
-                                prev_summary = prev_res.data[0]["summary"]
-                            combined = (
-                                f"{prev_summary}\n---\n[Turn {_turn}] {rolling_summary}"
-                            ).strip()
-                            await asyncio.to_thread(
-                                lambda: _db.table("sessions")
-                                .update({"summary": combined})
-                                .eq("id", _sid)
-                                .execute()
-                            )
-                except Exception as e:
-                    print(f"❌ Rolling summarize error: {e}")
-
-            asyncio.create_task(_rolling_summarize())
+    # 3. Fire background: log LLM advice + extract + graph + memory (non-blocking)
+    asyncio.create_task(_wingman_post_process(
+        user_id=user_id,
+        session_id=session_id,
+        transcript=transcript,
+        g_ctx=g_ctx,
+        is_ephemeral=is_ephemeral,
+        advice_text=advice_text,
+        advice_meta=result,
+    ))
 
     return {"advice": advice_text}
 

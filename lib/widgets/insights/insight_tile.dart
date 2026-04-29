@@ -278,10 +278,16 @@ class _InsightTileState extends State<InsightTile>
                                       isDark: isDark,
                                       onTap: widget.onDelete,
                                     ),
-                                    const Spacer(),
                                     if (item.sessionId != null &&
                                         item.sessionId!.isNotEmpty) ...[
-                                      GestureDetector(
+                                      const SizedBox(width: 8),
+                                      InsightActionChip(
+                                        icon: Icons.arrow_forward_rounded,
+                                        label: 'Source',
+                                        color: Theme.of(context)
+                                            .colorScheme
+                                            .primary,
+                                        isDark: isDark,
                                         onTap: () => Navigator.pushNamed(
                                             context, '/session-analytics',
                                             arguments: {
@@ -289,47 +295,8 @@ class _InsightTileState extends State<InsightTile>
                                               'sessionTitle': item.title,
                                               'initialTab': 2
                                             }),
-                                        child: Container(
-                                          padding: const EdgeInsets.symmetric(
-                                              horizontal: 8, vertical: 4),
-                                          decoration: BoxDecoration(
-                                            color: Theme.of(context).colorScheme.primary.withAlpha(20),
-                                            borderRadius:
-                                                BorderRadius.circular(8),
-                                            border: Border.all(
-                                                color:
-                                                    Theme.of(context).colorScheme.primary.withAlpha(60)),
-                                          ),
-                                          child: Row(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              Text('Source',
-                                                  style: GoogleFonts.manrope(
-                                                      fontSize: 11,
-                                                      fontWeight:
-                                                          FontWeight.w700,
-                                                      color: Theme.of(context).colorScheme.primary)),
-                                              const SizedBox(width: 4),
-                                              Icon(Icons.arrow_forward_rounded,
-                                                  size: 11, color: Theme.of(context).colorScheme.primary),
-                                            ],
-                                          ),
-                                        ),
                                       ),
-                                      const SizedBox(width: 12),
                                     ],
-                                    Icon(Icons.touch_app_outlined,
-                                        size: 12,
-                                        color: isDark
-                                            ? AppColors.slate500
-                                            : Colors.grey.shade400),
-                                    const SizedBox(width: 4),
-                                    Text('Tap to collapse',
-                                        style: GoogleFonts.manrope(
-                                            fontSize: 11,
-                                            color: isDark
-                                                ? AppColors.slate500
-                                                : Colors.grey.shade400)),
                                   ],
                                 ),
                               ],

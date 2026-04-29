@@ -1,16 +1,18 @@
 import 'dart:async';
 import 'dart:math';
-import 'dart:io' show Platform;
 
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 /// Compile-time production URL override.
 /// Set via: flutter build apk --dart-define=SERVER_URL=http://YOUR_IP:8000
-/// Falls back to LOCAL_SERVER_URL in .env, then platform emulator defaults.
+/// Falls back to saved URL in SharedPreferences, then .env, then ngrok default.
 const _kServerUrl = String.fromEnvironment('SERVER_URL', defaultValue: '');
+const _kDefaultUrl = 'https://4ee6-139-135-46-18.ngrok-free.app';
+const _kSavedUrlKey = 'saved_server_url';
 
 enum ConnectionStatus { disconnected, connecting, connected, error, offline }
 
@@ -70,37 +72,39 @@ class ConnectionService with ChangeNotifier {
     // Priority 1: compile-time dart-define (release builds)
     if (_kServerUrl.isNotEmpty) {
       _serverUrl = _kServerUrl;
-    } else {
-      // Priority 2: .env file LOCAL_SERVER_URL (development / testing)
-      final customUrl = dotenv.env['LOCAL_SERVER_URL'];
-      if (customUrl != null && customUrl.trim().isNotEmpty) {
-        _serverUrl = customUrl.trim();
+      notifyListeners();
+      checkConnection(notifyResult: false);
+      _startPeriodicChecks();
+      return;
+    }
+
+    // Priority 2: SharedPreferences (last user-saved URL) — async, load then connect
+    SharedPreferences.getInstance().then((prefs) {
+      final saved = prefs.getString(_kSavedUrlKey);
+      if (saved != null && saved.isNotEmpty) {
+        _serverUrl = saved;
       } else {
-        // Priority 3: emulator/simulator defaults
-        if (kIsWeb) {
-          _serverUrl = 'http://localhost:8000';
-        } else if (Platform.isAndroid) {
-          _serverUrl = 'http://10.0.2.2:8000';
+        // Priority 3: .env file LOCAL_SERVER_URL
+        final envUrl = dotenv.env['LOCAL_SERVER_URL'];
+        if (envUrl != null && envUrl.trim().isNotEmpty) {
+          _serverUrl = envUrl.trim();
         } else {
-          _serverUrl = 'http://127.0.0.1:8000';
+          // Priority 4: ngrok default
+          _serverUrl = _kDefaultUrl;
         }
       }
-    }
-
-    notifyListeners();
-    if (_serverUrl.isNotEmpty) {
+      notifyListeners();
       checkConnection(notifyResult: false);
-    }
-    _startPeriodicChecks();
+      _startPeriodicChecks();
+    });
   }
 
-  // Allow setting a new custom URL manually, although not required anymore
   Future<void> saveUrl(String url) async {
     String cleanUrl = url.trim();
     if (cleanUrl.endsWith('/')) {
       cleanUrl = cleanUrl.substring(0, cleanUrl.length - 1);
     }
-    
+
     if (!cleanUrl.startsWith('http')) {
       cleanUrl = 'http://$cleanUrl';
       if (RegExp(r'^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$').hasMatch(url.trim())) {
@@ -111,7 +115,10 @@ class ConnectionService with ChangeNotifier {
     _serverUrl = cleanUrl;
     notifyListeners();
 
-    // Test immediately
+    // Persist so next launch auto-reconnects
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_kSavedUrlKey, cleanUrl);
+
     await checkConnection();
   }
 

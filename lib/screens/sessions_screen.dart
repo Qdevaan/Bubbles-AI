@@ -1,5 +1,8 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 
@@ -8,6 +11,7 @@ import '../widgets/chat_bubble.dart';
 import '../widgets/glass_morphism.dart';
 import '../widgets/tags_bottom_sheet.dart';
 import '../widgets/export_bottom_sheet.dart';
+import '../widgets/session_playback_sheet.dart';
 import '../providers/tags_provider.dart';
 import '../services/api_service.dart';
 import '../routes/app_routes.dart';
@@ -420,7 +424,14 @@ class _LiveSessionsListState extends State<LiveSessionsList> {
           return Padding(
             padding: const EdgeInsets.only(bottom: 10),
             child: GestureDetector(
-              onTap: () => _showSessionOptions(context, session, title, isDark),
+              onTap: () => Navigator.pushNamed(
+                context,
+                AppRoutes.sessionAnalytics,
+                arguments: {
+                  'sessionId': session['id'],
+                  'sessionTitle': title,
+                },
+              ),
               child: GlassPanel(
                 padding: const EdgeInsets.all(16),
                 borderRadius: AppRadius.xxl,
@@ -902,6 +913,8 @@ class _GenericSessionDetailState extends State<GenericSessionDetail> {
   List<Map<String, dynamic>> _sessionTags = [];
   Map<String, dynamic>? _report;
   Map<String, dynamic>? _analytics;
+  String? _audioPath;
+  String? _timingPath;
 
   @override
   void initState() {
@@ -911,7 +924,25 @@ class _GenericSessionDetailState extends State<GenericSessionDetail> {
       _loadTags();
       _loadReport(swr: true);
       _loadAnalytics(swr: true);
+      _checkLocalRecording();
     });
+  }
+
+  Future<void> _checkLocalRecording() async {
+    try {
+      final dir = await getApplicationDocumentsDirectory();
+      final base = '${dir.path}/recordings/${widget.sessionId}';
+      final audio = File('$base.wav');
+      final timing = File('${base}_timing.json');
+      if (await audio.exists() && await timing.exists()) {
+        if (mounted) {
+          setState(() {
+            _audioPath = audio.path;
+            _timingPath = timing.path;
+          });
+        }
+      }
+    } catch (_) {}
   }
 
   Future<void> _loadReport({bool swr = false}) async {
@@ -1043,6 +1074,19 @@ class _GenericSessionDetailState extends State<GenericSessionDetail> {
                       _loadTags();
                     },
                   ),
+                  // Playback button — only if local recording exists
+                  if (_audioPath != null && _timingPath != null)
+                    IconButton(
+                      icon: const Icon(Icons.play_circle_outline_rounded, size: 24),
+                      tooltip: 'Play Recording',
+                      color: Theme.of(context).colorScheme.primary,
+                      onPressed: () => SessionPlaybackSheet.show(
+                        context,
+                        sessionId: widget.sessionId,
+                        audioPath: _audioPath!,
+                        timingPath: _timingPath!,
+                      ),
+                    ),
                   // Export button
                   IconButton(
                     icon: const Icon(Icons.download_outlined, size: 22),

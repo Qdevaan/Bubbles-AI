@@ -1,13 +1,17 @@
+import 'dart:convert';
+import 'dart:io';
+
+import 'package:audioplayers/audioplayers.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../services/api_service.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:provider/provider.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/auth_service.dart';
 import '../repositories/sessions_repository.dart';
 import '../widgets/glass_morphism.dart';
 import '../theme/design_tokens.dart';
-import '../widgets/chat_bubble.dart';
 
 /// Displays post-session analytics (session_analytics) and coaching report
 /// (coaching_reports) for a given Live Wingman session. (schema_v2 B5 / G2)
@@ -32,10 +36,8 @@ class _SessionAnalyticsScreenState extends State<SessionAnalyticsScreen>
   late TabController _tabController;
   Map<String, dynamic>? _analytics;
   Map<String, dynamic>? _report;
-  List<Map<String, dynamic>> _logs = [];
   bool _analyticsLoading = true;
   bool _reportLoading = true;
-  bool _logsLoading = true;
   String? _analyticsError;
   String? _reportError;
 
@@ -47,7 +49,6 @@ class _SessionAnalyticsScreenState extends State<SessionAnalyticsScreen>
   }
 
   Future<void> _fetchData() async {
-    final api = context.read<ApiService>();
     final sessionsRepo = context.read<SessionsRepository>();
     final userId = AuthService.instance.currentUserId ?? '';
 
@@ -72,13 +73,6 @@ class _SessionAnalyticsScreenState extends State<SessionAnalyticsScreen>
       });
     } catch (e) {
       if (mounted) setState(() { _reportLoading = false; _reportError = 'Failed to load'; });
-    }
-    // Fetch logs (transcript)
-    try {
-      final res = await sessionsRepo.getSessionLogs(widget.sessionId, false, userId);
-      if (mounted) setState(() { _logs = res.data ?? []; _logsLoading = false; });
-    } catch (e) {
-      if (mounted) setState(() { _logsLoading = false; });
     }
   }
 
@@ -142,7 +136,7 @@ class _SessionAnalyticsScreenState extends State<SessionAnalyticsScreen>
             tabs: const [
               Tab(text: 'Analytics'),
               Tab(text: 'Coaching'),
-              Tab(text: 'Transcript'),
+              Tab(text: 'Playback'),
             ],
           ),
         ),
@@ -151,7 +145,7 @@ class _SessionAnalyticsScreenState extends State<SessionAnalyticsScreen>
           children: [
             _AnalyticsTab(analytics: _analytics, loading: _analyticsLoading, error: _analyticsError),
             _CoachingTab(report: _report, loading: _reportLoading, error: _reportError),
-            _TranscriptTab(logs: _logs, loading: _logsLoading),
+            _PlaybackTab(sessionId: widget.sessionId),
           ],
         ),
       ),
@@ -175,12 +169,23 @@ class _AnalyticsTab extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
+        if (a['session_summary'] != null && (a['session_summary'] as String).isNotEmpty) ...[
+          _SectionCard(title: '📝 Summary', children: [
+            Text(
+              a['session_summary'] as String,
+              style: GoogleFonts.manrope(height: 1.5, fontSize: 14, color: isDark ? AppColors.slate300 : AppColors.slate600),
+            ),
+          ]),
+          const SizedBox(height: 12),
+        ],
         _SectionCard(title: '⚡ At a Glance', children: [
+          if (a['session_started_at'] != null)
+            _StatRow('Started', _formatStartTime(a['session_started_at'] as String)),
           _StatRow('Total Turns', '${a['total_turns'] ?? 0}'),
           _StatRow('Your Turns', '${a['user_turns'] ?? 0}'),
           _StatRow('Others\' Turns', '${a['others_turns'] ?? 0}'),
           _StatRow('AI Advice Count', '${a['llm_turns'] ?? 0}'),
-          if (a['total_duration_seconds'] != null)
+          if (a['total_duration_seconds'] != null && (a['total_duration_seconds'] as num) > 0)
             _StatRow('Duration', _formatDuration((a['total_duration_seconds'] as num).toDouble())),
           if (a['avg_advice_latency_ms'] != null)
             _StatRow('Avg Latency', '${(a['avg_advice_latency_ms'] as num).toStringAsFixed(0)} ms'),
@@ -231,6 +236,19 @@ class _AnalyticsTab extends StatelessWidget {
     final m = (secs / 60).floor();
     final s = (secs % 60).round();
     return '$m min ${s}s';
+  }
+
+  String _formatStartTime(String iso) {
+    try {
+      final dt = DateTime.parse(iso).toLocal();
+      const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+      final h = dt.hour % 12 == 0 ? 12 : dt.hour % 12;
+      final m = dt.minute.toString().padLeft(2, '0');
+      final ampm = dt.hour < 12 ? 'AM' : 'PM';
+      return '${months[dt.month - 1]} ${dt.day}, $h:$m $ampm';
+    } catch (_) {
+      return iso;
+    }
   }
 
   String _capitalize(String s) => s.isEmpty ? s : s[0].toUpperCase() + s.substring(1);
@@ -319,46 +337,361 @@ class _CoachingTab extends StatelessWidget {
   String _capitalize(String s) => s.isEmpty ? s : s[0].toUpperCase() + s.substring(1);
 }
 
-// ── Transcript Tab ────────────────────────────────────────────────────────────
-class _TranscriptTab extends StatelessWidget {
-  final List<Map<String, dynamic>> logs;
-  final bool loading;
-  const _TranscriptTab({required this.logs, required this.loading});
+// ── Playback Tab ──────────────────────────────────────────────────────────────
+class _PlaybackTab extends StatefulWidget {
+  final String sessionId;
+  const _PlaybackTab({required this.sessionId});
 
   @override
-  Widget build(BuildContext context) {
-    if (loading) return const Center(child: CircularProgressIndicator());
-    if (logs.isEmpty) return Center(child: Text('No transcript available', style: GoogleFonts.manrope(color: AppColors.slate500)));
+  State<_PlaybackTab> createState() => _PlaybackTabState();
+}
 
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: logs.length,
-      itemBuilder: (context, index) {
-        final log = logs[index];
-        final role = (log['role'] as String? ?? 'others').toLowerCase();
-        final content = log['content'] as String? ?? '';
-        final isUser = role == 'user';
-        final isAI = role == 'assistant' || role == 'llm';
-        final String displayName = _getDisplayName(role, log['speaker_label']);
+class _PlaybackTabState extends State<_PlaybackTab>
+    with AutomaticKeepAliveClientMixin {
+  final AudioPlayer _player = AudioPlayer();
+  final ScrollController _scrollController = ScrollController();
 
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 8),
-          child: ChatBubble(
-            text: content,
-            isUser: isUser,
-            isAI: isAI,
-            speakerLabel: isUser ? null : displayName,
-          ),
-        );
-      },
+  String? _audioPath;
+  List<_PLine> _lines = [];
+  final List<int> _audioIndices = [];
+  Duration _position = Duration.zero;
+  Duration _duration = Duration.zero;
+  PlayerState _playerState = PlayerState.stopped;
+  int _currentAudioIdx = -1;
+  bool _checked = false;
+
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  void initState() {
+    super.initState();
+    _findRecording();
+    _player.onPositionChanged.listen((pos) {
+      if (!mounted) return;
+      final secs = pos.inMilliseconds / 1000.0;
+      int ai = -1;
+      for (int i = _audioIndices.length - 1; i >= 0; i--) {
+        final start = _lines[_audioIndices[i]].start ?? 0.0;
+        if (secs >= start) { ai = i; break; }
+      }
+      setState(() {
+        _position = pos;
+        if (ai != _currentAudioIdx) {
+          _currentAudioIdx = ai;
+          if (ai >= 0) _scrollToLine(_audioIndices[ai]);
+        }
+      });
+    });
+    _player.onDurationChanged.listen((d) { if (mounted) setState(() => _duration = d); });
+    _player.onPlayerStateChanged.listen((s) { if (mounted) setState(() => _playerState = s); });
+  }
+
+  Future<void> _findRecording() async {
+    try {
+      final dir = await getApplicationDocumentsDirectory();
+      final base = '${dir.path}/recordings/${widget.sessionId}';
+      final audio = File('$base.wav');
+      final timing = File('${base}_timing.json');
+      if (await audio.exists() && await timing.exists()) {
+        setState(() { _audioPath = audio.path; });
+        await _loadData(audio.path, timing.path);
+      }
+    } catch (_) {}
+    if (mounted) setState(() => _checked = true);
+  }
+
+  Future<void> _loadData(String audioPath, String timingPath) async {
+    List<Map<String, dynamic>> timing = [];
+    try {
+      final raw = await File(timingPath).readAsString();
+      timing = List<Map<String, dynamic>>.from(jsonDecode(raw) as List);
+    } catch (_) {}
+
+    List<Map<String, dynamic>> dbLogs = [];
+    try {
+      final res = await Supabase.instance.client
+          .from('session_logs')
+          .select('role, content, turn_index')
+          .eq('session_id', widget.sessionId)
+          .order('turn_index', ascending: true);
+      dbLogs = List<Map<String, dynamic>>.from(res as List);
+    } catch (_) {}
+
+    final combined = <_PLine>[];
+    final indices = <int>[];
+    int ti = 0;
+    for (final log in dbLogs) {
+      final role = log['role'] as String? ?? '';
+      final text = log['content'] as String? ?? '';
+      if (text.isEmpty) continue;
+      if (role == 'llm') {
+        combined.add(_PLine(role: 'llm', text: text));
+      } else {
+        double? start;
+        if (ti < timing.length) {
+          start = (timing[ti]['start'] as num?)?.toDouble();
+          ti++;
+        }
+        indices.add(combined.length);
+        combined.add(_PLine(role: role, text: text, start: start));
+      }
+    }
+    if (combined.isEmpty) {
+      for (final t in timing) {
+        final role = t['speaker'] as String? ?? 'others';
+        indices.add(combined.length);
+        combined.add(_PLine(
+          role: role, text: t['text'] as String? ?? '',
+          start: (t['start'] as num?)?.toDouble(),
+        ));
+      }
+    }
+    if (mounted) setState(() { _lines = combined; _audioIndices..clear()..addAll(indices); });
+  }
+
+  void _scrollToLine(int li) {
+    if (!_scrollController.hasClients) return;
+    const h = 72.0;
+    final offset = (li * h) - (_scrollController.position.viewportDimension / 2) + h / 2;
+    _scrollController.animateTo(
+      offset.clamp(0.0, _scrollController.position.maxScrollExtent),
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeOut,
     );
   }
 
-  String _getDisplayName(String role, dynamic label) {
-    if (role == 'user') return 'You';
-    if (role == 'assistant' || role == 'llm') return 'Bubbles AI';
-    if (label != null) return label.toString();
-    return 'Other';
+  Future<void> _togglePlay() async {
+    if (_playerState == PlayerState.playing) {
+      await _player.pause();
+    } else {
+      if (_playerState == PlayerState.completed) await _player.seek(Duration.zero);
+      await _player.play(DeviceFileSource(_audioPath!));
+    }
+  }
+
+  bool _isCurrent(int i) {
+    if (_currentAudioIdx < 0 || _audioIndices.isEmpty) return false;
+    final ali = _audioIndices[_currentAudioIdx];
+    if (i == ali) return true;
+    if (i > ali && _lines[i].role == 'llm') {
+      final next = _currentAudioIdx + 1 < _audioIndices.length ? _audioIndices[_currentAudioIdx + 1] : _lines.length;
+      if (i < next) return true;
+    }
+    return false;
+  }
+
+  String _fmt(Duration d) {
+    final m = d.inMinutes.remainder(60).toString().padLeft(2, '0');
+    final s = d.inSeconds.remainder(60).toString().padLeft(2, '0');
+    return '$m:$s';
+  }
+
+  @override
+  void dispose() {
+    _player.dispose();
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final primary = Theme.of(context).colorScheme.primary;
+
+    if (!_checked) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_audioPath == null) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.mic_off_rounded, size: 48,
+                color: isDark ? AppColors.slate600 : Colors.grey.shade300),
+            const SizedBox(height: 16),
+            Text('No recording for this session',
+                style: GoogleFonts.manrope(
+                    fontSize: 15, color: AppColors.textMuted,
+                    fontWeight: FontWeight.w600)),
+            const SizedBox(height: 8),
+            Text('Recordings save automatically\nwhen you end a live session',
+                textAlign: TextAlign.center,
+                style: GoogleFonts.manrope(
+                    fontSize: 13, color: AppColors.textMuted)),
+          ],
+        ),
+      );
+    }
+
+    return Column(
+      children: [
+        // Legend row
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 10, 16, 4),
+          child: Row(
+            children: [
+              _PLegend(color: primary, label: 'You'),
+              const SizedBox(width: 12),
+              const _PLegend(color: Colors.orange, label: 'Other'),
+              const SizedBox(width: 12),
+              const _PLegend(color: Colors.purple, label: 'AI'),
+            ],
+          ),
+        ),
+        // Transcript lines
+        Expanded(
+          child: _lines.isEmpty
+              ? Center(child: Text('Loading...', style: GoogleFonts.manrope(color: AppColors.textMuted)))
+              : ListView.builder(
+                  controller: _scrollController,
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  itemCount: _lines.length,
+                  itemBuilder: (context, i) {
+                    final line = _lines[i];
+                    final cur = _isCurrent(i);
+                    final Color rc = line.role == 'user' ? primary
+                        : line.role == 'llm' ? Colors.purple : Colors.orange;
+                    final String lbl = line.role == 'user' ? 'You'
+                        : line.role == 'llm' ? 'AI' : 'Other';
+                    return AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+                      decoration: BoxDecoration(
+                        color: cur ? rc.withAlpha(isDark ? 35 : 20) : Colors.transparent,
+                        borderRadius: BorderRadius.circular(12),
+                        border: cur ? Border.all(color: rc.withAlpha(100), width: 1.5) : null,
+                      ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Container(
+                            margin: const EdgeInsets.only(top: 2, right: 8),
+                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: rc.withAlpha(cur ? 70 : 35),
+                              borderRadius: BorderRadius.circular(7),
+                            ),
+                            child: Text(lbl, style: GoogleFonts.manrope(
+                                fontSize: 10, fontWeight: FontWeight.w700, color: rc)),
+                          ),
+                          Expanded(
+                            child: Text(
+                              line.text,
+                              style: GoogleFonts.manrope(
+                                fontSize: cur ? 15 : 14,
+                                fontWeight: cur ? FontWeight.w700 : FontWeight.w400,
+                                color: cur
+                                    ? (isDark ? Colors.white : AppColors.slate900)
+                                    : (isDark ? AppColors.slate400 : AppColors.slate500),
+                                height: 1.4,
+                              ),
+                            ),
+                          ),
+                          if (line.role == 'llm')
+                            Padding(
+                              padding: const EdgeInsets.only(left: 4, top: 2),
+                              child: Icon(Icons.auto_awesome_rounded,
+                                  size: 12, color: Colors.purple.withAlpha(150)),
+                            ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+        ),
+        const Divider(height: 1),
+        // Controls
+        Padding(
+          padding: EdgeInsets.fromLTRB(16, 8, 16, 8 + MediaQuery.of(context).padding.bottom),
+          child: Column(
+            children: [
+              SliderTheme(
+                data: SliderTheme.of(context).copyWith(
+                  trackHeight: 3,
+                  thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
+                  overlayShape: const RoundSliderOverlayShape(overlayRadius: 12),
+                ),
+                child: Slider(
+                  value: _duration.inMilliseconds > 0
+                      ? _position.inMilliseconds.toDouble().clamp(0, _duration.inMilliseconds.toDouble())
+                      : 0,
+                  max: _duration.inMilliseconds > 0 ? _duration.inMilliseconds.toDouble() : 1,
+                  onChanged: (v) => _player.seek(Duration(milliseconds: v.toInt())),
+                  activeColor: primary,
+                  inactiveColor: isDark ? AppColors.slate700 : Colors.grey.shade300,
+                ),
+              ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(_fmt(_position), style: GoogleFonts.manrope(fontSize: 11, color: AppColors.textMuted)),
+                  Text(_fmt(_duration), style: GoogleFonts.manrope(fontSize: 11, color: AppColors.textMuted)),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.replay_10_rounded),
+                    iconSize: 28,
+                    color: isDark ? Colors.white70 : AppColors.slate700,
+                    onPressed: () => _player.seek(Duration(
+                        milliseconds: (_position.inMilliseconds - 10000).clamp(0, _duration.inMilliseconds))),
+                  ),
+                  const SizedBox(width: 8),
+                  GestureDetector(
+                    onTap: _togglePlay,
+                    child: Container(
+                      width: 52, height: 52,
+                      decoration: BoxDecoration(shape: BoxShape.circle, color: primary),
+                      child: Icon(
+                        _playerState == PlayerState.playing
+                            ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                        color: Colors.white, size: 28,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  IconButton(
+                    icon: const Icon(Icons.forward_10_rounded),
+                    iconSize: 28,
+                    color: isDark ? Colors.white70 : AppColors.slate700,
+                    onPressed: () => _player.seek(Duration(
+                        milliseconds: (_position.inMilliseconds + 10000).clamp(0, _duration.inMilliseconds))),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _PLine {
+  final String role;
+  final String text;
+  final double? start;
+  const _PLine({required this.role, required this.text, this.start});
+}
+
+class _PLegend extends StatelessWidget {
+  final Color color;
+  final String label;
+  const _PLegend({required this.color, required this.label});
+  @override
+  Widget build(BuildContext context) {
+    return Row(mainAxisSize: MainAxisSize.min, children: [
+      Container(width: 7, height: 7, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+      const SizedBox(width: 4),
+      Text(label, style: GoogleFonts.manrope(fontSize: 11, color: AppColors.textMuted, fontWeight: FontWeight.w600)),
+    ]);
   }
 }
 

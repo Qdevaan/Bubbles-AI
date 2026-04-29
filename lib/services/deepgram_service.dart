@@ -24,12 +24,15 @@ class DeepgramService extends ChangeNotifier {
 
   // Recording state
   final BytesBuilder _audioBuffer = BytesBuilder(copy: false);
-  final List<Map<String, String>> _fullTranscript = [];
+  final List<Map<String, dynamic>> _fullTranscript = [];
+  double _audioElapsed = 0.0; // seconds of audio recorded so far
   String? _lastSavedAudioPath;
   String? _lastSavedTranscriptPath;
+  String? _lastSavedTimingPath;
   String? get lastSavedAudioPath => _lastSavedAudioPath;
   String? get lastSavedTranscriptPath => _lastSavedTranscriptPath;
-  List<Map<String, String>> get fullTranscript =>
+  String? get lastSavedTimingPath => _lastSavedTimingPath;
+  List<Map<String, dynamic>> get fullTranscript =>
       List.unmodifiable(_fullTranscript);
 
   // INTERNAL
@@ -83,6 +86,8 @@ class DeepgramService extends ChangeNotifier {
       );
 
       _audioBuffer.clear();
+      _fullTranscript.clear();
+      _audioElapsed = 0.0;
       _isMuted = false;
       _audioStreamSubscription = stream.listen((data) {
         if (!_isMuted) {
@@ -121,11 +126,14 @@ class DeepgramService extends ChangeNotifier {
           final transcript = alt['transcript'] as String;
 
           if (transcript.trim().isNotEmpty && data['is_final'] == true) {
-            // Extract Speaker
             int speakerId = 0;
+            double startSec = (data['start'] as num?)?.toDouble() ?? _audioElapsed;
             if (alt['words'] != null && (alt['words'] as List).isNotEmpty) {
-              speakerId = alt['words'][0]['speaker'];
+              final firstWord = alt['words'][0] as Map;
+              speakerId = firstWord['speaker'] as int? ?? 0;
+              startSec = (firstWord['start'] as num?)?.toDouble() ?? startSec;
             }
+            _audioElapsed = startSec + ((data['duration'] as num?)?.toDouble() ?? 0);
 
             _currentTranscript = transcript;
             _currentSpeaker = speakerId == 0 ? "user" : "other";
@@ -133,7 +141,7 @@ class DeepgramService extends ChangeNotifier {
             _fullTranscript.add({
               'speaker': _currentSpeaker,
               'text': transcript,
-              'timestamp': DateTime.now().toIso8601String(),
+              'start': startSec,
             });
 
             debugPrint("🗣️ Deepgram: [$_currentSpeaker] $transcript");
@@ -180,14 +188,14 @@ class DeepgramService extends ChangeNotifier {
         await recordingsDir.create(recursive: true);
       }
 
-      final ts = DateTime.now().millisecondsSinceEpoch;
+      final base = '${recordingsDir.path}/$sessionId';
       final Map<String, String> paths = {};
 
       // Save WAV audio
       if (_audioBuffer.isNotEmpty) {
         final audioBytes = _audioBuffer.toBytes();
         final wavHeader = _buildWavHeader(audioBytes.length);
-        final audioFile = File('${recordingsDir.path}/session_${ts}.wav');
+        final audioFile = File('$base.wav');
         final sink = audioFile.openWrite();
         sink.add(wavHeader);
         sink.add(audioBytes);
@@ -197,23 +205,28 @@ class DeepgramService extends ChangeNotifier {
         debugPrint("✅ DeepgramService: Audio saved → ${audioFile.path}");
       }
 
-      // Save transcript .txt
+      // Save timing JSON (for synchronized playback)
       if (_fullTranscript.isNotEmpty) {
+        final timingFile = File('${base}_timing.json');
+        await timingFile.writeAsString(jsonEncode(_fullTranscript));
+        _lastSavedTimingPath = timingFile.path;
+        paths['timing'] = timingFile.path;
+        debugPrint("✅ DeepgramService: Timing saved → ${timingFile.path}");
+
+        // Plain text transcript for export
         final lines = _fullTranscript.map((e) {
           final label = e['speaker'] == 'user' ? 'You' : 'Other';
           return '$label: ${e['text']}';
         }).join('\n');
-        final txFile =
-            File('${recordingsDir.path}/session_${ts}_transcript.txt');
+        final txFile = File('${base}_transcript.txt');
         await txFile.writeAsString(lines);
         _lastSavedTranscriptPath = txFile.path;
         paths['transcript'] = txFile.path;
-        debugPrint("✅ DeepgramService: Transcript saved → ${txFile.path}");
       }
 
-      // Reset buffers after saving
       _audioBuffer.clear();
       _fullTranscript.clear();
+      _audioElapsed = 0.0;
 
       return paths.isEmpty ? null : paths;
     } catch (e) {

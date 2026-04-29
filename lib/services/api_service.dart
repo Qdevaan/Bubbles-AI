@@ -239,7 +239,7 @@ class ApiService {
               headers: await _authHeaders(),
               body: jsonEncode({"user_id": userId, "question": question}),
             )
-            .timeout(const Duration(seconds: 30));
+            .timeout(const Duration(seconds: 60));
 
         if (response.statusCode == 200) {
           var data = jsonDecode(response.body);
@@ -349,7 +349,7 @@ class ApiService {
               headers: await _authHeaders(),
               body: jsonEncode({"session_id": sessionId, "user_id": userId}),
             )
-            .timeout(const Duration(seconds: 30));
+            .timeout(const Duration(seconds: 60));
       });
     } catch (e) {
       debugPrint("endLiveSession error: $e");
@@ -561,7 +561,7 @@ class ApiService {
             Uri.parse('$_baseUrl/v1/coaching_report/$sessionId'),
             headers: await _authHeaders(),
           )
-          .timeout(const Duration(seconds: 30));
+          .timeout(const Duration(seconds: 60));
       if (res.statusCode == 200) {
         return jsonDecode(res.body) as Map<String, dynamic>;
       }
@@ -698,7 +698,7 @@ class ApiService {
             headers: await _authHeaders(),
             body: jsonEncode({'session_id': sessionId}),
           )
-          .timeout(const Duration(seconds: 30));
+          .timeout(const Duration(seconds: 60));
       if (res.statusCode == 200) {
         return jsonDecode(res.body) as Map<String, dynamic>;
       }

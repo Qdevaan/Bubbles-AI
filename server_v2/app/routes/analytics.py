@@ -159,6 +159,25 @@ async def get_session_analytics(request: Request, session_id: str):
         )
         data["sentiment_trend"] = sent_res.data or []
 
+        # Enrich with session start time, summary, and fix missing duration
+        try:
+            sess_info = await asyncio.to_thread(
+                lambda: db.table("sessions")
+                .select("created_at, ended_at, summary")
+                .eq("id", session_id)
+                .maybe_single()
+                .execute()
+            )
+            if sess_info.data:
+                data["session_started_at"] = sess_info.data.get("created_at")
+                data["session_summary"] = sess_info.data.get("summary")
+                if not data.get("total_duration_seconds") and sess_info.data.get("created_at") and sess_info.data.get("ended_at"):
+                    t_start = datetime.fromisoformat(sess_info.data["created_at"].replace("Z", "+00:00"))
+                    t_end = datetime.fromisoformat(sess_info.data["ended_at"].replace("Z", "+00:00"))
+                    data["total_duration_seconds"] = (t_end - t_start).total_seconds()
+        except Exception:
+            pass
+
         return data
     except HTTPException:
         raise
@@ -215,7 +234,10 @@ async def get_coaching_report(request: Request, session_id: str):
             '"key_topics":[str], "key_decisions":[str], "action_items":[str], '
             '"follow_up_people":[str], "filler_words":[str], "filler_word_count":int, '
             '"tone_summary":str, "engagement_trend":"improving|stable|declining", '
-            '"suggestions":[str], "strengths":[str], "report_text":str}. Max 5 items per list.'
+            '"suggestions":[str], "strengths":[str], "report_text":str, '
+            '"tone_aggression":float, "tone_empathy":float, '
+            '"tone_analytical":float, "tone_confidence":float, "tone_clarity":float}. '
+            "Tone scores 0-10. Max 5 items per list."
         )
         report_data = {}
         try:
@@ -235,7 +257,7 @@ async def get_coaching_report(request: Request, session_id: str):
         except Exception as llm_err:
             print(f"coaching_report LLM error: {llm_err}")
 
-        allowed_keys = {
+        db_keys = {
             "user_talk_pct", "others_talk_pct", "key_topics", "key_decisions",
             "action_items", "follow_up_people", "filler_words", "filler_word_count",
             "tone_summary", "engagement_trend", "suggestions", "strengths", "report_text",
@@ -245,11 +267,16 @@ async def get_coaching_report(request: Request, session_id: str):
             "user_id": user_id,
             "model_used": settings.CONSULTANT_MODEL,
             "generated_at": datetime.now(timezone.utc).isoformat(),
-            **{k: v for k, v in report_data.items() if k in allowed_keys},
+            **{k: v for k, v in report_data.items() if k in db_keys},
         }
-        ins_res = await asyncio.to_thread(
-            lambda: db.table("coaching_reports").insert(report_row).execute()
-        )
+        stored = report_row
+        try:
+            ins_res = await asyncio.to_thread(
+                lambda: db.table("coaching_reports").insert(report_row).execute()
+            )
+            stored = ins_res.data[0] if ins_res.data else report_row
+        except Exception as insert_err:
+            print(f"coaching_report insert error: {insert_err}")
 
         audit_svc.log(
             user_id, "coaching_report_generated",
@@ -257,7 +284,12 @@ async def get_coaching_report(request: Request, session_id: str):
             details={"model_used": settings.CONSULTANT_MODEL},
         )
 
-        return ins_res.data[0] if ins_res.data else report_row
+        # Merge in tone scores not stored in DB but useful for the UI
+        result = dict(stored)
+        for tone_key in ("tone_aggression", "tone_empathy", "tone_analytical", "tone_confidence", "tone_clarity"):
+            if tone_key in report_data:
+                result[tone_key] = report_data[tone_key]
+        return result
     except HTTPException:
         raise
     except Exception as e:
