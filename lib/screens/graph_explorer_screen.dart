@@ -133,7 +133,8 @@ class _GraphExplorerScreenState extends State<GraphExplorerScreen> {
     final edgesStr = jsonEncode(edges);
 
     // Use backtick template literals for safe injection
-    final js = 'updateGraph(`$nodesStr`, `$edgesStr`);';
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final js = 'updateGraph(`$nodesStr`, `$edgesStr`, ${isDark ? 'true' : 'false'});';
     _webViewController!.runJavaScript(js).then((_) {
       // Check if we need to focus on a specific node
       final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
@@ -242,6 +243,33 @@ class _GraphExplorerScreenState extends State<GraphExplorerScreen> {
     );
   }
 
+  /// Extract graph entities relevant to [query], sorted by keyword match score.
+  /// Returns up to 20 entities as lightweight maps for LLM context.
+  List<Map<String, dynamic>> _extractGraphEntities(String query) {
+    if (_rawNodes.isEmpty) return [];
+    final words = query
+        .toLowerCase()
+        .split(RegExp(r'\W+'))
+        .where((w) => w.length > 2)
+        .toSet();
+
+    final scored = _rawNodes.map((n) {
+      final label = (n['label']?.toString() ?? '').toLowerCase();
+      final score = words.fold<int>(0, (s, w) => s + (label.contains(w) ? 1 : 0));
+      return {'node': n, 'score': score};
+    }).toList()
+      ..sort((a, b) => (b['score'] as int).compareTo(a['score'] as int));
+
+    return scored.take(20).map((r) {
+      final n = r['node'] as Map<String, dynamic>;
+      return <String, dynamic>{
+        'id': n['id']?.toString() ?? '',
+        'label': n['label']?.toString() ?? '',
+        'type': (n['type'] ?? n['entity_type'])?.toString() ?? '',
+      };
+    }).toList();
+  }
+
   Future<void> _submitGraphQuery() async {
     final query = _graphQueryController.text.trim();
     if (query.isEmpty) return;
@@ -263,9 +291,11 @@ class _GraphExplorerScreenState extends State<GraphExplorerScreen> {
       return;
     }
 
-    // 2. No entity match → treat as a natural language question about the graph
+    // 2. No entity match → natural language question; extract relevant entities first
     final userId = AuthService.instance.currentUser?.id ?? '';
     if (userId.isEmpty) return;
+
+    final graphEntities = _extractGraphEntities(query);
 
     setState(() => _graphQueryLoading = true);
     _graphQueryController.clear();
@@ -273,7 +303,12 @@ class _GraphExplorerScreenState extends State<GraphExplorerScreen> {
 
     try {
       final api = context.read<ApiService>();
-      final result = await api.askGraphQuery(userId, query, sessionId: _currentGraphSessionId);
+      final result = await api.askGraphQuery(
+        userId,
+        query,
+        sessionId: _currentGraphSessionId,
+        graphEntities: graphEntities,
+      );
       final answer = result['answer'] as String;
       final sid = result['session_id'] as String?;
 
@@ -295,6 +330,7 @@ class _GraphExplorerScreenState extends State<GraphExplorerScreen> {
           userId: userId,
           api: api,
           isDark: isDark,
+          graphEntities: graphEntities,
         ),
       );
     } catch (e) {
@@ -557,24 +593,24 @@ class _GraphQueryBar extends StatelessWidget {
                   ),
                 ),
           filled: true,
-          fillColor: isDark ? const Color(0xFF1E293B).withOpacity(0.9) : Colors.white.withOpacity(0.95),
+          fillColor: isDark ? AppColors.glassInput : Colors.grey.shade100,
           border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(AppRadius.full),
-            borderSide: BorderSide(
-              color: isDark ? AppColors.glassBorder : Colors.grey.shade300,
-            ),
+            borderRadius: BorderRadius.circular(AppRadius.lg),
+            borderSide: isDark
+                ? const BorderSide(color: AppColors.glassBorder)
+                : BorderSide.none,
           ),
           enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(AppRadius.full),
-            borderSide: BorderSide(
-              color: isDark ? AppColors.glassBorder : Colors.grey.shade300,
-            ),
+            borderRadius: BorderRadius.circular(AppRadius.lg),
+            borderSide: isDark
+                ? const BorderSide(color: AppColors.glassBorder)
+                : BorderSide.none,
           ),
           focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(AppRadius.full),
+            borderRadius: BorderRadius.circular(AppRadius.lg),
             borderSide: BorderSide(
               color: cs.primary,
-              width: 1.5,
+              width: 2,
             ),
           ),
           contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -595,6 +631,7 @@ class _GraphQueryResultSheet extends StatefulWidget {
   final String userId;
   final ApiService api;
   final bool isDark;
+  final List<Map<String, dynamic>> graphEntities;
 
   const _GraphQueryResultSheet({
     required this.initialQuery,
@@ -603,6 +640,7 @@ class _GraphQueryResultSheet extends StatefulWidget {
     required this.userId,
     required this.api,
     required this.isDark,
+    this.graphEntities = const [],
   });
 
   @override
@@ -661,6 +699,7 @@ class _GraphQueryResultSheetState extends State<_GraphQueryResultSheet> {
         widget.userId,
         text,
         sessionId: _sessionId,
+        graphEntities: widget.graphEntities,
       );
 
       if (!mounted) return;
@@ -751,31 +790,65 @@ class _GraphQueryResultSheetState extends State<_GraphQueryResultSheet> {
                   final isUser = msg['role'] == 'user';
                   return Align(
                     alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
-                    child: Container(
-                      margin: const EdgeInsets.only(bottom: 16),
-                      padding: const EdgeInsets.all(14),
-                      constraints: BoxConstraints(
-                        maxWidth: MediaQuery.of(context).size.width * 0.75,
-                      ),
-                      decoration: BoxDecoration(
-                        color: isUser
-                            ? cs.primary
-                            : (widget.isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9)),
-                        borderRadius: BorderRadius.only(
-                          topLeft: const Radius.circular(16),
-                          topRight: const Radius.circular(16),
-                          bottomLeft: Radius.circular(isUser ? 16 : 4),
-                          bottomRight: Radius.circular(isUser ? 4 : 16),
+                    child: Column(
+                      crossAxisAlignment: isUser
+                          ? CrossAxisAlignment.end
+                          : CrossAxisAlignment.start,
+                      children: [
+                        if (isUser)
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 4, right: 2),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.account_tree_rounded,
+                                    size: 10,
+                                    color: cs.primary.withOpacity(0.7)),
+                                const SizedBox(width: 3),
+                                Text(
+                                  'Asked on Graph Screen',
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    color: cs.primary.withOpacity(0.7),
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        Container(
+                          margin: const EdgeInsets.only(bottom: 16),
+                          padding: const EdgeInsets.all(14),
+                          constraints: BoxConstraints(
+                            maxWidth: MediaQuery.of(context).size.width * 0.75,
+                          ),
+                          decoration: BoxDecoration(
+                            color: isUser
+                                ? cs.primary
+                                : (widget.isDark
+                                    ? const Color(0xFF1E293B)
+                                    : const Color(0xFFF1F5F9)),
+                            borderRadius: BorderRadius.only(
+                              topLeft: const Radius.circular(16),
+                              topRight: const Radius.circular(16),
+                              bottomLeft: Radius.circular(isUser ? 16 : 4),
+                              bottomRight: Radius.circular(isUser ? 4 : 16),
+                            ),
+                          ),
+                          child: Text(
+                            msg['content']!,
+                            style: TextStyle(
+                              fontSize: 14,
+                              height: 1.5,
+                              color: isUser
+                                  ? Colors.white
+                                  : (widget.isDark
+                                      ? Colors.white.withOpacity(0.9)
+                                      : const Color(0xFF334155)),
+                            ),
+                          ),
                         ),
-                      ),
-                      child: Text(
-                        msg['content']!,
-                        style: TextStyle(
-                          fontSize: 14,
-                          height: 1.5,
-                          color: isUser ? Colors.white : (widget.isDark ? Colors.white.withOpacity(0.9) : const Color(0xFF334155)),
-                        ),
-                      ),
+                      ],
                     ),
                   );
                 },

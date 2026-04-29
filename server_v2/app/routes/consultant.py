@@ -142,6 +142,7 @@ async def ask_consultant_endpoint(
 class _AskRequest(ConsultantRequest):
     """Thin alias used by the graph query engine."""
     context: str = ""  # e.g. 'knowledge_graph'
+    graph_entities: list = []  # pre-extracted entities from graph screen
 
 
 @router.post("/ask")
@@ -171,14 +172,28 @@ async def ask_endpoint(
         asyncio.to_thread(vector_svc.search_memory, req.user_id, req.question),
     )
 
+    # Inject client-extracted graph entities into context so LLM answers specifically about them
+    if req.graph_entities:
+        entity_lines = "\n".join(
+            f"  - {e.get('label', e.get('id', '?'))} ({e.get('type', 'entity')})"
+            for e in req.graph_entities
+        )
+        entity_block = (
+            "KNOWLEDGE GRAPH ENTITIES (the user is asking about these — answer specifically "
+            "about them based on the graph data and your knowledge):\n"
+            f"{entity_lines}"
+        )
+        g_ctx = entity_block + ("\n\n" + g_ctx if g_ctx else "")
+
     safe_q = sanitize_input(req.question)
     result = await brain_svc.ask_consultant(
         req.user_id, safe_q, h_ctx, g_ctx, v_ctx,
         session_summaries="", mode="standard", persona="consultant",
     )
-    
+
     answer = result.get("answer", "")
-    
+    source_screen = "graph" if req.graph_entities else None
+
     # Log the interaction if it's part of a session
     if not session_id:
         # Create a transient session for the first graph query if it's conversational
@@ -188,13 +203,14 @@ async def ask_endpoint(
             title=f"Graph: {safe_q[:30]}...",
             mode="consultant",
         )
-    
+
     await asyncio.to_thread(
         session_svc.log_consultant_qa,
         req.user_id, req.question, answer, session_id=session_id,
         model_used=result.get("model_used"),
         latency_ms=result.get("latency_ms"),
         tokens_used=result.get("tokens_used"),
+        source_screen=source_screen,
     )
 
     return {

@@ -198,11 +198,11 @@ async def get_coaching_report(request: Request, session_id: str):
             lambda: db.table("coaching_reports")
             .select("*")
             .eq("session_id", session_id)
-            .maybe_single()
+            .limit(1)
             .execute()
         )
         if existing.data:
-            return existing.data
+            return existing.data[0]
 
         sess_res = await asyncio.to_thread(
             lambda: db.table("sessions")
@@ -230,11 +230,14 @@ async def get_coaching_report(request: Request, session_id: str):
 
         coaching_prompt = (
             "You are an expert communication coach. Analyse this transcript. "
+            "Use gender-neutral language throughout (use 'they/their/the speaker', never he/she/his/her). "
             'Return JSON ONLY: {"user_talk_pct":float, "others_talk_pct":float, '
             '"key_topics":[str], "key_decisions":[str], "action_items":[str], '
             '"follow_up_people":[str], "filler_words":[str], "filler_word_count":int, '
             '"tone_summary":str, "engagement_trend":"improving|stable|declining", '
-            '"suggestions":[str], "strengths":[str], "report_text":str, '
+            '"suggestions":[str], "strengths":[str], '
+            '"report_text":str (summarise what real human participants said; '
+            'wrap every AI/assistant recommendation or response in [square brackets like this]), '
             '"tone_aggression":float, "tone_empathy":float, '
             '"tone_analytical":float, "tone_confidence":float, "tone_clarity":float}. '
             "Tone scores 0-10. Max 5 items per list."

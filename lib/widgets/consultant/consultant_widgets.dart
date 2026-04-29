@@ -11,6 +11,7 @@ class ChatHistoryTile extends StatelessWidget {
   final bool isActive;
   final bool isDark;
   final VoidCallback onTap;
+  final bool fromGraph;
 
   const ChatHistoryTile({
     required this.title,
@@ -18,6 +19,7 @@ class ChatHistoryTile extends StatelessWidget {
     required this.isActive,
     required this.isDark,
     required this.onTap,
+    this.fromGraph = false,
   });
 
   @override
@@ -46,23 +48,54 @@ class ChatHistoryTile extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      title,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.manrope(
-                        fontSize: 13,
-                        fontWeight: isActive
-                            ? FontWeight.w700
-                            : FontWeight.w500,
-                        color: isActive
-                            ? primary
-                            : (isDark
-                                  ? AppColors.slate300
-                                  : AppColors.slate700),
-                        height: 1.3,
-                      ),
+                    Row(
+                      children: [
+                        if (fromGraph) ...[
+                          Icon(Icons.account_tree_rounded,
+                              size: 11,
+                              color: isActive
+                                  ? primary
+                                  : (isDark
+                                      ? AppColors.slate500
+                                      : AppColors.slate400)),
+                          const SizedBox(width: 4),
+                        ],
+                        Expanded(
+                          child: Text(
+                            title,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: GoogleFonts.manrope(
+                              fontSize: 13,
+                              fontWeight: isActive
+                                  ? FontWeight.w700
+                                  : FontWeight.w500,
+                              color: isActive
+                                  ? primary
+                                  : (isDark
+                                      ? AppColors.slate300
+                                      : AppColors.slate700),
+                              height: 1.3,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
+                    if (fromGraph) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        'From Graph Screen',
+                        style: GoogleFonts.manrope(
+                          fontSize: 10,
+                          color: isActive
+                              ? primary.withOpacity(0.7)
+                              : (isDark
+                                  ? AppColors.slate500
+                                  : Colors.grey.shade400),
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
                     if (date.isNotEmpty) ...[
                       const SizedBox(height: 3),
                       Text(
@@ -102,42 +135,73 @@ class UserBubble extends StatelessWidget {
   final String text;
   final bool isDark;
   final String? time;
-  const UserBubble({required this.text, required this.isDark, this.time});
+  final bool fromGraph;
+  const UserBubble({
+    required this.text,
+    required this.isDark,
+    this.time,
+    this.fromGraph = false,
+  });
 
   @override
   Widget build(BuildContext context) {
     final primary = Theme.of(context).colorScheme.primary;
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.end,
+    return Column(
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
-        Flexible(
-          child: Container(
-            constraints: BoxConstraints(
-              maxWidth: MediaQuery.of(context).size.width * 0.80,
-            ),
-            padding: const EdgeInsets.symmetric(
-              horizontal: 16,
-              vertical: 12,
-            ),
-            decoration: BoxDecoration(
-              color: isDark ? AppColors.slate800 : AppColors.slate200,
-              borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(20),
-                topRight: Radius.circular(20),
-                bottomLeft: Radius.circular(20),
-                bottomRight: Radius.circular(4),
-              ),
-            ),
-            child: Text(
-              text,
-              style: GoogleFonts.manrope(
-                fontSize: 15,
-                color: isDark ? Colors.white : AppColors.slate900,
-                height: 1.5,
-              ),
+        if (fromGraph)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 4, right: 4),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.account_tree_rounded,
+                    size: 10, color: primary.withOpacity(0.6)),
+                const SizedBox(width: 3),
+                Text(
+                  'Asked on Graph Screen',
+                  style: GoogleFonts.manrope(
+                    fontSize: 10,
+                    color: primary.withOpacity(0.6),
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
             ),
           ),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.end,
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Flexible(
+              child: Container(
+                constraints: BoxConstraints(
+                  maxWidth: MediaQuery.of(context).size.width * 0.80,
+                ),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
+                decoration: BoxDecoration(
+                  color: isDark ? AppColors.slate800 : AppColors.slate200,
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(20),
+                    topRight: Radius.circular(20),
+                    bottomLeft: Radius.circular(20),
+                    bottomRight: Radius.circular(4),
+                  ),
+                ),
+                child: Text(
+                  text,
+                  style: GoogleFonts.manrope(
+                    fontSize: 15,
+                    color: isDark ? Colors.white : AppColors.slate900,
+                    height: 1.5,
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
       ],
     );

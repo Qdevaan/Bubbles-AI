@@ -728,6 +728,7 @@ class _ConsultantScreenState extends State<ConsultantScreen>
                       isActive: isActive,
                       isDark: isDark,
                       onTap: () => _loadChatById(sid),
+                      fromGraph: (c['title'] as String? ?? '').startsWith('Graph:'),
                     );
                   },
                 ),
@@ -952,6 +953,7 @@ class _ConsultantScreenState extends State<ConsultantScreen>
                                             text: msg['text']!,
                                             isDark: isDark,
                                             time: msg['time'],
+                                            fromGraph: msg['source_screen'] == 'graph',
                                           )
                                         : AiBubble(
                                             text: msg['text']!,

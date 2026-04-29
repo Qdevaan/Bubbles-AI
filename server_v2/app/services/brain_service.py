@@ -3,7 +3,7 @@ BrainService — Multi-provider LLM inference layer.
 
 Provider routing:
   Wingman advice  → Cerebras (llama3.1-8b) → Groq fallback
-  Consultant Q&A  → Gemini (gemini-1.5-flash) → Groq fallback
+  Consultant Q&A  → Gemini (gemini-2.5-flash) → Groq fallback
   Extraction/JSON → Groq only (json_object format not supported on Gemini)
   Streaming       → Groq only (route layer calls brain_svc.aclient directly)
 

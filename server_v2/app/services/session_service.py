@@ -344,21 +344,23 @@ class SessionService:
         self, user_id: str, question: str, answer: str, session_id: str = None,
         is_ephemeral: bool = False,
         model_used: str = None, latency_ms: int = None, tokens_used: int = None,
+        source_screen: str = None,
     ):
         """Log Q&A to consultant_logs and session_logs with full metadata."""
         if not db or is_ephemeral:
             return
         try:
-            db.table("consultant_logs").insert(
-                {
-                    "user_id": user_id,
-                    "question": question,
-                    "answer": answer,
-                    "query": question,
-                    "response": answer,
-                    "session_id": session_id,
-                }
-            ).execute()
+            row = {
+                "user_id": user_id,
+                "question": question,
+                "answer": answer,
+                "query": question,
+                "response": answer,
+                "session_id": session_id,
+            }
+            if source_screen:
+                row["source_screen"] = source_screen
+            db.table("consultant_logs").insert(row).execute()
             if session_id:
                 self.log_message(session_id, "user", question)
                 self.log_message(

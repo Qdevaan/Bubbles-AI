@@ -102,8 +102,8 @@ class SessionsService {
     final table = isConsultant ? 'consultant_logs' : 'session_logs';
     final data = await _client
         .from(table)
-        .select(isConsultant 
-            ? 'id, user_id, session_id, query, question, response, answer, created_at'
+        .select(isConsultant
+            ? 'id, user_id, session_id, query, question, response, answer, source_screen, created_at'
             : 'id, session_id, turn_index, role, content, created_at, speaker_label')
         .eq('session_id', sessionId)
         .order('created_at', ascending: true);

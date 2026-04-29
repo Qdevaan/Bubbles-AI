@@ -1096,3 +1096,6 @@ create index if not exists idx_xp_transactions_period
 ALTER TABLE achievements 
   ADD COLUMN IF NOT EXISTS code TEXT UNIQUE,
   ADD COLUMN IF NOT EXISTS tier TEXT;
+
+ALTER TABLE consultant_logs
+  ADD COLUMN IF NOT EXISTS source_screen text;

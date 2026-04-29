@@ -103,8 +103,11 @@ class ConsultantProvider extends ChangeNotifier {
         _currentSessionId = sessionId;
         for (final r in rows) {
           final q = (r['question'] as String?) ?? (r['query'] as String?);
+          final sourceScreen = r['source_screen'] as String?;
           if (q != null) {
-            _messages.add({"role": "user", "text": q});
+            final msg = <String, String>{"role": "user", "text": q};
+            if (sourceScreen != null) msg['source_screen'] = sourceScreen;
+            _messages.add(msg);
           }
           final a = (r['answer'] as String?) ?? (r['response'] as String?);
           if (a != null) {

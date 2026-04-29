@@ -832,21 +832,29 @@ class ApiService {
   // --- 15. GRAPH QUERY ENGINE ---
   /// Sends a natural language question about a graph entity/topic and returns
   /// the AI answer and session_id. Used by graph quick-reference and query bar.
-  Future<Map<String, dynamic>> askGraphQuery(String userId, String query, {String? sessionId}) async {
+  Future<Map<String, dynamic>> askGraphQuery(
+    String userId,
+    String query, {
+    String? sessionId,
+    List<Map<String, dynamic>>? graphEntities,
+  }) async {
     if (!_connectionService.isConnected) {
       return {'answer': 'Server is offline. Connect to get AI insights.', 'session_id': null};
     }
     try {
+      final body = <String, dynamic>{
+        'user_id': userId,
+        'question': query,
+        'session_id': sessionId,
+        'context': 'knowledge_graph',
+        if (graphEntities != null && graphEntities.isNotEmpty)
+          'graph_entities': graphEntities,
+      };
       final res = await http
           .post(
             Uri.parse('$_baseUrl/v1/ask'),
             headers: await _authHeaders(),
-            body: jsonEncode({
-              'user_id': userId,
-              'question': query,
-              'session_id': sessionId,
-              'context': 'knowledge_graph',
-            }),
+            body: jsonEncode(body),
           )
           .timeout(const Duration(seconds: 20));
       if (res.statusCode == 200) {
