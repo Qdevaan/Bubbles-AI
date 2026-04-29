@@ -720,7 +720,7 @@ class _ConsultantScreenState extends State<ConsultantScreen>
                   itemCount: chat.pastChats.length,
                   itemBuilder: (_, i) {
                     final c = chat.pastChats[i];
-                    final sid = c['session_id'] as String;
+                    final sid = (c['id'] ?? '') as String;
                     final isActive = sid == chat.currentSessionId;
                     return ChatHistoryTile(
                       title: _chatTitle(c),
