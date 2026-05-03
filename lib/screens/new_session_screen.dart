@@ -1,4 +1,4 @@
-﻿import 'dart:math';
+import 'dart:math';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -32,12 +32,10 @@ class _NewSessionScreenState extends State<NewSessionScreen>
     with TickerProviderStateMixin {
   final ScrollController _scrollController = ScrollController();
 
-  // Section 5: Settings
+  // Pre-session settings
   bool _isIncognito = false;
-  bool _isMultiplayer = false;
   String _selectedPersona = 'casual';
   bool _toneInitialized = false;
-  final TextEditingController _roomNameController = TextEditingController();
 
   // Animations (local only)
   late AnimationController _pulseController;
@@ -66,7 +64,10 @@ class _NewSessionScreenState extends State<NewSessionScreen>
   void didChangeDependencies() {
     super.didChangeDependencies();
     if (!_toneInitialized) {
-      _selectedPersona = context.read<SettingsProvider>().defaultLiveTone;
+      final defaultTone = context.read<SettingsProvider>().defaultLiveTone;
+      // Normalise: only accept tones we support in the UI
+      const supported = ['casual', 'semi-formal', 'formal'];
+      _selectedPersona = supported.contains(defaultTone) ? defaultTone : 'casual';
       _toneInitialized = true;
     }
   }
@@ -82,94 +83,15 @@ class _NewSessionScreenState extends State<NewSessionScreen>
     }
   }
 
-  Future<bool> _pickLiveMode() async {
-    final settings = context.read<SettingsProvider>();
-    String selected = _selectedPersona;
-    bool setAsDefault = false;
-    final result = await showDialog<bool>(
-      context: context,
-      builder: (ctx) {
-        final isDark = Theme.of(context).brightness == Brightness.dark;
-        return StatefulBuilder(
-          builder: (ctx, setModal) => GlassDialog(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Choose Live Session Mode',
-                  style: GoogleFonts.manrope(
-                    fontSize: 17,
-                    fontWeight: FontWeight.w800,
-                    color: isDark ? Colors.white : AppColors.slate900,
-                  ),
-                ),
-                const SizedBox(height: 10),
-                ...const ['formal', 'semi-formal', 'casual'].map((tone) {
-                  return RadioListTile<String>(
-                    value: tone,
-                    groupValue: selected,
-                    onChanged: (v) {
-                      if (v == null) return;
-                      setModal(() => selected = v);
-                    },
-                    contentPadding: EdgeInsets.zero,
-                    activeColor: Theme.of(context).colorScheme.primary,
-                    title: Text(
-                      _toneLabel(tone),
-                      style: GoogleFonts.manrope(
-                        fontWeight: FontWeight.w600,
-                        color: isDark ? Colors.white : AppColors.slate900,
-                      ),
-                    ),
-                  );
-                }),
-                CheckboxListTile(
-                  value: setAsDefault,
-                  onChanged: (v) => setModal(() => setAsDefault = v ?? false),
-                  contentPadding: EdgeInsets.zero,
-                  controlAffinity: ListTileControlAffinity.leading,
-                  title: Text(
-                    'Set as default',
-                    style: GoogleFonts.manrope(
-                      fontSize: 13,
-                      color: isDark ? AppColors.slate300 : AppColors.slate700,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(ctx, false),
-                      child: const Text('Cancel'),
-                    ),
-                    const SizedBox(width: 8),
-                    FilledButton(
-                      onPressed: () => Navigator.pop(ctx, true),
-                      child: const Text('Start'),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-    if (result == true) {
-      if (setAsDefault) {
-        await settings.setDefaultLiveTone(selected);
-        await settings.setAlwaysPromptForTone(false);
-      }
-      setState(() => _selectedPersona = selected);
-      if (_session.isSessionActive) {
-        _session.changeLiveTone(selected);
-      }
-      return true;
+  IconData _toneIcon(String tone) {
+    switch (tone) {
+      case 'formal':
+        return Icons.work_outline_rounded;
+      case 'semi-formal':
+        return Icons.handshake_outlined;
+      default:
+        return Icons.sentiment_satisfied_rounded;
     }
-    return false;
   }
 
   @override
@@ -178,7 +100,6 @@ class _NewSessionScreenState extends State<NewSessionScreen>
     deepgram.removeListener(_onDeepgramUpdate);
     deepgram.disconnect();
     _scrollController.dispose();
-    _roomNameController.dispose();
     _pulseController.dispose();
     _blobController.dispose();
     super.dispose();
@@ -352,8 +273,6 @@ class _NewSessionScreenState extends State<NewSessionScreen>
 
           await FeedbackDialog.show(context, sessionId: completedSessionId);
 
-          await FeedbackDialog.show(context, sessionId: completedSessionId);
-
           if (mounted) {
             if (completedSessionId != null) {
               Navigator.pop(context); // Close new session screen
@@ -379,11 +298,6 @@ class _NewSessionScreenState extends State<NewSessionScreen>
         }
       }
     } else {
-      final settings = context.read<SettingsProvider>();
-      if (settings.alwaysPromptForTone) {
-        final selected = await _pickLiveMode();
-        if (!selected) return;
-      }
       final serverUrl = context.read<ConnectionService>().serverUrl;
       final jwt = Supabase.instance.client.auth.currentSession?.accessToken ?? '';
       await _session.startSession(
@@ -392,7 +306,6 @@ class _NewSessionScreenState extends State<NewSessionScreen>
         targetEntityId: targetEntityId,
         tone: _selectedPersona,
         isEphemeral: _isIncognito,
-        isMultiplayer: _isMultiplayer,
         serverUrl: serverUrl,
         jwt: jwt,
       );
@@ -509,29 +422,7 @@ class _NewSessionScreenState extends State<NewSessionScreen>
                   ),
                 ),
               ),
-              Selector<SessionProvider, bool>(
-                selector: (_, s) => s.swapSpeakers,
-                builder: (context, swapSpeakers, _) {
-                  return IconButton(
-                    icon: Icon(
-                      swapSpeakers
-                          ? Icons.swap_horiz_rounded
-                          : Icons.compare_arrows_rounded,
-                      color: isDark ? Colors.white70 : Colors.grey,
-                    ),
-                    tooltip: "Swap Speakers",
-                    onPressed: () {
-                      context.read<SessionProvider>().toggleSwapSpeakers();
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text("Speakers Swapped!"),
-                          duration: Duration(milliseconds: 500),
-                        ),
-                      );
-                    },
-                  );
-                },
-              ),
+              const SizedBox(width: 48),
             ],
           ),
         ),
@@ -867,10 +758,7 @@ class _NewSessionScreenState extends State<NewSessionScreen>
           padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
           child: Row(
             children: [
-              IconButton(
-                onPressed: () {},
-                icon: const Icon(Icons.arrow_back, color: Colors.transparent),
-              ),
+              const SizedBox(width: 48),
               Expanded(
                 child: Center(
                   child: Container(
@@ -909,50 +797,7 @@ class _NewSessionScreenState extends State<NewSessionScreen>
                   ),
                 ),
               ),
-              Selector<SessionProvider, bool>(
-                selector: (_, s) => s.swapSpeakers,
-                builder: (context, swapSpeakers, _) {
-                  return Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      IconButton(
-                        icon: Icon(
-                          Icons.tune_rounded,
-                          color: isDark ? Colors.white70 : Colors.grey,
-                        ),
-                        tooltip: "Change Tone",
-                        onPressed: () async {
-                          final selected = await _pickLiveMode();
-                          if (selected && mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text('Mode set to ${_toneLabel(_selectedPersona)}'),
-                              ),
-                            );
-                          }
-                        },
-                      ),
-                      IconButton(
-                        icon: Icon(
-                          swapSpeakers
-                              ? Icons.swap_horiz_rounded
-                              : Icons.compare_arrows_rounded,
-                          color: isDark ? Colors.white70 : Colors.grey,
-                        ),
-                        onPressed: () {
-                          context.read<SessionProvider>().toggleSwapSpeakers();
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text("Speakers Swapped!"),
-                              duration: Duration(milliseconds: 500),
-                            ),
-                          );
-                        },
-                      ),
-                    ],
-                  );
-                },
-              ),
+              const SizedBox(width: 48),
             ],
           ),
         ),
@@ -1044,96 +889,9 @@ class _NewSessionScreenState extends State<NewSessionScreen>
               ),
               child: Column(
             children: [
-              // Suggestion box
-              Selector<SessionProvider, (bool, String)>(
-                selector: (_, s) => (s.realtimeLost, s.currentSuggestion),
-                builder: (context, data, _) {
-                  final (realtimeLost, currentSuggestion) = data;
-                  final isIdle = currentSuggestion == "Listening..." || currentSuggestion == "Connecting to Deepgram...";
-                  
-                  return AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 300),
-                    transitionBuilder: (child, animation) => FadeTransition(
-                      opacity: animation,
-                      child: SlideTransition(
-                        position: Tween<Offset>(
-                          begin: const Offset(0, 0.2),
-                          end: Offset.zero,
-                        ).animate(animation),
-                        child: child,
-                      ),
-                    ),
-                    child: isIdle
-                        ? const SizedBox.shrink(key: ValueKey('idle'))
-                        : Container(
-                            key: const ValueKey('insight'),
-                            width: double.infinity,
-                            padding: const EdgeInsets.all(16),
-                            margin: const EdgeInsets.only(bottom: 20),
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                colors: [
-                                  Theme.of(context).colorScheme.primary.withAlpha(isDark ? 40 : 20),
-                                  Theme.of(context).colorScheme.secondary.withAlpha(isDark ? 20 : 10),
-                                ],
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                              ),
-                              borderRadius: BorderRadius.circular(AppRadius.xxl),
-                              border: Border.all(
-                                color: Theme.of(context).colorScheme.primary.withAlpha(50),
-                              ),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Theme.of(context).colorScheme.primary.withAlpha(20),
-                                  blurRadius: 16,
-                                  spreadRadius: 2,
-                                  offset: const Offset(0, 4),
-                                )
-                              ],
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  children: [
-                                    Icon(
-                                      Icons.auto_awesome,
-                                      size: 16,
-                                      color: Theme.of(context).colorScheme.primary,
-                                    ),
-                                    const SizedBox(width: 6),
-                                    Text(
-                                      'LIVE INSIGHT',
-                                      style: GoogleFonts.manrope(
-                                        color: Theme.of(context).colorScheme.primary,
-                                        fontWeight: FontWeight.w800,
-                                        fontSize: 12,
-                                        letterSpacing: 1.2,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 10),
-                                ConstrainedBox(
-                                  constraints: BoxConstraints(
-                                    maxHeight: MediaQuery.of(context).size.height * 0.25,
-                                  ),
-                                  child: SingleChildScrollView(
-                                    physics: const BouncingScrollPhysics(),
-                                    child: _buildAdviceContent(
-                                      isDark,
-                                      realtimeLost: realtimeLost,
-                                      currentSuggestion: currentSuggestion,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                  );
-                },
-              ),
+              // ── Teleprompter Panel ───────────────────────────────────────
+              _TeleprompterPanel(isDark: isDark),
+
 
               // Controls
               Selector<SessionProvider, bool>(
@@ -1318,10 +1076,11 @@ class _NewSessionScreenState extends State<NewSessionScreen>
   }
 
   void _showTonePicker(BuildContext context, bool isDark, String currentTone) {
-    final tones = [
-      {'id': 'casual', 'title': 'Casual & Friendly', 'icon': Icons.sentiment_satisfied_rounded},
-      {'id': 'formal', 'title': 'Formal & Professional', 'icon': Icons.work_outline_rounded},
-      {'id': 'direct', 'title': 'Direct & Concise', 'icon': Icons.bolt_rounded},
+    // Tones must match the pre-session dropdown and backend expectations
+    const tones = [
+      {'id': 'casual', 'title': 'Casual & Friendly'},
+      {'id': 'semi-formal', 'title': 'Semi-Formal'},
+      {'id': 'formal', 'title': 'Formal & Professional'},
     ];
 
     showModalBottomSheet(
@@ -1329,7 +1088,7 @@ class _NewSessionScreenState extends State<NewSessionScreen>
       backgroundColor: Colors.transparent,
       builder: (ctx) {
         return Container(
-          padding: const EdgeInsets.all(24),
+          padding: const EdgeInsets.fromLTRB(24, 20, 24, 8),
           decoration: BoxDecoration(
             color: isDark ? const Color(0xFF1E293B) : Colors.white,
             borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
@@ -1338,39 +1097,64 @@ class _NewSessionScreenState extends State<NewSessionScreen>
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
+                // Handle bar
+                Container(
+                  width: 36,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 16),
+                  decoration: BoxDecoration(
+                    color: isDark ? AppColors.slate600 : Colors.grey.shade300,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
                 Text(
-                  'Change Assistant Tone',
+                  'Assistant Tone',
                   style: GoogleFonts.manrope(
-                    fontSize: 18,
+                    fontSize: 16,
                     fontWeight: FontWeight.w700,
                     color: isDark ? Colors.white : AppColors.slate900,
                   ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 12),
                 ...tones.map((tone) {
-                  final isSelected = currentTone == tone['id'];
+                  final id = tone['id']!;
+                  final title = tone['title']!;
+                  final isSelected = currentTone == id;
                   return ListTile(
-                    leading: Icon(tone['icon'] as IconData, color: isSelected ? Theme.of(context).colorScheme.primary : (isDark ? AppColors.slate400 : AppColors.slate500)),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+                    leading: Icon(
+                      _toneIcon(id),
+                      color: isSelected
+                          ? Theme.of(context).colorScheme.primary
+                          : (isDark ? AppColors.slate400 : AppColors.slate500),
+                    ),
                     title: Text(
-                      tone['title'] as String,
+                      title,
                       style: GoogleFonts.manrope(
                         fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                        color: isSelected ? Theme.of(context).colorScheme.primary : (isDark ? Colors.white : AppColors.slate900),
+                        color: isSelected
+                            ? Theme.of(context).colorScheme.primary
+                            : (isDark ? Colors.white : AppColors.slate900),
                       ),
                     ),
-                    trailing: isSelected ? Icon(Icons.check_circle_rounded, color: Theme.of(context).colorScheme.primary) : null,
+                    trailing: isSelected
+                        ? Icon(Icons.check_circle_rounded,
+                            color: Theme.of(context).colorScheme.primary)
+                        : null,
                     onTap: () {
-                      context.read<SessionProvider>().changeLiveTone(tone['id'] as String);
+                      setState(() => _selectedPersona = id);
+                      context.read<SessionProvider>().changeLiveTone(id);
                       Navigator.pop(ctx);
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
-                          content: Text('Tone changed to ${tone['title']}'),
-                          duration: const Duration(milliseconds: 800),
+                          content: Text('Tone: $_selectedPersona'),
+                          duration: const Duration(milliseconds: 600),
                         ),
                       );
                     },
                   );
                 }),
+                const SizedBox(height: 8),
               ],
             ),
           ),
@@ -1379,14 +1163,364 @@ class _NewSessionScreenState extends State<NewSessionScreen>
     );
   }
 
-  Widget _buildAdviceContent(
-    bool isDark, {
-    required bool realtimeLost,
-    required String currentSuggestion,
-  }) {
-    if (realtimeLost) {
-      return Container(
-        padding: const EdgeInsets.all(12),
+
+  // ========================
+  // PRE-SESSION SETTINGS
+  // ========================
+  Widget _buildSection5Settings(bool isDark) {
+    const tones = ['casual', 'semi-formal', 'formal'];
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // ── Tone chips ──────────────────────────────
+          Text(
+            'Conversation Mode',
+            style: GoogleFonts.manrope(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: isDark ? AppColors.slate400 : AppColors.slate500,
+              letterSpacing: 0.8,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: tones.map((tone) {
+              final isSelected = _selectedPersona == tone;
+              return Expanded(
+                child: GestureDetector(
+                  onTap: () => setState(() => _selectedPersona = tone),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    margin: const EdgeInsets.symmetric(horizontal: 4),
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(12),
+                      color: isSelected
+                          ? Theme.of(context).colorScheme.primary
+                          : (isDark
+                              ? AppColors.glassWhite
+                              : Colors.grey.shade100),
+                      border: Border.all(
+                        color: isSelected
+                            ? Theme.of(context).colorScheme.primary
+                            : Colors.transparent,
+                      ),
+                    ),
+                    child: Column(
+                      children: [
+                        Icon(
+                          _toneIcon(tone),
+                          size: 20,
+                          color: isSelected
+                              ? Colors.white
+                              : (isDark ? AppColors.slate400 : AppColors.slate500),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          _toneLabel(tone),
+                          style: GoogleFonts.manrope(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: isSelected
+                                ? Colors.white
+                                : (isDark ? AppColors.slate300 : AppColors.slate700),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+          const SizedBox(height: 16),
+
+          // ── Incognito toggle ────────────────────────
+          GestureDetector(
+            onTap: () => setState(() => _isIncognito = !_isIncognito),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(12),
+                color: _isIncognito
+                    ? AppColors.warning.withAlpha(30)
+                    : (isDark ? AppColors.glassWhite : Colors.grey.shade100),
+                border: Border.all(
+                  color: _isIncognito
+                      ? AppColors.warning.withAlpha(120)
+                      : Colors.transparent,
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    _isIncognito ? Icons.visibility_off : Icons.visibility_off_outlined,
+                    size: 20,
+                    color: _isIncognito
+                        ? AppColors.warning
+                        : (isDark ? AppColors.slate400 : AppColors.slate500),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Incognito Session',
+                          style: GoogleFonts.manrope(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 13,
+                            color: _isIncognito
+                                ? AppColors.warning
+                                : (isDark ? Colors.white : AppColors.slate900),
+                          ),
+                        ),
+                        Text(
+                          'Not saved to memory',
+                          style: GoogleFonts.manrope(
+                            fontSize: 11,
+                            color: isDark ? AppColors.slate400 : AppColors.slate500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Switch(
+                    value: _isIncognito,
+                    onChanged: (v) => setState(() => _isIncognito = v),
+                    activeColor: AppColors.warning,
+                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ============================================================================
+//  TELEPROMPTER PANEL
+//  Stacks AI coaching responses bottom-to-top. Auto-scrolls to the newest
+//  entry; user can freely scroll up to review all previous responses.
+// ============================================================================
+class _TeleprompterPanel extends StatefulWidget {
+  final bool isDark;
+  const _TeleprompterPanel({required this.isDark});
+
+  @override
+  State<_TeleprompterPanel> createState() => _TeleprompterPanelState();
+}
+
+class _TeleprompterPanelState extends State<_TeleprompterPanel> {
+  final ScrollController _scroll = ScrollController();
+  int _lastCount = 0;
+  bool _userScrolled = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _scroll.addListener(_onScroll);
+  }
+
+  @override
+  void dispose() {
+    _scroll.removeListener(_onScroll);
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (!_scroll.hasClients) return;
+    final atBottom = _scroll.offset >= _scroll.position.maxScrollExtent - 8;
+    if (atBottom && _userScrolled) {
+      setState(() => _userScrolled = false);
+    } else if (!atBottom) {
+      _userScrolled = true;
+    }
+  }
+
+  void _scrollToBottom() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_scroll.hasClients && !_userScrolled) {
+        _scroll.animateTo(
+          _scroll.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 350),
+          curve: Curves.easeOut,
+        );
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Selector<SessionProvider,
+        ({List<String> history, bool realtimeLost, String current})>(
+      selector: (_, s) => (
+        history: s.adviceHistory,
+        realtimeLost: s.realtimeLost,
+        current: s.currentSuggestion,
+      ),
+      builder: (context, data, _) {
+        final history = data.history;
+        final realtimeLost = data.realtimeLost;
+        final current = data.current;
+
+        // Auto-scroll when new items arrive
+        if (history.length != _lastCount) {
+          _lastCount = history.length;
+          _scrollToBottom();
+        }
+
+        // Determine idle state — no panel shown until first advice
+        final isIdle = history.isEmpty &&
+            (current == 'Listening...' ||
+                current == 'Connecting to Deepgram...' ||
+                current == 'Thinking...' ||
+                current.startsWith('Tap Start'));
+
+        if (isIdle && !realtimeLost) return const SizedBox.shrink();
+
+        final primary = Theme.of(context).colorScheme.primary;
+        final isDark = widget.isDark;
+
+        return Container(
+          width: double.infinity,
+          margin: const EdgeInsets.only(bottom: 16),
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(context).size.height * 0.28,
+          ),
+          decoration: BoxDecoration(
+            color: isDark
+                ? AppColors.backgroundDark.withAlpha(180)
+                : Colors.white.withAlpha(200),
+            borderRadius: BorderRadius.circular(AppRadius.xxl),
+            border: Border.all(
+              color: primary.withAlpha(isDark ? 50 : 30),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: primary.withAlpha(15),
+                blurRadius: 12,
+                spreadRadius: 1,
+                offset: const Offset(0, 3),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header
+              Padding(
+                padding: const EdgeInsets.fromLTRB(14, 12, 14, 8),
+                child: Row(
+                  children: [
+                    Icon(Icons.auto_awesome, size: 14, color: primary),
+                    const SizedBox(width: 6),
+                    Text(
+                      'BUBBLES',
+                      style: GoogleFonts.manrope(
+                        color: primary,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 11,
+                        letterSpacing: 1.4,
+                      ),
+                    ),
+                    const Spacer(),
+                    if (history.length > 1)
+                      Text(
+                        '${history.length} hints',
+                        style: GoogleFonts.manrope(
+                          fontSize: 10,
+                          color: isDark ? AppColors.slate500 : AppColors.slate400,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    if (_userScrolled) ...[
+                      const SizedBox(width: 8),
+                      GestureDetector(
+                        onTap: () {
+                          setState(() => _userScrolled = false);
+                          _scroll.animateTo(
+                            _scroll.position.maxScrollExtent,
+                            duration: const Duration(milliseconds: 300),
+                            curve: Curves.easeOut,
+                          );
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: primary.withAlpha(30),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.arrow_downward_rounded,
+                                  size: 11, color: primary),
+                              const SizedBox(width: 3),
+                              Text(
+                                'Latest',
+                                style: GoogleFonts.manrope(
+                                  fontSize: 10,
+                                  color: primary,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              Divider(height: 1, color: primary.withAlpha(isDark ? 30 : 20)),
+
+              // Scrollable history list
+              Flexible(
+                child: realtimeLost && history.isEmpty
+                    ? _buildRealtimeLostCard(isDark, primary)
+                    : ListView.builder(
+                        controller: _scroll,
+                        shrinkWrap: true,
+                        padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+                        itemCount: history.length + (realtimeLost ? 1 : 0),
+                        itemBuilder: (context, i) {
+                          if (realtimeLost && i == history.length) {
+                            return _buildRealtimeLostCard(isDark, primary);
+                          }
+                          final isLatest = i == history.length - 1;
+                          return _TeleprompterEntry(
+                            text: history[i],
+                            index: i + 1,
+                            isLatest: isLatest,
+                            isDark: isDark,
+                            primary: primary,
+                          );
+                        },
+                      ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildRealtimeLostCard(bool isDark, Color primary) {
+    return Padding(
+      padding: const EdgeInsets.all(10),
+      child: Container(
+        padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
           color: AppColors.error.withAlpha(20),
           borderRadius: BorderRadius.circular(AppRadius.md),
@@ -1394,20 +1528,14 @@ class _NewSessionScreenState extends State<NewSessionScreen>
         ),
         child: Row(
           children: [
-            const Icon(
-              Icons.cloud_off_rounded,
-              color: AppColors.error,
-              size: 18,
-            ),
-            const SizedBox(width: 10),
+            const Icon(Icons.cloud_off_rounded,
+                color: AppColors.error, size: 16),
+            const SizedBox(width: 8),
             Expanded(
               child: Text(
-                'Live updates stopped. Tap Retry to fetch response via HTTP.',
+                'Live updates stopped.',
                 style: GoogleFonts.manrope(
-                  fontSize: 12,
-                  color: AppColors.error,
-                  height: 1.4,
-                ),
+                    fontSize: 12, color: AppColors.error, height: 1.4),
               ),
             ),
             TextButton(
@@ -1417,195 +1545,125 @@ class _NewSessionScreenState extends State<NewSessionScreen>
               },
               style: TextButton.styleFrom(
                 foregroundColor: AppColors.error,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 4,
-                ),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                minimumSize: Size.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
               ),
-              child: Text(
-                'Retry',
-                style: GoogleFonts.manrope(
-                  fontWeight: FontWeight.w700,
-                  fontSize: 13,
-                ),
-              ),
+              child: Text('Retry',
+                  style: GoogleFonts.manrope(
+                      fontWeight: FontWeight.w700, fontSize: 12)),
             ),
           ],
         ),
-      );
-    }
-
-    final suggestion = currentSuggestion;
-
-    if (suggestion.contains("**Context-Based Advice:**")) {
-      List<Widget> sections = [];
-
-      final adviceMatch = RegExp(
-        r"\*\*Context-Based Advice:\*\*\s*(.*?)(?=(?:\d+\.?\s*)?\*\*Clarification Request:|(?:\d+\.?\s*)?\*\*Apology & Confirmation.*?:?\*\*|$)",
-        dotAll: true,
-      ).firstMatch(suggestion);
-      final clarificationMatch = RegExp(
-        r"\*\*Clarification Request:\*\*\s*(.*?)(?=(?:\d+\.?\s*)?\*\*Apology & Confirmation.*?:?\*\*|$)",
-        dotAll: true,
-      ).firstMatch(suggestion);
-      final apologyMatch = RegExp(
-        r"\*\*Apology & Confirmation.*?:?\*\*\s*(.*)",
-        dotAll: true,
-      ).firstMatch(suggestion);
-
-      if (adviceMatch != null && adviceMatch.group(1)!.trim().isNotEmpty) {
-        sections.add(
-          SessionSectionCard(
-            title: "ADVICE",
-            content: adviceMatch.group(1)!.trim(),
-            bg: AppColors.success.withAlpha(38),
-            fg: AppColors.success,
-            icon: Icons.lightbulb_outline,
-            isDark: isDark,
-          ),
-        );
-      }
-      if (clarificationMatch != null &&
-          clarificationMatch.group(1)!.trim().isNotEmpty) {
-        sections.add(
-          SessionSectionCard(
-            title: "CLARIFICATION",
-            content: clarificationMatch.group(1)!.trim(),
-            bg: AppColors.warning.withAlpha(38),
-            fg: AppColors.warning,
-            icon: Icons.help_outline,
-            isDark: isDark,
-          ),
-        );
-      }
-      if (apologyMatch != null && apologyMatch.group(1)!.trim().isNotEmpty) {
-        sections.add(
-          SessionSectionCard(
-            title: "CONFIRMATION",
-            content: apologyMatch.group(1)!.trim(),
-            bg: Theme.of(context).colorScheme.primary.withAlpha(38),
-            fg: Theme.of(context).colorScheme.primary,
-            icon: Icons.info_outline,
-            isDark: isDark,
-          ),
-        );
-      }
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: sections,
-      );
-    }
-
-    return Text(
-      suggestion,
-      style: GoogleFonts.manrope(
-        color: isDark ? AppColors.slate200 : AppColors.slate900,
-        fontSize: 15,
-        height: 1.5,
-        fontWeight: FontWeight.w500,
       ),
     );
   }
+}
 
-  // ========================
-  // SECTION 5: ADVANCED SETTINGS UI
-  // ========================
-  Widget _buildSection5Settings(bool isDark) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
-      child: Column(
+// ── Single teleprompter entry ─────────────────────────────────────────────────
+class _TeleprompterEntry extends StatelessWidget {
+  final String text;
+  final int index;
+  final bool isLatest;
+  final bool isDark;
+  final Color primary;
+
+  const _TeleprompterEntry({
+    required this.text,
+    required this.index,
+    required this.isLatest,
+    required this.isDark,
+    required this.primary,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 300),
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        gradient: isLatest
+            ? LinearGradient(
+                colors: [
+                  primary.withAlpha(isDark ? 45 : 22),
+                  primary.withAlpha(isDark ? 20 : 10),
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              )
+            : null,
+        color: isLatest
+            ? null
+            : (isDark
+                ? Colors.white.withAlpha(6)
+                : Colors.black.withAlpha(4)),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: isLatest
+              ? primary.withAlpha(isDark ? 60 : 35)
+              : (isDark
+                  ? Colors.white.withAlpha(12)
+                  : Colors.black.withAlpha(8)),
+          width: isLatest ? 1.2 : 0.8,
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Persona Selection
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  "Conversation Mode",
-                  style: GoogleFonts.manrope(
-                    fontWeight: FontWeight.w600,
-                    color: isDark ? Colors.white : AppColors.slate900,
-                  ),
+          // Sequence dot
+          Container(
+            width: 18,
+            height: 18,
+            margin: const EdgeInsets.only(top: 1, right: 8),
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: isLatest
+                  ? primary.withAlpha(isDark ? 80 : 50)
+                  : (isDark
+                      ? Colors.white.withAlpha(15)
+                      : Colors.black.withAlpha(10)),
+            ),
+            child: Center(
+              child: Text(
+                '$index',
+                style: GoogleFonts.manrope(
+                  fontSize: 9,
+                  fontWeight: FontWeight.w800,
+                  color: isLatest
+                      ? primary
+                      : (isDark ? AppColors.slate400 : AppColors.slate500),
                 ),
               ),
-              DropdownButton<String>(
-                value: _selectedPersona,
-                items: ['formal', 'semi-formal', 'casual']
-                    .map((tone) => DropdownMenuItem(
-                          value: tone,
-                          child: Text(
-                            _toneLabel(tone),
-                            style: GoogleFonts.manrope(fontSize: 12),
-                          ),
-                        ))
-                    .toList(),
-                onChanged: (val) {
-                  if (val != null) setState(() => _selectedPersona = val);
-                },
-                dropdownColor: isDark ? const Color(0xFF1E293B) : Colors.white,
-                underline: const SizedBox(),
-                icon: const Icon(Icons.keyboard_arrow_down, size: 16),
-              ),
-            ],
+            ),
           ),
-          
-          // Incognito / Ephemeral Mode
-          SwitchListTile(
-            title: Text(
-              "Incognito Session",
+          Expanded(
+            child: Text(
+              text,
               style: GoogleFonts.manrope(
-                fontWeight: FontWeight.w600,
-                color: isDark ? Colors.white : AppColors.slate900,
+                fontSize: isLatest ? 14.5 : 13,
+                fontWeight:
+                    isLatest ? FontWeight.w600 : FontWeight.w400,
+                color: isLatest
+                    ? (isDark ? Colors.white : AppColors.slate900)
+                    : (isDark ? AppColors.slate400 : AppColors.slate500),
+                height: 1.5,
               ),
             ),
-            subtitle: Text(
-              "Session will not be saved to DB or Memory",
-              style: GoogleFonts.manrope(fontSize: 11, color: Colors.grey),
-            ),
-            value: _isIncognito,
-            onChanged: (val) => setState(() => _isIncognito = val),
-            activeColor: AppColors.primary,
-            contentPadding: EdgeInsets.zero,
           ),
-          
-          // Multiplayer Mode
-          SwitchListTile(
-            title: Text(
-              "Multiplayer / Co-Pilot",
-              style: GoogleFonts.manrope(
-                fontWeight: FontWeight.w600,
-                color: isDark ? Colors.white : AppColors.slate900,
-              ),
-            ),
-            subtitle: Text(
-              "Add others to this LiveKit room",
-              style: GoogleFonts.manrope(fontSize: 11, color: Colors.grey),
-            ),
-            value: _isMultiplayer,
-            onChanged: (val) => setState(() => _isMultiplayer = val),
-            activeColor: AppColors.primary,
-            contentPadding: EdgeInsets.zero,
-          ),
-          
-          // Show room name input only if multiplayer
-          if (_isMultiplayer)
-            Padding(
-              padding: const EdgeInsets.only(top: 8.0, bottom: 8.0),
-              child: TextField(
-                controller: _roomNameController,
-                decoration: InputDecoration(
-                  labelText: 'Shared Room Name (optional)',
-                  hintText: 'e.g. sales-call-123',
-                  labelStyle: GoogleFonts.manrope(fontSize: 12),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  isDense: true,
-                ),
-                style: GoogleFonts.manrope(fontSize: 14),
+          if (isLatest)
+            Container(
+              margin: const EdgeInsets.only(left: 6, top: 2),
+              width: 6,
+              height: 6,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: primary,
               ),
             ),
         ],
       ),
     );
-  }}
-
+  }
+}

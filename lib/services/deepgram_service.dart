@@ -23,7 +23,7 @@ class DeepgramService extends ChangeNotifier {
   String get currentSpeaker => _currentSpeaker;
 
   // Recording state
-  final BytesBuilder _audioBuffer = BytesBuilder(copy: false);
+  final BytesBuilder _audioBuffer = BytesBuilder(copy: true);
   final List<Map<String, dynamic>> _fullTranscript = [];
   double _audioElapsed = 0.0; // seconds of audio recorded so far
   String? _lastSavedAudioPath;
@@ -89,6 +89,11 @@ class DeepgramService extends ChangeNotifier {
       _fullTranscript.clear();
       _audioElapsed = 0.0;
       _isMuted = false;
+
+      // Cancel any leftover subscription before starting a new one
+      await _audioStreamSubscription?.cancel();
+      _audioStreamSubscription = null;
+
       _audioStreamSubscription = stream.listen((data) {
         if (!_isMuted) {
           _channel?.sink.add(data);
@@ -128,10 +133,14 @@ class DeepgramService extends ChangeNotifier {
           if (transcript.trim().isNotEmpty && data['is_final'] == true) {
             int speakerId = 0;
             double startSec = (data['start'] as num?)?.toDouble() ?? _audioElapsed;
-            if (alt['words'] != null && (alt['words'] as List).isNotEmpty) {
-              final firstWord = alt['words'][0] as Map;
+            final words = alt['words'] as List?;
+            if (words != null && words.isNotEmpty) {
+              final firstWord = words[0] as Map;
               speakerId = firstWord['speaker'] as int? ?? 0;
               startSec = (firstWord['start'] as num?)?.toDouble() ?? startSec;
+              debugPrint("🔍 Deepgram words sample: speaker=${firstWord['speaker']}, word=${firstWord['word']}");
+            } else {
+              debugPrint("⚠️ Deepgram: words array is null/empty — diarization data missing, defaulting to speakerId=0");
             }
             _audioElapsed = startSec + ((data['duration'] as num?)?.toDouble() ?? 0);
 
@@ -144,7 +153,7 @@ class DeepgramService extends ChangeNotifier {
               'start': startSec,
             });
 
-            debugPrint("🗣️ Deepgram: [$_currentSpeaker] $transcript");
+            debugPrint("🗣️ Deepgram: [speakerId=$speakerId → $_currentSpeaker] $transcript");
             notifyListeners();
           }
         }

@@ -25,6 +25,7 @@ _DEEPGRAM_STT_URL = (
     "wss://api.deepgram.com/v1/listen"
     "?smart_format=true&diarize=true&model=nova-2"
     "&encoding=linear16&sample_rate=16000&channels=1"
+    "&words=true"
 )
 _DEEPGRAM_TTS_URL = "https://api.deepgram.com/v1/speak?model=aura-orpheus-en"
 

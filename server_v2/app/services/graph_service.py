@@ -105,9 +105,8 @@ class GraphService:
                     for score, node in zip(scores, G.nodes())
                     if score >= threshold
                 }
-                if not nodes_found:
-                    ranked = sorted(zip(scores, G.nodes()), reverse=True)
-                    nodes_found = {node for _, node in ranked[:3]}
+                # If nothing crosses the threshold, return empty \u2014 don't force
+                # low-similarity nodes into the context (avoids irrelevant facts).
             except Exception as e:
                 print(f"⚠️ GraphService: Semantic search failed, falling back: {e}")
                 nodes_found = self._keyword_nodes(G, text)

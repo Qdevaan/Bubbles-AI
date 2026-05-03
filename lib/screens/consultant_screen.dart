@@ -923,12 +923,30 @@ class _ConsultantScreenState extends State<ConsultantScreen>
                           prev.messages.length != next.messages.length ||
                           (next.messages.isNotEmpty &&
                               prev.messages.isNotEmpty &&
-                              prev.messages.last['text'] != next.messages.last['text']),
-                      builder: (context, data, _) => Stack(
-                      children: [
-                        data.loadingChat
-                            ? const Center(child: CircularProgressIndicator())
-                            : ListView.builder(
+                              (prev.messages.last['text'] != next.messages.last['text'] ||
+                               prev.messages.last['streaming'] != next.messages.last['streaming'])),
+                      builder: (context, data, _) {
+                        // Find the last AI message for the teleprompter
+                        Map<String, String>? lastAiMsg;
+                        for (int i = data.messages.length - 1; i >= 0; i--) {
+                          if (data.messages[i]['role'] == 'ai') {
+                            lastAiMsg = data.messages[i];
+                            break;
+                          }
+                        }
+
+                        return Stack(
+                          children: [
+                            if (data.loadingChat)
+                              const Center(child: CircularProgressIndicator())
+                            else if (_voiceModeActive && lastAiMsg != null)
+                              TeleprompterBubble(
+                                text: lastAiMsg['text'] ?? '',
+                                isDark: isDark,
+                                streaming: lastAiMsg['streaming'] == 'true',
+                              )
+                            else
+                              ListView.builder(
                                 controller: _scrollController,
                                 padding: const EdgeInsets.fromLTRB(
                                   16,
@@ -965,41 +983,42 @@ class _ConsultantScreenState extends State<ConsultantScreen>
                                   );
                                 },
                               ),
-                        if (_showScrollToBottom)
-                          Positioned(
-                            bottom: 16,
-                            right: 16,
-                            child: Semantics(
-                              label: 'Scroll to bottom',
-                              child: GestureDetector(
-                                onTap: _scrollToBottom,
-                                child: Container(
-                                  width: 40,
-                                  height: 40,
-                                  decoration: BoxDecoration(
-                                    color: Theme.of(
-                                      context,
-                                    ).colorScheme.primary,
-                                    shape: BoxShape.circle,
-                                    boxShadow: [
-                                      BoxShadow(
+                            if (_showScrollToBottom && (!_voiceModeActive))
+                              Positioned(
+                                bottom: 16,
+                                right: 16,
+                                child: Semantics(
+                                  label: 'Scroll to bottom',
+                                  child: GestureDetector(
+                                    onTap: _scrollToBottom,
+                                    child: Container(
+                                      width: 40,
+                                      height: 40,
+                                      decoration: BoxDecoration(
                                         color: Theme.of(
                                           context,
-                                        ).colorScheme.primary.withAlpha(77),
-                                        blurRadius: 8,
+                                        ).colorScheme.primary,
+                                        shape: BoxShape.circle,
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: Theme.of(
+                                              context,
+                                            ).colorScheme.primary.withAlpha(77),
+                                            blurRadius: 8,
+                                          ),
+                                        ],
                                       ),
-                                    ],
-                                  ),
-                                  child: const Icon(
-                                    Icons.keyboard_arrow_down,
-                                    color: Colors.white,
+                                      child: const Icon(
+                                        Icons.keyboard_arrow_down,
+                                        color: Colors.white,
+                                      ),
+                                    ),
                                   ),
                                 ),
                               ),
-                            ),
-                          ),
-                      ],
-                    ),
+                          ],
+                        );
+                      },
                   ),
                 ),
 

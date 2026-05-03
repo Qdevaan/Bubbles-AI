@@ -36,6 +36,8 @@ class SessionProvider extends ChangeNotifier {
   bool get realtimeLost => _realtimeLost;
 
   String? _lastTranscriptForRetry;
+  bool _wingmanInFlight = false;      // guard: only one wingman call at a time
+  String? _lastAdviceText;            // dedup: skip Realtime if HTTP already delivered it
 
   final List<Map<String, dynamic>> _sessionLogs = [];
   List<Map<String, dynamic>> get sessionLogs => List.unmodifiable(_sessionLogs);
@@ -46,6 +48,31 @@ class SessionProvider extends ChangeNotifier {
 
   String _currentSuggestion = "Tap Start to begin your Wingman session...";
   String get currentSuggestion => _currentSuggestion;
+
+  // Teleprompter history — all non-idle AI responses for this session
+  final List<String> _adviceHistory = [];
+  List<String> get adviceHistory => List.unmodifiable(_adviceHistory);
+
+  void _setAdvice(String advice) {
+    // Don't surface WAITING or idle system strings to the user
+    final idle = [
+      'WAITING', 'Listening...', 'Connecting to Deepgram...',
+      'Thinking...', 'Retrying...', 'Connection Failed',
+      'Tap Start to begin your Wingman session...', 'No response from server.',
+    ];
+    if (idle.contains(advice)) {
+      // For WAITING we just leave currentSuggestion as-is (Listening...)
+      notifyListeners();
+      return;
+    }
+    _currentSuggestion = advice;
+    _lastAdviceText = advice;
+    if (advice.trim().isNotEmpty) {
+      _adviceHistory.add(advice);
+    }
+    notifyListeners();
+  }
+
 
   void toggleSwapSpeakers() {
     _swapSpeakers = !_swapSpeakers;
@@ -77,7 +104,9 @@ class SessionProvider extends ChangeNotifier {
     notifyListeners();
 
     if (finalSpeaker == "Other") {
-      _askWingman(deepgram.currentTranscript, api);
+      if (!_wingmanInFlight) {
+        _askWingman(deepgram.currentTranscript, api);
+      }
     } else if (_sessionId != null) {
       // Log user's own speech to server for session history
       _logUserTurn(deepgram.currentTranscript, api);
@@ -102,14 +131,13 @@ class SessionProvider extends ChangeNotifier {
     final user = AuthService.instance.currentUser;
     if (user == null) return;
 
+    _wingmanInFlight = true;
     _currentSuggestion = "Thinking...";
     _realtimeLost = false;
     _lastTranscriptForRetry = transcript;
+    _lastAdviceText = null;
     notifyListeners();
 
-    // Always await the HTTP response directly — this works regardless of
-    // whether Supabase Realtime is configured on session_logs.
-    // Realtime still fires as a secondary update if it is configured.
     final advice = await api.sendTranscriptToWingman(
       user.id,
       transcript,
@@ -119,12 +147,13 @@ class SessionProvider extends ChangeNotifier {
       persona: _currentLiveTone,
     );
 
-    if (advice != null && advice.isNotEmpty) {
+    _wingmanInFlight = false;
+
+    if (advice != null && advice.isNotEmpty && advice != 'WAITING') {
       _realtimeTimeoutTimer?.cancel();
-      _currentSuggestion = advice;
+      _setAdvice(advice);
       _realtimeLost = false;
-      notifyListeners();
-    } else {
+    } else if (advice == null) {
       // HTTP returned nothing — fall back to Realtime timeout
       _realtimeTimeoutTimer?.cancel();
       _realtimeTimeoutTimer = Timer(const Duration(seconds: 30), () {
@@ -133,6 +162,10 @@ class SessionProvider extends ChangeNotifier {
           notifyListeners();
         }
       });
+    } else {
+      // advice == 'WAITING' — nothing useful to say, reset to Listening
+      _currentSuggestion = "Listening...";
+      notifyListeners();
     }
   }
 
@@ -151,8 +184,7 @@ class SessionProvider extends ChangeNotifier {
       mode: 'live_wingman',
       persona: _currentLiveTone,
     );
-    _currentSuggestion = advice ?? "No response from server.";
-    notifyListeners();
+    _setAdvice(advice ?? 'No response from server.');
   }
 
   /// Subscribe to Realtime suggestions from the server.
@@ -174,10 +206,11 @@ class SessionProvider extends ChangeNotifier {
             final role = record['role'] as String?;
             final content = record['content'] as String?;
             if (role == 'llm' && content != null && content.isNotEmpty) {
+              // Dedup: HTTP already delivered this advice — skip to avoid double-entry
+              if (content == _lastAdviceText) return;
               _realtimeTimeoutTimer?.cancel();
-              _currentSuggestion = content;
+              _setAdvice(content);
               _realtimeLost = false;
-              notifyListeners();
             }
           },
         )
@@ -210,7 +243,11 @@ class SessionProvider extends ChangeNotifier {
     _isSessionActive = true;
     _isConnecting = true;
     _sessionLogs.clear();
+    _adviceHistory.clear();
     _currentSuggestion = "Connecting to Deepgram...";
+    _wingmanInFlight = false;
+    _lastAdviceText = null;
+
     _sessionId = null;
     notifyListeners();
 

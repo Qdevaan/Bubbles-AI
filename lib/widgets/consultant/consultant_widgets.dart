@@ -340,13 +340,13 @@ class BouncingDotState extends State<BouncingDot>
     _controller = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 600),
-    )..repeat(reverse: true);
+    );
     _animation = Tween(
       begin: 0.0,
       end: -6.0,
     ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
     Future.delayed(Duration(milliseconds: widget.delay), () {
-      if (mounted) _controller.forward();
+      if (mounted) _controller.repeat(reverse: true);
     });
   }
 
@@ -529,6 +529,103 @@ class VoiceStatusBanner extends StatelessWidget {
               ),
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class TeleprompterBubble extends StatefulWidget {
+  final String text;
+  final bool isDark;
+  final bool streaming;
+
+  const TeleprompterBubble({
+    super.key,
+    required this.text,
+    required this.isDark,
+    this.streaming = false,
+  });
+
+  @override
+  State<TeleprompterBubble> createState() => _TeleprompterBubbleState();
+}
+
+class _TeleprompterBubbleState extends State<TeleprompterBubble> {
+  final ScrollController _scrollController = ScrollController();
+  bool _userScrolled = false;
+
+  @override
+  void didUpdateWidget(TeleprompterBubble oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.text != oldWidget.text && !_userScrolled) {
+      _scrollToBottom();
+    }
+  }
+
+  void _scrollToBottom() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_scrollController.hasClients) {
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return NotificationListener<ScrollNotification>(
+      onNotification: (ScrollNotification notification) {
+        if (notification is ScrollUpdateNotification) {
+          if (notification.dragDetails != null) {
+            _userScrolled = true;
+          }
+        }
+        if (notification.metrics.extentAfter < 10) {
+          _userScrolled = false;
+        }
+        return false;
+      },
+      child: ListView(
+        controller: _scrollController,
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 48),
+        children: [
+          Container(
+            alignment: Alignment.center,
+            child: AppLogo(size: 48),
+          ),
+          const SizedBox(height: 32),
+          MarkdownBody(
+            data: widget.streaming ? '${widget.text} ▌' : widget.text,
+            styleSheet: MarkdownStyleSheet(
+              p: GoogleFonts.manrope(
+                fontSize: 24,
+                fontWeight: FontWeight.w600,
+                color: widget.isDark ? AppColors.slate200 : AppColors.slate800,
+                height: 1.6,
+              ),
+              strong: GoogleFonts.manrope(
+                fontSize: 24,
+                fontWeight: FontWeight.w800,
+                color: widget.isDark ? Colors.white : AppColors.slate900,
+              ),
+              em: GoogleFonts.manrope(
+                fontSize: 24,
+                fontStyle: FontStyle.italic,
+                color: widget.isDark ? AppColors.slate300 : Colors.grey.shade700,
+              ),
+            ),
+          ),
+          const SizedBox(height: 200), // Padding to allow scrolling past
         ],
       ),
     );

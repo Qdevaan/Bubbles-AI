@@ -281,14 +281,14 @@ class ApiService {
               headers: await _authHeaders(),
               body: jsonEncode(body),
             )
-            .timeout(const Duration(seconds: 25));
+            .timeout(const Duration(seconds: 15)); // tighter timeout for real-time
 
         if (response.statusCode == 200) {
           var data = jsonDecode(response.body);
           return data['advice'] as String?;
         }
         return null;
-      });
+      }, maxRetries: 0); // fail fast — stale retries are useless for live coaching
     } catch (e) {
       debugPrint("Wingman API Error: $e");
     }
