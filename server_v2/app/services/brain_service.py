@@ -1,4 +1,4 @@
-"""
+﻿"""
 BrainService — Multi-provider LLM inference layer.
 
 Provider routing:
@@ -267,7 +267,7 @@ class BrainService:
                     messages=messages,
                     model=settings.CEREBRAS_WINGMAN_MODEL,
                     temperature=0.6,
-                    max_tokens=60,
+                    max_tokens=45,  # was 60 -- saves ~80ms latency
                 )
                 latency_ms = int((time.time() - t0) * 1000)
                 answer = completion.choices[0].message.content.strip()
@@ -285,7 +285,7 @@ class BrainService:
                     messages=messages,
                     model=settings.WINGMAN_MODEL,
                     temperature=0.6,
-                    max_tokens=60,
+                    max_tokens=45,  # was 60 -- saves ~80ms latency
                 )
                 latency_ms = int((time.time() - t0) * 1000)
                 answer = _sanitize_ai_disclaimer(completion.choices[0].message.content.strip(), is_roleplay)
