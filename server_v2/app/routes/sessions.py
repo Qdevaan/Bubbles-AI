@@ -1,4 +1,4 @@
-"""
+﻿"""
 Session routes — start, save, end, wingman transcript processing.
 
 v2 additions:
@@ -33,6 +33,35 @@ from app.utils.validation import validate_transcript, validate_batch_logs
 router = APIRouter()
 
 _MAX_GLOBAL_SESSIONS = 500
+
+# -- Context cache warm-up
+
+async def _warm_context_cache(user_id: str, session_id: str) -> None:
+    """Pre-load graph + vector context at session start for zero-latency per-turn use."""
+    def _graph():
+        graph_svc.load_graph(user_id)
+        return graph_svc.find_context(user_id, "")
+
+    def _vector():
+        return vector_svc.search_memory(user_id, "")
+
+    try:
+        g_ctx, v_ctx = await asyncio.wait_for(
+            asyncio.gather(
+                asyncio.to_thread(_graph),
+                asyncio.to_thread(_vector),
+            ),
+            timeout=2.0,
+        )
+        await session_store.set_context_cache(session_id, {
+            "graph": g_ctx or "",
+            "vector": v_ctx or "",
+            "performa": "",  # filled in Task 10 once performa service exists
+        })
+    except asyncio.TimeoutError:
+        await session_store.set_context_cache(session_id, {"graph": "", "vector": "", "performa": ""})
+
+
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -128,6 +157,7 @@ async def start_session_endpoint(
         description="First action of the day",
     ))
 
+    asyncio.create_task(_warm_context_cache(req.user_id, session_id))
     return {"session_id": session_id}
 
 
@@ -310,23 +340,38 @@ async def process_transcript_wingman(
         fire_and_forget(gamification_svc.increment_quest_progress(user_id, "save_memory", 1))
         return {"advice": "WAITING"}
 
-    # 1. Load contexts in parallel (others turns only)
-    def _graph_ctx():
-        graph_svc.load_graph(user_id)
-        return graph_svc.find_context(user_id, transcript)
-
+    # 1. Load contexts -- try cache first, 200ms hard-timeout fallback on miss
     target_entity_id = meta.get("target_entity_id") if session_id else None
-
-    def _entity_ctx():
+    cached = await session_store.get_context_cache(session_id) if session_id else {}
+    if cached:
+        g_ctx = cached.get("graph", "")
+        v_ctx = cached.get("vector", "")
+        e_ctx = ""
         if target_entity_id:
-            return entity_svc.get_entity_context(user_id, str(target_entity_id))
-        return ""
+            e_ctx = await asyncio.to_thread(
+                entity_svc.get_entity_context, user_id, str(target_entity_id)
+            )
+    else:
+        def _graph_ctx():
+            graph_svc.load_graph(user_id)
+            return graph_svc.find_context(user_id, transcript)
 
-    g_ctx, v_ctx, e_ctx = await asyncio.gather(
-        asyncio.to_thread(_graph_ctx),
-        asyncio.to_thread(vector_svc.search_memory, user_id, transcript),
-        asyncio.to_thread(_entity_ctx),
-    )
+        def _entity_ctx():
+            if target_entity_id:
+                return entity_svc.get_entity_context(user_id, str(target_entity_id))
+            return ""
+
+        try:
+            g_ctx, v_ctx, e_ctx = await asyncio.wait_for(
+                asyncio.gather(
+                    asyncio.to_thread(_graph_ctx),
+                    asyncio.to_thread(vector_svc.search_memory, user_id, transcript),
+                    asyncio.to_thread(_entity_ctx),
+                ),
+                timeout=0.2,  # 200ms hard cap on cache miss
+            )
+        except asyncio.TimeoutError:
+            g_ctx, v_ctx, e_ctx = "", "", ""
 
     if e_ctx:
         g_ctx = f"ROLEPLAY TARGET ENTITY CONTEXT:\n{e_ctx}\n\n" + g_ctx
