@@ -858,12 +858,20 @@ class _NewSessionScreenState extends State<NewSessionScreen>
                       padding: const EdgeInsets.all(16),
                       itemCount: logs.length,
                       itemBuilder: (context, index) {
-                        final msg = logs[logs.length - 1 - index];
-                        bool isMe = msg['speaker'] == "User";
+                        final actualIdx = logs.length - 1 - index;
+                        final msg = logs[actualIdx];
+                        final bool isMe = msg['speaker'] == 'User';
+                        final bool uncertain = msg['isUncertain'] == true;
+                        final String label = isMe
+                            ? (uncertain ? 'You?' : 'You')
+                            : (uncertain ? 'Them?' : 'Them');
                         return ChatBubble(
-                          text: msg['text'],
+                          text: msg['text'] as String,
                           isUser: isMe,
-                          speakerLabel: isMe ? null : "Other",
+                          speakerLabel: label,
+                          isUncertain: uncertain,
+                          onSwitchSpeaker: () => _reattribute(context, actualIdx, !isMe),
+                          onAttributionChange: (asMe) => _reattribute(context, actualIdx, asMe),
                         );
                       },
                     );
@@ -997,7 +1005,9 @@ class _NewSessionScreenState extends State<NewSessionScreen>
                           Selector<SessionProvider, bool>(
                             selector: (_, s) => s.swapSpeakers,
                             builder: (context, swapSpeakers, _) {
-                              return GestureDetector(
+                              return Tooltip(
+                                message: 'Flips all past messages',
+                                child: GestureDetector(
                                 onTap: () {
                                   context.read<SessionProvider>().toggleSwapSpeakers();
                                   ScaffoldMessenger.of(context).showSnackBar(
@@ -1040,7 +1050,7 @@ class _NewSessionScreenState extends State<NewSessionScreen>
                                     size: 22,
                                   ),
                                 ),
-                              );
+                              ));
                             },
                           ),
                           const SizedBox(width: 20),
@@ -1307,6 +1317,14 @@ class _NewSessionScreenState extends State<NewSessionScreen>
           ),
         ],
       ),
+    );
+  }
+
+  void _reattribute(BuildContext context, int index, bool asMe) {
+    context.read<SessionProvider>().reattributeTurn(
+      index,
+      asMe,
+      context.read<ApiService>(),
     );
   }
 

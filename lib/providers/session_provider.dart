@@ -90,7 +90,21 @@ class SessionProvider extends ChangeNotifier {
     );
   }
 
-  /// Process new transcript from Deepgram.
+  /// Re-attribute a specific turn to a new speaker.
+  /// Clears isUncertain and re-triggers wingman if now "Other".
+  void reattributeTurn(int index, bool asMe, ApiService api) {
+    if (index < 0 || index >= _sessionLogs.length) return;
+    final newSpeaker = asMe ? 'User' : 'Other';
+    _sessionLogs[index] = Map<String, dynamic>.from(_sessionLogs[index])
+      ..['speaker'] = newSpeaker
+      ..['isUncertain'] = false;
+    notifyListeners();
+    if (!asMe) {
+      _askWingman(_sessionLogs[index]['text'] as String, api);
+    }
+  }
+
+    /// Process new transcript from Deepgram.
   void onTranscriptReceived(DeepgramService deepgram, ApiService api) {
     if (deepgram.currentTranscript.isEmpty) return;
     if (_sessionLogs.isNotEmpty &&
