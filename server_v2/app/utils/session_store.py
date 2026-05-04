@@ -45,6 +45,7 @@ class _InMemoryStore:
         self._meta: Dict[str, dict] = {}          # session_id → metadata dict
         self._timestamps: Dict[str, datetime] = {}
         self._turn_counters: Dict[str, int] = {}
+        self._ctx_cache: Dict[str, dict] = {}     # session_id → {graph, vector, performa}
 
     async def get_live_session(self, user_id: str) -> Optional[str]:
         return self._live.get(user_id)
@@ -69,10 +70,17 @@ class _InMemoryStore:
         self._meta.pop(session_id, None)
         self._timestamps.pop(session_id, None)
         self._turn_counters.pop(session_id, None)
+        self._ctx_cache.pop(session_id, None)
         if user_id:
             self._live.pop(user_id, None)
         else:
             await self.remove_live_session_by_session_id(session_id)
+
+    async def set_context_cache(self, session_id: str, cache: dict) -> None:
+        self._ctx_cache[session_id] = cache
+
+    async def get_context_cache(self, session_id: str) -> dict:
+        return self._ctx_cache.get(session_id, {})
 
     async def get_turn_count(self, session_id: str) -> int:
         return self._turn_counters.get(session_id, 0)
@@ -168,14 +176,26 @@ class _RedisStore:
             json.dumps(metadata),
         )
 
+    def _ctx_key(self, session_id: str) -> str:
+        return f"{_REDIS_KEY_PREFIX}ctx:{session_id}"
+
     async def delete_session(self, session_id: str, user_id: Optional[str] = None) -> None:
         r = await self._get_client()
-        keys_to_delete = [self._meta_key(session_id), self._turn_key(session_id)]
+        keys_to_delete = [self._meta_key(session_id), self._turn_key(session_id), self._ctx_key(session_id)]
         if user_id:
             keys_to_delete.append(self._live_key(user_id))
         else:
             await self.remove_live_session_by_session_id(session_id)
         await r.delete(*keys_to_delete)
+
+    async def set_context_cache(self, session_id: str, cache: dict) -> None:
+        r = await self._get_client()
+        await r.setex(self._ctx_key(session_id), _SESSION_TTL_SECONDS, json.dumps(cache))
+
+    async def get_context_cache(self, session_id: str) -> dict:
+        r = await self._get_client()
+        raw = await r.get(self._ctx_key(session_id))
+        return json.loads(raw) if raw else {}
 
     async def get_turn_count(self, session_id: str) -> int:
         r = await self._get_client()
@@ -258,6 +278,14 @@ class SessionStore:
     async def delete_session(self, session_id: str, user_id: Optional[str] = None) -> None:
         await self._init()
         await self._backend.delete_session(session_id, user_id)
+
+    async def set_context_cache(self, session_id: str, cache: dict) -> None:
+        await self._init()
+        await self._backend.set_context_cache(session_id, cache)
+
+    async def get_context_cache(self, session_id: str) -> dict:
+        await self._init()
+        return await self._backend.get_context_cache(session_id)
 
     async def get_turn_count(self, session_id: str) -> int:
         await self._init()
