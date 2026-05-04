@@ -20,6 +20,8 @@ import '../widgets/home/home_widgets.dart';
 import '../widgets/insights/insight_item.dart';
 
 import '../widgets/mood_check_widget.dart';
+import '../widgets/performa_approval_sheet.dart';
+import '../providers/performa_provider.dart';
 import '../widgets/streak_strip.dart';
 import '../widgets/skeleton_loader.dart';
 
@@ -54,6 +56,9 @@ class _HomeScreenState extends State<HomeScreen>
       final userId = AuthService.instance.currentUser?.id;
       if (userId != null) {
         Provider.of<GraphRepository>(context, listen: false).getGraphExport(userId, forceRefresh: true);
+        Provider.of<PerformaProvider>(context, listen: false).load(userId).then((_) {
+          if (mounted) PerformaApprovalSheet.showIfNeeded(context);
+        });
       }
     });
   }

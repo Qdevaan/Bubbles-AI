@@ -8,6 +8,8 @@ import 'package:provider/provider.dart';
 import '../theme/design_tokens.dart';
 import '../widgets/glass_morphism.dart';
 import '../services/api_service.dart';
+import '../providers/performa_provider.dart';
+import '../screens/performa_screen.dart';
 import '../services/auth_service.dart';
 import '../services/deepgram_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -301,6 +303,10 @@ class _NewSessionScreenState extends State<NewSessionScreen>
     } else {
       final serverUrl = context.read<ConnectionService>().serverUrl;
       final jwt = Supabase.instance.client.auth.currentSession?.accessToken ?? '';
+      final userId = Supabase.instance.client.auth.currentUser?.id;
+      if (userId != null && mounted) {
+        context.read<PerformaProvider>().load(userId);
+      }
       await _session.startSession(
         api,
         deepgram,
@@ -423,7 +429,14 @@ class _NewSessionScreenState extends State<NewSessionScreen>
                   ),
                 ),
               ),
-              const SizedBox(width: 48),
+              IconButton(
+                icon: const Icon(Icons.person_outline),
+                tooltip: 'Performa',
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const PerformaScreen()),
+                ),
+              ),
             ],
           ),
         ),
@@ -798,7 +811,14 @@ class _NewSessionScreenState extends State<NewSessionScreen>
                   ),
                 ),
               ),
-              const SizedBox(width: 48),
+              IconButton(
+                icon: const Icon(Icons.person_outline),
+                tooltip: 'Performa',
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const PerformaScreen()),
+                ),
+              ),
             ],
           ),
         ),
