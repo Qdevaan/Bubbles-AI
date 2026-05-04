@@ -49,6 +49,8 @@ import 'screens/session_analytics_screen.dart';
 import 'screens/roleplay_setup_screen.dart';
 import 'screens/game_center_screen.dart';
 import 'providers/gamification_provider.dart';
+import 'providers/performa_provider.dart';
+import 'repositories/performa_repository.dart';
 import 'screens/graph_explorer_screen.dart';
 import 'screens/health_dashboard_screen.dart';
 import 'screens/expense_tracker_screen.dart';
@@ -312,6 +314,13 @@ class BubblesApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => EnterpriseProvider()),
 
         // 16. Gamification Provider (Depends on GamificationRepository)
+        ProxyProvider<ApiService, PerformaRepository>(
+          update: (context, api, _) => PerformaRepository(api),
+        ),
+        ChangeNotifierProxyProvider<PerformaRepository, PerformaProvider>(
+          create: (context) => PerformaProvider(context.read<PerformaRepository>()),
+          update: (context, repo, prev) => prev ?? PerformaProvider(repo),
+        ),
         ChangeNotifierProxyProvider<GamificationRepository, GamificationProvider>(
           create: (context) => GamificationProvider(context.read<ApiService>()),
           update: (context, repo, provider) => provider!..setRepository(repo),
