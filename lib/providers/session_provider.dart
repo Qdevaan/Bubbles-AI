@@ -156,6 +156,7 @@ class SessionProvider extends ChangeNotifier {
     } else if (advice == null) {
       // HTTP returned nothing — fall back to Realtime timeout
       _realtimeTimeoutTimer?.cancel();
+      // 4s HTTP + 8s here = 12s total fallback (down from 45s). Happy path is sub-500ms via cache.
       _realtimeTimeoutTimer = Timer(const Duration(seconds: 8), () {
         if (_currentSuggestion == "Thinking...") {
           _realtimeLost = true;
