@@ -1459,3 +1459,256 @@ class GamificationService:
         except Exception as e:
             print(f"⚠️ GamificationService.get_gamification_profile error: {e}")
             return {}
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # Quest Definitions Seeder (idempotent startup)
+    # ══════════════════════════════════════════════════════════════════════════
+
+    async def seed_quest_definitions(self) -> None:
+        """
+        Idempotent — inserts a default set of daily quest definitions only if
+        the quest_definitions table is completely empty. Safe to call at every
+        server startup.
+        """
+        if not db:
+            return
+        try:
+            # Check if any definitions exist already
+            existing = await asyncio.to_thread(
+                lambda: db.table("quest_definitions")
+                .select("id", count="exact")
+                .limit(1)
+                .execute()
+            )
+            if (existing.count or 0) > 0:
+                return  # Already seeded
+
+            from datetime import timezone as _tz
+            now = datetime.now(_tz.utc).isoformat()
+
+            definitions = [
+                # ── Engagement quests ──────────────────────────────────────
+                {
+                    "title": "Deep Diver",
+                    "description": "Complete a full conversation session with at least 6 user turns.",
+                    "action_type": "session_complete",
+                    "target": 1,
+                    "xp_reward": 50,
+                    "focus_area": "engagement",
+                    "difficulty": "easy",
+                    "quest_type": "daily",
+                    "mission_type": "action",
+                    "is_active": True,
+                    "brief": {},
+                    "created_at": now,
+                },
+                {
+                    "title": "Power Hour",
+                    "description": "Complete 2 separate practice sessions today.",
+                    "action_type": "session_complete",
+                    "target": 2,
+                    "xp_reward": 80,
+                    "focus_area": "engagement",
+                    "difficulty": "medium",
+                    "quest_type": "daily",
+                    "mission_type": "action",
+                    "is_active": True,
+                    "brief": {},
+                    "created_at": now,
+                },
+                {
+                    "title": "Triple Threat",
+                    "description": "Complete 3 practice sessions in one day.",
+                    "action_type": "session_complete",
+                    "target": 3,
+                    "xp_reward": 120,
+                    "focus_area": "engagement",
+                    "difficulty": "hard",
+                    "quest_type": "daily",
+                    "mission_type": "action",
+                    "is_active": True,
+                    "brief": {},
+                    "created_at": now,
+                },
+                # ── Filler words quests ────────────────────────────────────
+                {
+                    "title": "Clean Slate",
+                    "description": "Complete a session. Focus on reducing filler words like 'um', 'uh', and 'like'.",
+                    "action_type": "session_complete",
+                    "target": 1,
+                    "xp_reward": 45,
+                    "focus_area": "filler_words",
+                    "difficulty": "easy",
+                    "quest_type": "daily",
+                    "mission_type": "action",
+                    "is_active": True,
+                    "brief": {},
+                    "created_at": now,
+                },
+                {
+                    "title": "Eloquent Speaker",
+                    "description": "Complete 2 sessions while consciously avoiding filler words.",
+                    "action_type": "session_complete",
+                    "target": 2,
+                    "xp_reward": 90,
+                    "focus_area": "filler_words",
+                    "difficulty": "medium",
+                    "quest_type": "daily",
+                    "mission_type": "action",
+                    "is_active": True,
+                    "brief": {},
+                    "created_at": now,
+                },
+                # ── Positivity quests ──────────────────────────────────────
+                {
+                    "title": "Good Vibes",
+                    "description": "Start a session and maintain a positive, upbeat tone throughout.",
+                    "action_type": "session_complete",
+                    "target": 1,
+                    "xp_reward": 40,
+                    "focus_area": "positivity",
+                    "difficulty": "easy",
+                    "quest_type": "daily",
+                    "mission_type": "action",
+                    "is_active": True,
+                    "brief": {},
+                    "created_at": now,
+                },
+                {
+                    "title": "Smile in Your Voice",
+                    "description": "Complete 2 sessions with high positive sentiment.",
+                    "action_type": "session_complete",
+                    "target": 2,
+                    "xp_reward": 70,
+                    "focus_area": "positivity",
+                    "difficulty": "medium",
+                    "quest_type": "daily",
+                    "mission_type": "action",
+                    "is_active": True,
+                    "brief": {},
+                    "created_at": now,
+                },
+                # ── Consistency quests ─────────────────────────────────────
+                {
+                    "title": "Show Up",
+                    "description": "Complete at least one session today to keep your streak alive.",
+                    "action_type": "session_complete",
+                    "target": 1,
+                    "xp_reward": 35,
+                    "focus_area": "consistency",
+                    "difficulty": "easy",
+                    "quest_type": "daily",
+                    "mission_type": "action",
+                    "is_active": True,
+                    "brief": {},
+                    "created_at": now,
+                },
+                {
+                    "title": "Steady Pace",
+                    "description": "Complete 2 sessions today and maintain your daily habit.",
+                    "action_type": "session_complete",
+                    "target": 2,
+                    "xp_reward": 65,
+                    "focus_area": "consistency",
+                    "difficulty": "medium",
+                    "quest_type": "daily",
+                    "mission_type": "action",
+                    "is_active": True,
+                    "brief": {},
+                    "created_at": now,
+                },
+                # ── AI Consultant quests ───────────────────────────────────
+                {
+                    "title": "Ask the Coach",
+                    "description": "Ask the AI consultant 3 questions to get personalized advice.",
+                    "action_type": "consultant_qa",
+                    "target": 3,
+                    "xp_reward": 40,
+                    "focus_area": "engagement",
+                    "difficulty": "easy",
+                    "quest_type": "daily",
+                    "mission_type": "action",
+                    "is_active": True,
+                    "brief": {},
+                    "created_at": now,
+                },
+                {
+                    "title": "Deep Consultation",
+                    "description": "Have 5 meaningful exchanges with the AI consultant.",
+                    "action_type": "consultant_qa",
+                    "target": 5,
+                    "xp_reward": 60,
+                    "focus_area": "engagement",
+                    "difficulty": "medium",
+                    "quest_type": "daily",
+                    "mission_type": "action",
+                    "is_active": True,
+                    "brief": {},
+                    "created_at": now,
+                },
+                {
+                    "title": "Knowledge Seeker",
+                    "description": "Complete 10 consultant Q&A exchanges in a single day.",
+                    "action_type": "consultant_qa",
+                    "target": 10,
+                    "xp_reward": 100,
+                    "focus_area": "engagement",
+                    "difficulty": "hard",
+                    "quest_type": "daily",
+                    "mission_type": "action",
+                    "is_active": True,
+                    "brief": {},
+                    "created_at": now,
+                },
+                # ── Challenge quests ───────────────────────────────────────
+                {
+                    "title": "Grand Slam",
+                    "description": "Complete 4 full sessions today — the ultimate daily challenge.",
+                    "action_type": "session_complete",
+                    "target": 4,
+                    "xp_reward": 200,
+                    "focus_area": "consistency",
+                    "difficulty": "challenge",
+                    "quest_type": "daily",
+                    "mission_type": "action",
+                    "is_active": True,
+                    "brief": {},
+                    "created_at": now,
+                },
+                {
+                    "title": "Entity Explorer",
+                    "description": "Have entities extracted from 2 of your sessions today.",
+                    "action_type": "entity_extracted",
+                    "target": 2,
+                    "xp_reward": 55,
+                    "focus_area": "engagement",
+                    "difficulty": "medium",
+                    "quest_type": "daily",
+                    "mission_type": "action",
+                    "is_active": True,
+                    "brief": {},
+                    "created_at": now,
+                },
+                {
+                    "title": "First Step",
+                    "description": "Complete your very first session today to earn bonus XP.",
+                    "action_type": "session_complete",
+                    "target": 1,
+                    "xp_reward": 30,
+                    "focus_area": "consistency",
+                    "difficulty": "easy",
+                    "quest_type": "daily",
+                    "mission_type": "action",
+                    "is_active": True,
+                    "brief": {},
+                    "created_at": now,
+                },
+            ]
+
+            await asyncio.to_thread(
+                lambda: db.table("quest_definitions").insert(definitions).execute()
+            )
+            print(f"✅ Seeded {len(definitions)} quest definitions")
+
+        except Exception as e:
+            print(f"⚠️ GamificationService.seed_quest_definitions error: {e}")

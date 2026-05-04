@@ -8,6 +8,7 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:provider/provider.dart';
 import '../providers/settings_provider.dart';
+import '../providers/gamification_provider.dart';
 import '../services/auth_service.dart';
 import '../utils/permissions_util.dart';
 import '../widgets/glass_morphism.dart';
@@ -124,6 +125,17 @@ class _SplashScreenState extends State<SplashScreen> {
         try {
           if (mounted) {
             await Provider.of<SettingsProvider>(context, listen: false).loadSettings();
+          }
+        } catch (_) {}
+
+        // ── Daily quest check ─────────────────────────────────────────────────
+        // Silently contact the backend to ensure today's quests are created.
+        // The GamificationProvider's ensureDailyQuestsIssued() is idempotent:
+        // it only fires if today's quests haven't been confirmed yet this session.
+        try {
+          if (mounted) {
+            Provider.of<GamificationProvider>(context, listen: false)
+                .ensureDailyQuestsIssued(); // fire-and-forget — do not await
           }
         } catch (_) {}
       }

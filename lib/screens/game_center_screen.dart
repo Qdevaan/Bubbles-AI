@@ -39,7 +39,12 @@ class _GameCenterScreenState extends State<GameCenterScreen>
     );
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      Provider.of<GamificationProvider>(context, listen: false).init();
+      final gp = Provider.of<GamificationProvider>(context, listen: false);
+      gp.init();
+      // Explicitly refresh quests every time Game Center opens so the user
+      // always sees current quest state. The date-scoped cache key means this
+      // hits the network only once per day on first open, then serves cache.
+      gp.loadQuests();
       _heroCtrl.forward();
     });
   }

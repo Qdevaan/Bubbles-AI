@@ -76,6 +76,15 @@ async def lifespan(app: FastAPI):
     # Warm up session store (triggers Redis connection if configured)
     await session_store.evict_stale(datetime.now())
 
+    # Ensure quest_definitions table has default daily quest seeds.
+    # This is idempotent — it only inserts if the table is empty.
+    try:
+        from app.services import gamification_svc
+        await gamification_svc.seed_quest_definitions()
+        print("🎯 Quest definitions seeded (or already present)")
+    except Exception as _seed_err:
+        print(f"⚠️  Quest seeding failed: {_seed_err}")
+
     # Start background stale-session cleanup task
     cleanup_task = asyncio.create_task(_cleanup_stale_sessions())
     ping_task = asyncio.create_task(_self_ping())

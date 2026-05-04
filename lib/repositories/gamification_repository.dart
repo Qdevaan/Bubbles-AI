@@ -4,6 +4,15 @@ import '../cache/cache_result.dart';
 import '../cache/fetch_policy.dart';
 import '../services/api_service.dart';
 
+/// Today's ISO date string (YYYY-MM-DD) used to build a date-scoped cache key
+/// so quests from yesterday are never served from cache.
+String _todayIso() {
+  final now = DateTime.now();
+  return '${now.year.toString().padLeft(4, '0')}-'
+      '${now.month.toString().padLeft(2, '0')}-'
+      '${now.day.toString().padLeft(2, '0')}';
+}
+
 class GamificationRepository extends BaseRepository {
   final ApiService _api;
 
@@ -44,10 +53,14 @@ class GamificationRepository extends BaseRepository {
   };
 
   Future<CacheResult<Map<String, dynamic>>> getQuests(String userId, {bool forceRefresh = false}) async {
+    // Include today's date in the cache key — yesterday's quests are automatically stale.
+    final dateKey = '${CacheKeys.quests(userId)}:${_todayIso()}';
     return fetch<Map<String, dynamic>>(
-      key: CacheKeys.quests(userId),
+      key: dateKey,
       userId: userId,
-      policy: forceRefresh ? FetchPolicy.networkFirst : FetchPolicy.staleWhileRevalidate,
+      // Always networkFirst: the backend is idempotent (creates quests if not yet assigned)
+      // and quests must always be date-fresh on first access per day.
+      policy: FetchPolicy.networkFirst,
       ttlSeconds: CacheTtl.quests.inSeconds,
       schemaVersion: CacheSchemaVersion.gamification,
       networkFetch: () async {

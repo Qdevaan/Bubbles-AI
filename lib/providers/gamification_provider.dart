@@ -154,7 +154,37 @@ class GamificationProvider extends ChangeNotifier {
   // Data loading
   // ══════════════════════════════════════════════════════════════════════════
 
+  // ── Daily quest issuance guard (called on app startup) ───────────────────
+  static const String _kLastQuestIssuedDate = 'gam_last_quest_issued_date';
+
+  /// Called on app open. Checks if today's quests have been issued this session.
+  /// If the stored date differs from today (or is absent), kicks off a fresh
+  /// loadQuests() which hits the backend — the backend is idempotent and will
+  /// create quests for today if they don't exist yet.
+  Future<void> ensureDailyQuestsIssued() async {
+    final userId = AuthService.instance.currentUser?.id;
+    if (userId == null || userId.isEmpty) return;
+
+    final prefs = await SharedPreferences.getInstance();
+    final key = '${_kLastQuestIssuedDate}_$userId';
+    final storedDate = prefs.getString(key);
+    final todayStr = () {
+      final now = DateTime.now();
+      return '${now.year.toString().padLeft(4, '0')}-'
+          '${now.month.toString().padLeft(2, '0')}-'
+          '${now.day.toString().padLeft(2, '0')}';
+    }();
+
+    if (storedDate != todayStr) {
+      // Quests haven't been issued for today yet — fetch from backend (auto-creates them)
+      debugPrint('🎮 Daily quests not yet issued for $todayStr — fetching...');
+      await loadQuests();
+      await prefs.setString(key, todayStr);
+    }
+  }
+
   /// Initialize all gamification data. Call once on app start or Game Center open.
+
   Future<void> init() async {
     await Future.wait([
       loadProfile(),
@@ -216,7 +246,10 @@ class GamificationProvider extends ChangeNotifier {
     _questsLoading = true;
     notifyListeners();
     try {
-      final result = await _repository!.getQuests(userId, forceRefresh: false);
+      // Always force-refresh quests: the repo uses a date-scoped cache key,
+      // so on first access each day this hits the network (creating quests if needed),
+      // and for subsequent calls within the same day it serves from cache.
+      final result = await _repository!.getQuests(userId, forceRefresh: true);
       final data = result.data;
       if (data != null && data.isNotEmpty) {
         _dailyQuests = List<Map<String, dynamic>>.from(data['quests'] ?? []);
