@@ -870,4 +870,46 @@ class ApiService {
       return {'answer': 'Error: $e', 'session_id': null};
     }
   }
+
+  Future<Map<String, dynamic>?> getPerforma(String userId) async {
+    try {
+      final uri = Uri.parse("$_baseUrl/v1/performa/$userId");
+      final response = await http.get(uri, headers: await _authHeaders())
+          .timeout(const Duration(seconds: 10));
+      if (response.statusCode == 200) return jsonDecode(response.body) as Map<String, dynamic>;
+    } catch (e) { debugPrint("getPerforma error: $e"); }
+    return null;
+  }
+
+  Future<void> updatePerforma(String userId, Map<String, dynamic> manualData) async {
+    try {
+      final uri = Uri.parse("$_baseUrl/v1/performa/$userId");
+      await http.put(uri, headers: await _authHeaders(),
+          body: jsonEncode({"user_id": userId, "manual_data": manualData}))
+          .timeout(const Duration(seconds: 10));
+    } catch (e) { debugPrint("updatePerforma error: $e"); }
+  }
+
+  Future<List<Map<String, dynamic>>?> getPerformaPendingInsights(String userId) async {
+    try {
+      final uri = Uri.parse("$_baseUrl/v1/performa/$userId/pending_insights");
+      final response = await http.get(uri, headers: await _authHeaders())
+          .timeout(const Duration(seconds: 10));
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return (data['insights'] as List).cast<Map<String, dynamic>>();
+      }
+    } catch (e) { debugPrint("getPendingInsights error: $e"); }
+    return null;
+  }
+
+  Future<void> approvePerformaInsight(String userId, String insightId, bool approved) async {
+    try {
+      final uri = Uri.parse("$_baseUrl/v1/performa/$userId/approve_insight");
+      await http.post(uri, headers: await _authHeaders(),
+          body: jsonEncode({"user_id": userId, "insight_id": insightId, "approved": approved}))
+          .timeout(const Duration(seconds: 10));
+    } catch (e) { debugPrint("approveInsight error: $e"); }
+  }
+
 }
