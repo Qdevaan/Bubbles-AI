@@ -281,7 +281,7 @@ class ApiService {
               headers: await _authHeaders(),
               body: jsonEncode(body),
             )
-            .timeout(const Duration(seconds: 15)); // tighter timeout for real-time
+            .timeout(const Duration(seconds: 4)); // fail fast — live coaching must be instant
 
         if (response.statusCode == 200) {
           var data = jsonDecode(response.body);

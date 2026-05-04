@@ -156,7 +156,7 @@ class SessionProvider extends ChangeNotifier {
     } else if (advice == null) {
       // HTTP returned nothing — fall back to Realtime timeout
       _realtimeTimeoutTimer?.cancel();
-      _realtimeTimeoutTimer = Timer(const Duration(seconds: 30), () {
+      _realtimeTimeoutTimer = Timer(const Duration(seconds: 8), () {
         if (_currentSuggestion == "Thinking...") {
           _realtimeLost = true;
           notifyListeners();
