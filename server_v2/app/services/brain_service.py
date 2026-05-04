@@ -473,11 +473,22 @@ class BrainService:
             )
 
         prompt = (
-            "You are a comprehensive knowledge extraction engine. Analyse the TEXT and extract ALL of the following in ONE pass:\n\n"
-            "1. ENTITIES — Named people, places, organizations, events, objects, concepts.\n"
-            "2. RELATIONS — Relationships between entities.\n"
-            "3. EVENTS — Deadlines, meetings, appointments, scheduled events.\n"
-            "4. TASKS — Action items, to-dos, things someone needs to do."
+            "You are a precision knowledge extraction engine. Analyse the TEXT and extract structured knowledge in ONE pass.\n\n"
+            "1. ENTITIES — Specific named people, organizations, places, products, projects, or key domain concepts.\n"
+            "   SKIP: pronouns (I/me/you/we/they/him/her), generic nouns (meeting, idea, thing, topic), "
+            "vague abstractions (success, life, future), greetings, filler words.\n"
+            "   CANONICAL NAMES: Use the most complete, standard form available in the text. "
+            "If a full name is mentioned anywhere, use it for all occurrences (e.g. use 'John Smith' not just 'John'). "
+            "For companies use official names (e.g. 'Google' not 'the company'). "
+            "If the same entity appears with spelling variants (Ali/Aly, Ahmad/Ahmed, Mohammed/Muhammad), "
+            "pick ONE consistent spelling and use it for ALL occurrences — do not create separate entries.\n\n"
+            "2. RELATIONS — Factual, specific relationships between extracted entities.\n"
+            "   Use short standard verb phrases: 'works at', 'lives in', 'owns', 'manages', 'founded', "
+            "'studied at', 'is parent of', 'married to', 'located in', 'reports to', 'invested in'.\n"
+            "   SKIP vague or trivial relations ('mentioned', 'talked about', 'is related to', 'knows').\n"
+            "   NO REDUNDANCY: if A 'works at' B, do not also add B 'employs' A unless explicitly stated differently.\n\n"
+            "3. EVENTS — Concrete deadlines, meetings, or appointments with clear temporal information.\n\n"
+            "4. TASKS — Explicit action items where someone committed to doing something.\n"
             f"{conflict_section}\n\n"
             "Return ONLY a single JSON object matching this exact schema:\n"
             "{\n"
@@ -488,11 +499,9 @@ class BrainService:
             '  "conflicts": [{"title": "string", "body": "string", "source_entity": "string"}]\n'
             "}\n\n"
             "RULES:\n"
-            "- Entity names must be non-empty strings.\n"
-            "- If nothing found for a section, use an empty array [].\n"
-            "- Return ONLY the JSON. No markdown, no explanation.\n"
-            "- ONLY extract proper named entities (real names, places, orgs). DO NOT extract pronouns (I, me, you, we, they, us, him, her), generic words, greetings, or informal expressions.\n"
-            "- A joke, chitchat, or greeting exchange contains NO meaningful entities — return empty arrays for all sections.\n"
+            "- Empty sections return [] — never omit keys.\n"
+            "- Return ONLY the JSON object. No markdown, no explanation.\n"
+            "- Chitchat, jokes, or greetings with no real content: return all empty arrays.\n"
         )
 
         try:
@@ -505,7 +514,7 @@ class BrainService:
                 model=settings.WINGMAN_MODEL,
                 response_format={"type": "json_object"},
                 temperature=0.1,
-                max_tokens=1200,
+                max_tokens=1500,
             )
             latency_ms = int((time.time() - t0) * 1000)
             data = json.loads(completion.choices[0].message.content)

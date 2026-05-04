@@ -3,11 +3,42 @@ EntityService — entity CRUD, fuzzy matching, event/conflict/task/highlight per
 Uses db_final schema: entities, entity_attributes, entity_relations, highlights, events, tasks.
 """
 
+import unicodedata
 from datetime import datetime
 from difflib import SequenceMatcher
 from typing import Dict, List, Optional
 
 from app.database import db
+
+_TITLE_PREFIXES = frozenset([
+    "mr", "mrs", "ms", "miss", "dr", "prof", "rev", "sir",
+    "lord", "lady", "mx", "eng", "capt", "maj", "col", "gen",
+])
+
+_RELATION_ALIASES: Dict[str, str] = {
+    "employed by": "works at",
+    "is employed by": "works at",
+    "is an employee of": "works at",
+    "is employed at": "works at",
+    "works for": "works at",
+    "is a member of": "member of",
+    "belongs to": "member of",
+    "is located in": "located in",
+    "is based in": "located in",
+    "based in": "located in",
+    "is situated in": "located in",
+    "is the founder of": "founded",
+    "co-founded": "founded",
+    "co founded": "founded",
+    "is married to": "married to",
+    "is wed to": "married to",
+    "is the parent of": "is parent of",
+    "is the child of": "is child of",
+    "is a subsidiary of": "subsidiary of",
+    "is owned by": "owned by",
+    "is part of": "part of",
+    "is affiliated with": "affiliated with",
+}
 
 
 class EntityService:
@@ -16,10 +47,42 @@ class EntityService:
     def __init__(self):
         print("✅ Entity Service: Initialized")
 
+    # ── Name / Relation Normalisation ────────────────────────────────────────
+
+    @staticmethod
+    def _normalize_name(name: str) -> str:
+        """Strip accents, honorifics, and lowercase for dedup comparison.
+
+        'Dr. José Smith' → 'jose smith', 'Mr. Ahmad' → 'ahmad'
+        Used only for comparison — does not change what is stored in the DB.
+        """
+        nfkd = unicodedata.normalize("NFKD", name)
+        ascii_name = "".join(c for c in nfkd if not unicodedata.combining(c))
+        words = ascii_name.strip().lower().split()
+        while words and words[0].rstrip(".") in _TITLE_PREFIXES:
+            words = words[1:]
+        return " ".join(words) if words else ascii_name.strip().lower()
+
+    @staticmethod
+    def _normalize_relation(relation: str) -> str:
+        """Lowercase and map synonym phrases to canonical verb forms.
+
+        Prevents 'employed by' and 'works at' from creating duplicate relation rows.
+        """
+        normalized = relation.strip().lower()
+        return _RELATION_ALIASES.get(normalized, normalized)
+
     # ── Fuzzy Matching ────────────────────────────────────────────────────────
 
     def _find_fuzzy_match(self, user_id: str, canonical: str) -> Optional[str]:
-        """Return entity_id if a similar entity exists (0.85 threshold)."""
+        """Return entity_id if a similar entity exists.
+
+        Compares unicode-normalised, honorific-stripped forms of both sides so
+        'Dr. Ahmad' matches 'Ahmad', 'José' matches 'Jose', and common name
+        spelling variants ('Ahmad'/'Ahmed') are caught. Threshold is adaptive:
+        shorter names use a slightly lower bar without sacrificing precision on
+        longer strings.
+        """
         if not db:
             return None
         try:
@@ -29,15 +92,16 @@ class EntityService:
                 .eq("user_id", user_id)
                 .execute()
             )
+            norm_input = self._normalize_name(canonical)
+            threshold = 0.78 if len(norm_input) < 6 else 0.82
             best_id, best_ratio = None, 0.0
             for ent in res.data or []:
-                ratio = SequenceMatcher(
-                    None, canonical, ent["canonical_name"]
-                ).ratio()
+                norm_existing = self._normalize_name(ent["canonical_name"])
+                ratio = SequenceMatcher(None, norm_input, norm_existing).ratio()
                 if ratio > best_ratio:
                     best_ratio = ratio
                     best_id = ent["id"]
-            if best_ratio >= 0.85:
+            if best_ratio >= threshold:
                 print(
                     f"🔁 Entity dedup: '{canonical}' matched existing "
                     f"(ratio={best_ratio:.2f})"
@@ -151,7 +215,7 @@ class EntityService:
                 "user_id": user_id,
                 "source_id": source_id,
                 "target_id": target_id,
-                "relation": relation,
+                "relation": self._normalize_relation(relation),
                 "updated_at": datetime.now().isoformat(),
             }
             if source_session:

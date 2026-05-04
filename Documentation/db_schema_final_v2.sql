@@ -1099,3 +1099,17 @@ ALTER TABLE achievements
 
 ALTER TABLE consultant_logs
   ADD COLUMN IF NOT EXISTS source_screen text;
+
+CREATE TABLE performa (
+  user_id UUID PRIMARY KEY REFERENCES auth.users(id),
+  manual_data JSONB NOT NULL DEFAULT '{}',
+  ai_data JSONB NOT NULL DEFAULT '{}',
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE performa ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users manage own performa"
+  ON performa FOR ALL
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
