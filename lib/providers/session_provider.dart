@@ -10,6 +10,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 /// Extracts Deepgram connection, Realtime subscription, session state,
 /// and transcript management out of the widget into a proper provider.
 class SessionProvider extends ChangeNotifier {
+  static const double _kConfidenceThreshold = 0.75;
+
   final SupabaseClient _supabase = Supabase.instance.client;
 
   // ── Session state ──
@@ -69,6 +71,9 @@ class SessionProvider extends ChangeNotifier {
     _lastAdviceText = advice;
     if (advice.trim().isNotEmpty) {
       _adviceHistory.add(advice);
+      if (_adviceHistory.length > 20) {
+        _adviceHistory.removeAt(0);
+      }
     }
     notifyListeners();
   }
@@ -89,8 +94,10 @@ class SessionProvider extends ChangeNotifier {
   void onTranscriptReceived(DeepgramService deepgram, ApiService api) {
     if (deepgram.currentTranscript.isEmpty) return;
     if (_sessionLogs.isNotEmpty &&
-        _sessionLogs.last['text'] == deepgram.currentTranscript)
-      return;
+        _sessionLogs.last['text'] == deepgram.currentTranscript) return;
+
+    final double confidence = deepgram.currentConfidence;
+    final bool isUncertain = confidence < _kConfidenceThreshold;
 
     String serverSpeaker = deepgram.currentSpeaker == "user" ? "User" : "Other";
     String finalSpeaker = serverSpeaker;
@@ -100,15 +107,18 @@ class SessionProvider extends ChangeNotifier {
     _sessionLogs.add({
       "speaker": finalSpeaker,
       "text": deepgram.currentTranscript,
+      "isUncertain": isUncertain,
+      "confidence": confidence,
     });
     notifyListeners();
+
+    if (isUncertain) return; // skip wingman on uncertain speaker attribution
 
     if (finalSpeaker == "Other") {
       if (!_wingmanInFlight) {
         _askWingman(deepgram.currentTranscript, api);
       }
     } else if (_sessionId != null) {
-      // Log user's own speech to server for session history
       _logUserTurn(deepgram.currentTranscript, api);
     }
   }
