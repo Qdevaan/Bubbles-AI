@@ -22,6 +22,9 @@ class DeepgramService extends ChangeNotifier {
   String _currentSpeaker = "user";
   String get currentSpeaker => _currentSpeaker;
 
+  double _currentConfidence = 1.0;
+  double get currentConfidence => _currentConfidence;
+
   // Recording state
   final BytesBuilder _audioBuffer = BytesBuilder(copy: true);
   final List<Map<String, dynamic>> _fullTranscript = [];
@@ -139,8 +142,14 @@ class DeepgramService extends ChangeNotifier {
               speakerId = firstWord['speaker'] as int? ?? 0;
               startSec = (firstWord['start'] as num?)?.toDouble() ?? startSec;
               debugPrint("🔍 Deepgram words sample: speaker=${firstWord['speaker']}, word=${firstWord['word']}");
+              double totalConf = 0;
+              for (final w in words) {
+                totalConf += ((w as Map)['confidence'] as num?)?.toDouble() ?? 1.0;
+              }
+              _currentConfidence = totalConf / words.length;
             } else {
               debugPrint("⚠️ Deepgram: words array is null/empty — diarization data missing, defaulting to speakerId=0");
+              _currentConfidence = 0.5;
             }
             _audioElapsed = startSec + ((data['duration'] as num?)?.toDouble() ?? 0);
 
