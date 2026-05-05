@@ -21,14 +21,13 @@ class _ScanlinePainter extends CustomPainter {
 class _WaveRingPainter extends CustomPainter {
   final double progress;
   final Color color;
-  final double cyFraction;
 
-  _WaveRingPainter({required this.progress, required this.color, this.cyFraction = 0.5});
+  _WaveRingPainter({required this.progress, required this.color});
 
   @override
   void paint(Canvas canvas, Size size) {
     final cx = size.width / 2;
-    final cy = size.height * cyFraction;
+    final cy = size.height / 2;
 
     for (int i = 0; i < 3; i++) {
       final phase = (progress + i * 0.33) % 1.0;
@@ -163,20 +162,6 @@ class SessionHeroCard extends StatelessWidget {
                       ),
                     ),
                   ),
-                  // Wave rings emanating from center-left
-                  Positioned(
-                    left: 0,
-                    top: 0,
-                    bottom: 0,
-                    right: 0,
-                    child: CustomPaint(
-                      painter: _WaveRingPainter(
-                        progress: t,
-                        color: glowColor,
-                        cyFraction: 0.36,
-                      ),
-                    ),
-                  ),
                   // Status badge — top left
                   Positioned(
                     top: 14,
@@ -243,26 +228,49 @@ class SessionHeroCard extends StatelessWidget {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        // Icon circle
-                        Container(
+                        // Icon circle with wave rings pinned to its center
+                        SizedBox(
                           width: 52,
                           height: 52,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: glowColor.withAlpha((30 + (t * 20)).round()),
-                            border: Border.all(
-                              color: glowColor.withAlpha((100 + (t * 80)).round()),
-                              width: 1.5,
-                            ),
-                          ),
-                          child: Icon(
-                            isConnected
-                                ? Icons.mic_rounded
-                                : Icons.mic_off_rounded,
-                            color: isConnected
-                                ? glowColor
-                                : (isDark ? AppColors.slate400 : AppColors.slate500),
-                            size: 26,
+                          child: Stack(
+                            alignment: Alignment.center,
+                            children: [
+                              OverflowBox(
+                                maxWidth: 200,
+                                maxHeight: 200,
+                                child: SizedBox(
+                                  width: 200,
+                                  height: 200,
+                                  child: CustomPaint(
+                                    painter: _WaveRingPainter(
+                                      progress: t,
+                                      color: glowColor,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              Container(
+                                width: 52,
+                                height: 52,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: glowColor.withAlpha((30 + (t * 20)).round()),
+                                  border: Border.all(
+                                    color: glowColor.withAlpha((100 + (t * 80)).round()),
+                                    width: 1.5,
+                                  ),
+                                ),
+                                child: Icon(
+                                  isConnected
+                                      ? Icons.mic_rounded
+                                      : Icons.mic_off_rounded,
+                                  color: isConnected
+                                      ? glowColor
+                                      : (isDark ? AppColors.slate400 : AppColors.slate500),
+                                  size: 26,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                         const SizedBox(height: 10),
