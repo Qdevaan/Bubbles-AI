@@ -1,4 +1,4 @@
-import 'dart:async';
+﻿import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
@@ -408,7 +408,7 @@ class VoiceEnrollmentSectionState extends State<VoiceEnrollmentSection> {
 
     // Get temp file path
     final dir = await getTemporaryDirectory();
-    final path = '${dir.path}/enrollment_${user.id}.m4a';
+    final path = '${dir.path}/enrollment_${user.id}.wav';
 
     _recorder = AudioRecorder();
     setState(() {
@@ -417,7 +417,7 @@ class VoiceEnrollmentSectionState extends State<VoiceEnrollmentSection> {
     });
 
     await _recorder!.start(
-      const RecordConfig(encoder: AudioEncoder.aacLc),
+      const RecordConfig(encoder: AudioEncoder.pcm16bits, sampleRate: 16000, numChannels: 1),
       path: path,
     );
 
@@ -743,7 +743,7 @@ class VoiceEnrollmentSectionState extends State<VoiceEnrollmentSection> {
                       Text(
                         isEnrolled
                             ? 'Enrolled on ${_formatDate(_enrolledAt)}'
-                            : 'Not enrolled Ã¢â‚¬â€ tap to record',
+                            : 'Not enrolled — tap to record',
                         style: GoogleFonts.manrope(
                           fontSize: 12,
                           color: isEnrolled

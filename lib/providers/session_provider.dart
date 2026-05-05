@@ -119,13 +119,17 @@ class SessionProvider extends ChangeNotifier {
     });
     notifyListeners();
 
+    debugPrint("🎙️ SessionProvider: speaker=${deepgram.currentSpeaker} → finalSpeaker=$finalSpeaker uncertain=$isUncertain swapped=$_swapSpeakers");
+
     if (isUncertain) return; // skip wingman on uncertain speaker attribution
 
     if (finalSpeaker == "Other") {
+      debugPrint("🤖 SessionProvider: firing wingman (inFlight=$_wingmanInFlight)");
       if (!_wingmanInFlight) {
         _askWingman(deepgram.currentTranscript, api);
       }
     } else if (_sessionId != null) {
+      debugPrint("👤 SessionProvider: logging user turn (no wingman)");
       _logUserTurn(deepgram.currentTranscript, api);
     }
   }

@@ -19,7 +19,7 @@ _TABLE = "performa"
 def get_performa(user_id: str) -> Dict[str, Any]:
     """Return the user's performa row (manual_data + ai_data). Creates empty row if absent."""
     resp = db.table(_TABLE).select("*").eq("user_id", user_id).maybe_single().execute()
-    if resp.data:
+    if resp and resp.data:
         return resp.data
     # First access -- upsert empty row
     db.table(_TABLE).upsert({"user_id": user_id}).execute()

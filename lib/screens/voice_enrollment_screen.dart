@@ -71,10 +71,10 @@ class _VoiceEnrollmentScreenState extends State<VoiceEnrollmentScreen>
     }
 
     final dir = await getTemporaryDirectory();
-    final path = '${dir.path}/voice_sample_${DateTime.now().millisecondsSinceEpoch}.m4a';
+    final path = '${dir.path}/voice_sample_${DateTime.now().millisecondsSinceEpoch}.wav';
 
     await _recorder.start(
-      const RecordConfig(encoder: AudioEncoder.aacLc, sampleRate: 16000, numChannels: 1),
+      const RecordConfig(encoder: AudioEncoder.pcm16bits, sampleRate: 16000, numChannels: 1),
       path: path,
     );
 

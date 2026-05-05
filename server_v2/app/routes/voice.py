@@ -301,11 +301,17 @@ async def enroll_voice(
         model = await asyncio.to_thread(_get_speaker_model)
 
         def _embed():
-            waveform, sr = torchaudio.load(tmp_path)
-            if sr != 16000:
-                waveform = torchaudio.transforms.Resample(orig_freq=sr, new_freq=16000)(waveform)
-            if waveform.shape[0] > 1:
-                waveform = waveform.mean(dim=0, keepdim=True)
+            import numpy as np
+            with open(tmp_path, "rb") as f:
+                raw = f.read()
+            # Strip optional WAV/RIFF header if present, else treat as raw PCM
+            if raw[:4] == b"RIFF" and b"data" in raw[:64]:
+                data_idx = raw.index(b"data") + 8
+                pcm = raw[data_idx:]
+            else:
+                pcm = raw
+            data = np.frombuffer(pcm, dtype=np.int16).astype(np.float32) / 32768.0
+            waveform = torch.from_numpy(data).unsqueeze(0)  # (1, samples)
             with torch.no_grad():
                 emb = model.encode_batch(waveform)
             return emb.squeeze().tolist()
@@ -319,18 +325,20 @@ async def enroll_voice(
             "samples_count"
         ).eq("user_id", user_id).maybe_single().execute()
         current_count = 0
-        if existing.data:
+        row_exists = bool(existing and existing.data)
+        if row_exists:
             current_count = existing.data.get("samples_count", 0) or 0
 
-        svc_client.table("voice_enrollments").upsert(
-            {
-                "user_id": user_id,
-                "embedding": embedding,
-                "model_version": "v1",
-                "samples_count": current_count + 1,
-            },
-            on_conflict="user_id",
-        ).execute()
+        payload = {
+            "user_id": user_id,
+            "embedding": embedding,
+            "model_version": "v1",
+            "samples_count": current_count + 1,
+        }
+        if row_exists:
+            svc_client.table("voice_enrollments").update(payload).eq("user_id", user_id).execute()
+        else:
+            svc_client.table("voice_enrollments").insert(payload).execute()
 
         audit_svc.log(
             user_id, "voice_enrolled",
@@ -340,6 +348,8 @@ async def enroll_voice(
 
         return {"status": "enrolled", "user_id": user_id, "user_name": user_name}
     except Exception as exc:
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Voice enrollment failed: {exc}")
     finally:
         if tmp_path and os.path.exists(tmp_path):
@@ -373,10 +383,14 @@ async def identify_speaker(
         "embedding"
     ).eq("user_id", user_id).maybe_single().execute()
 
-    if not enrolled.data:
+    if not enrolled or not enrolled.data:
         return {"identity": "unknown", "confidence": 0.0}
 
-    enrolled_vec = torch.tensor(enrolled.data["embedding"], dtype=torch.float32)
+    emb_raw = enrolled.data["embedding"]
+    if isinstance(emb_raw, str):
+        import json
+        emb_raw = json.loads(emb_raw)
+    enrolled_vec = torch.tensor(emb_raw, dtype=torch.float32)
 
     suffix = os.path.splitext(file.filename or "")[1] or ".m4a"
     tmp_path = None
@@ -389,11 +403,17 @@ async def identify_speaker(
         model = await asyncio.to_thread(_get_speaker_model)
 
         def _embed():
-            waveform, sr = torchaudio.load(tmp_path)
-            if sr != 16000:
-                waveform = torchaudio.transforms.Resample(orig_freq=sr, new_freq=16000)(waveform)
-            if waveform.shape[0] > 1:
-                waveform = waveform.mean(dim=0, keepdim=True)
+            import numpy as np
+            with open(tmp_path, "rb") as f:
+                raw = f.read()
+            # Strip optional WAV/RIFF header if present, else treat as raw PCM
+            if raw[:4] == b"RIFF" and b"data" in raw[:64]:
+                data_idx = raw.index(b"data") + 8
+                pcm = raw[data_idx:]
+            else:
+                pcm = raw
+            data = np.frombuffer(pcm, dtype=np.int16).astype(np.float32) / 32768.0
+            waveform = torch.from_numpy(data).unsqueeze(0)  # (1, samples)
             with torch.no_grad():
                 emb = model.encode_batch(waveform)
             return emb.squeeze()

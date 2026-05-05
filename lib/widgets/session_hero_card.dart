@@ -155,7 +155,9 @@ class SessionHeroCard extends StatelessWidget {
                         shape: BoxShape.circle,
                         gradient: RadialGradient(
                           colors: [
-                            glowColor.withAlpha((60 + (t * 30)).round()),
+                            glowColor.withAlpha(isConnected
+                                ? (90 + (t * 50)).round()
+                                : (60 + (t * 30)).round()),
                             Colors.transparent,
                           ],
                         ),
