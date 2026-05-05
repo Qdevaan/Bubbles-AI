@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
@@ -38,6 +39,13 @@ class DeepgramService extends ChangeNotifier {
   List<Map<String, dynamic>> get fullTranscript =>
       List.unmodifiable(_fullTranscript);
 
+  // Speaker identity (enrollment-based)
+  final Map<int, String> _speakerIdentityCache = {};
+  final Set<int> _pendingIdentification = {};
+  String? _serverUrl;
+  String? _jwt;
+  String? _userId;
+
   // INTERNAL
   final AudioRecorder _recorder = AudioRecorder();
   WebSocketChannel? _channel;
@@ -49,10 +57,16 @@ class DeepgramService extends ChangeNotifier {
   Future<void> connect({
     required String serverUrl,
     required String jwt,
+    String? userId,
   }) async {
     if (_isConnected) return;
     _intentionalDisconnect = false;
     _reconnectAttempts = 0;
+    _serverUrl = serverUrl;
+    _jwt = jwt;
+    _userId = userId;
+    _speakerIdentityCache.clear();
+    _pendingIdentification.clear();
 
     if (serverUrl.isEmpty || jwt.isEmpty) {
       debugPrint("❌ DeepgramService: serverUrl or jwt is empty");
@@ -151,10 +165,22 @@ class DeepgramService extends ChangeNotifier {
               debugPrint("⚠️ Deepgram: words array is null/empty — diarization data missing, defaulting to speakerId=0");
               _currentConfidence = 0.5;
             }
-            _audioElapsed = startSec + ((data['duration'] as num?)?.toDouble() ?? 0);
+            final turnEnd = startSec + ((data['duration'] as num?)?.toDouble() ?? 0);
+            _audioElapsed = turnEnd;
 
             _currentTranscript = transcript;
-            _currentSpeaker = speakerId == 0 ? "user" : "other";
+
+            // Use cached identity if available, else resolve async with fallback
+            if (_speakerIdentityCache.containsKey(speakerId)) {
+              _currentSpeaker = _speakerIdentityCache[speakerId]!;
+            } else {
+              // Optimistic fallback while identification runs
+              _currentSpeaker = speakerId == 0 ? "user" : "other";
+              if (!_pendingIdentification.contains(speakerId)) {
+                _pendingIdentification.add(speakerId);
+                _identifySpeaker(speakerId, startSec, turnEnd);
+              }
+            }
 
             _fullTranscript.add({
               'speaker': _currentSpeaker,
@@ -172,6 +198,98 @@ class DeepgramService extends ChangeNotifier {
     }
   }
 
+  /// Extract audio for [startSec..endSec], POST to /v1/identify_speaker,
+  /// update cache, and back-patch any transcript entries for this speakerId.
+  Future<void> _identifySpeaker(int speakerId, double startSec, double endSec) async {
+    final url = _serverUrl;
+    final jwt = _jwt;
+    final userId = _userId;
+    if (url == null || jwt == null || userId == null || url.isEmpty) return;
+
+    try {
+      // PCM 16-bit mono 16 kHz → 32 000 bytes/second
+      const int bytesPerSec = 32000;
+      final allBytes = _audioBuffer.toBytes();
+      final startByte = (startSec * bytesPerSec).toInt().clamp(0, allBytes.length);
+      final endByte = (endSec * bytesPerSec).toInt().clamp(startByte, allBytes.length);
+
+      if (endByte - startByte < bytesPerSec ~/ 2) {
+        // Less than 0.5 s — not enough signal; keep fallback
+        _pendingIdentification.remove(speakerId);
+        return;
+      }
+
+      final pcmSlice = allBytes.sublist(startByte, endByte);
+      final wavBytes = _buildWavBytes(pcmSlice);
+
+      final dir = await getTemporaryDirectory();
+      final tmpFile = File('${dir.path}/speaker_id_${speakerId}_${DateTime.now().millisecondsSinceEpoch}.wav');
+      await tmpFile.writeAsBytes(wavBytes);
+
+      try {
+        final request = http.MultipartRequest(
+          'POST',
+          Uri.parse('$url/v1/identify_speaker'),
+        )
+          ..headers['Authorization'] = 'Bearer $jwt'
+          ..fields['user_id'] = userId
+          ..files.add(await http.MultipartFile.fromPath('file', tmpFile.path));
+
+        final streamed = await request.send().timeout(const Duration(seconds: 15));
+        final resp = await http.Response.fromStream(streamed);
+
+        if (resp.statusCode == 200) {
+          final body = jsonDecode(resp.body) as Map<String, dynamic>;
+          final identity = body['identity'] as String? ?? 'other';
+          final confidence = (body['confidence'] as num?)?.toDouble() ?? 0.0;
+
+          if (identity != 'unknown') {
+            _speakerIdentityCache[speakerId] = identity;
+            debugPrint('🔑 Speaker $speakerId identified as "$identity" (conf: ${confidence.toStringAsFixed(3)})');
+
+            // Back-patch transcript entries that used the fallback
+            bool patched = false;
+            for (final entry in _fullTranscript) {
+              if (entry['speakerId'] == speakerId || (entry['speaker'] == (speakerId == 0 ? 'user' : 'other') && entry['speakerId'] == null)) {
+                entry['speaker'] = identity;
+                patched = true;
+              }
+            }
+            if (patched) notifyListeners();
+          }
+        }
+      } finally {
+        try { tmpFile.deleteSync(); } catch (_) {}
+      }
+    } catch (e) {
+      debugPrint('⚠️ _identifySpeaker error for speaker $speakerId: $e');
+    } finally {
+      _pendingIdentification.remove(speakerId);
+    }
+  }
+
+  static Uint8List _buildWavBytes(Uint8List pcm) {
+    final b = ByteData(44 + pcm.length);
+    void str(int offset, String s) {
+      for (var i = 0; i < s.length; i++) b.setUint8(offset + i, s.codeUnitAt(i));
+    }
+    str(0, 'RIFF');
+    b.setUint32(4, 36 + pcm.length, Endian.little);
+    str(8, 'WAVE');
+    str(12, 'fmt ');
+    b.setUint32(16, 16, Endian.little);
+    b.setUint16(20, 1, Endian.little);
+    b.setUint16(22, 1, Endian.little);
+    b.setUint32(24, 16000, Endian.little);
+    b.setUint32(28, 32000, Endian.little);
+    b.setUint16(32, 2, Endian.little);
+    b.setUint16(34, 16, Endian.little);
+    str(36, 'data');
+    b.setUint32(40, pcm.length, Endian.little);
+    for (var i = 0; i < pcm.length; i++) b.setUint8(44 + i, pcm[i]);
+    return b.buffer.asUint8List();
+  }
+
   void toggleMute() {
     _isMuted = !_isMuted;
     notifyListeners();
@@ -182,6 +300,8 @@ class DeepgramService extends ChangeNotifier {
     _intentionalDisconnect = true;
     _isMuted = false;
     _isConnected = false;
+    _speakerIdentityCache.clear();
+    _pendingIdentification.clear();
     notifyListeners();
 
     await _audioStreamSubscription?.cancel();

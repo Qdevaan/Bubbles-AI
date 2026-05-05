@@ -44,6 +44,7 @@ import 'screens/settings_screen.dart';
 import 'screens/settings_preferences_screen.dart';
 import 'screens/settings_assistant_screen.dart';
 import 'screens/settings_voice_assistant_screen.dart';
+import 'screens/voice_enrollment_screen.dart';
 import 'screens/entity_screen.dart';
 import 'screens/session_analytics_screen.dart';
 import 'screens/roleplay_setup_screen.dart';
@@ -494,6 +495,8 @@ class BubblesApp extends StatelessWidget {
                   const AuthGuard(child: SettingsAssistantScreen()),
               AppRoutes.voiceAssistant: (context) =>
                   const AuthGuard(child: SettingsVoiceAssistantScreen()),
+              AppRoutes.voiceEnrollment: (context) =>
+                  const AuthGuard(child: VoiceEnrollmentScreen()),
               AppRoutes.language: (context) =>
                   const AuthGuard(child: LanguageScreen()),
               AppRoutes.permissions: (context) =>

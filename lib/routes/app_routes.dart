@@ -13,6 +13,7 @@ class AppRoutes {
   static const preferences = '/settings/preferences';
   static const assistant   = '/settings/assistant';
   static const voiceAssistant = '/settings/voice-assistant';
+  static const voiceEnrollment = '/settings/voice-enrollment';
   static const entities = '/entities';
   static const sessionAnalytics = '/session-analytics';
   static const roleplaySetup = '/roleplay-setup';

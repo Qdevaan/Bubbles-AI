@@ -292,7 +292,7 @@ class SessionProvider extends ChangeNotifier {
       debugPrint('Live session created: $sid');
     }
 
-    await deepgram.connect(serverUrl: serverUrl, jwt: jwt);
+    await deepgram.connect(serverUrl: serverUrl, jwt: jwt, userId: user.id);
 
     _isConnecting = false;
     if (deepgram.isConnected) {

@@ -344,3 +344,74 @@ async def enroll_voice(
     finally:
         if tmp_path and os.path.exists(tmp_path):
             os.unlink(tmp_path)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# POST /identify_speaker  (compare audio against enrolled voiceprint)
+# ══════════════════════════════════════════════════════════════════════════════
+
+@router.post("/identify_speaker")
+@limiter.limit("120/minute")
+async def identify_speaker(
+    request: Request,
+    user_id: str = Form(...),
+    file: UploadFile = File(...),
+):
+    """
+    Compare uploaded audio against the user's enrolled ECAPA-TDNN embedding.
+    Returns {"identity": "user"|"other"|"unknown", "confidence": float}.
+    'unknown' means no enrollment exists for this user_id.
+    """
+    import torch
+    import torchaudio
+    import torch.nn.functional as F
+
+    from supabase import create_client
+    svc_client = create_client(settings.SUPABASE_URL, settings.SUPABASE_SERVICE_KEY)
+
+    enrolled = svc_client.table("voice_enrollments").select(
+        "embedding"
+    ).eq("user_id", user_id).maybe_single().execute()
+
+    if not enrolled.data:
+        return {"identity": "unknown", "confidence": 0.0}
+
+    enrolled_vec = torch.tensor(enrolled.data["embedding"], dtype=torch.float32)
+
+    suffix = os.path.splitext(file.filename or "")[1] or ".m4a"
+    tmp_path = None
+    try:
+        with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+            contents = await file.read()
+            tmp.write(contents)
+            tmp_path = tmp.name
+
+        model = await asyncio.to_thread(_get_speaker_model)
+
+        def _embed():
+            waveform, sr = torchaudio.load(tmp_path)
+            if sr != 16000:
+                waveform = torchaudio.transforms.Resample(orig_freq=sr, new_freq=16000)(waveform)
+            if waveform.shape[0] > 1:
+                waveform = waveform.mean(dim=0, keepdim=True)
+            with torch.no_grad():
+                emb = model.encode_batch(waveform)
+            return emb.squeeze()
+
+        query_vec = await asyncio.to_thread(_embed)
+
+        similarity = F.cosine_similarity(
+            enrolled_vec.unsqueeze(0), query_vec.unsqueeze(0)
+        ).item()
+
+        # Threshold tuned for ECAPA-TDNN on VoxCeleb — adjust if needed
+        _THRESHOLD = 0.75
+        identity = "user" if similarity >= _THRESHOLD else "other"
+
+        return {"identity": identity, "confidence": round(similarity, 4)}
+
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Speaker identification failed: {exc}")
+    finally:
+        if tmp_path and os.path.exists(tmp_path):
+            os.unlink(tmp_path)

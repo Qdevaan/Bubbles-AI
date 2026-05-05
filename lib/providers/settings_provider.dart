@@ -18,6 +18,8 @@ class SettingsProvider with ChangeNotifier {
   static const String _sessionHeroStyleKey = 'session_hero_style';
   static const String _enabledQuickActionsKey = 'enabled_quick_actions';
   static const String _currentMoodKey = 'current_mood';
+  static const String _voiceEnrolledKey = 'voice_enrolled';
+  static const String _voiceSamplesCountKey = 'voice_samples_count';
 
   SettingsRepository? _repository;
   void setRepository(SettingsRepository repo) => _repository = repo;
@@ -31,6 +33,8 @@ class SettingsProvider with ChangeNotifier {
   String _quickActionsStyle = 'pills';
   String _sessionHeroStyle = 'orb';
   String? _currentMood;
+  bool _voiceEnrolled = false;
+  int _voiceSamplesCount = 0;
   List<String> _enabledQuickActions = ['consultant', 'sessions', 'roleplay', 'game-center', 'graph-explorer', 'insights', 'performa'];
 
   bool _pushHighlights = true;
@@ -57,6 +61,8 @@ class SettingsProvider with ChangeNotifier {
   String get quickActionsStyle => _quickActionsStyle;
   String get sessionHeroStyle => _sessionHeroStyle;
   String? get currentMood => _currentMood;
+  bool get voiceEnrolled => _voiceEnrolled;
+  int get voiceSamplesCount => _voiceSamplesCount;
   List<String> get enabledQuickActions => _enabledQuickActions;
   bool get pushHighlights => _pushHighlights;
   bool get pushEvents => _pushEvents;
@@ -124,8 +130,42 @@ class SettingsProvider with ChangeNotifier {
 
       final localeCode = prefs.getString(_localeKey) ?? 'en';
       _locale = Locale(localeCode);
+      _voiceEnrolled = prefs.getBool(_voiceEnrolledKey) ?? false;
+      _voiceSamplesCount = prefs.getInt(_voiceSamplesCountKey) ?? 0;
     }
 
+    notifyListeners();
+    _refreshVoiceEnrollmentStatus();
+  }
+
+  Future<void> _refreshVoiceEnrollmentStatus() async {
+    final user = AuthService.instance.currentUser;
+    if (user == null) return;
+    try {
+      final res = await Supabase.instance.client
+          .from('voice_enrollments')
+          .select('samples_count')
+          .eq('user_id', user.id)
+          .maybeSingle();
+      final enrolled = res != null;
+      final count = (res?['samples_count'] as int?) ?? 0;
+      if (enrolled != _voiceEnrolled || count != _voiceSamplesCount) {
+        _voiceEnrolled = enrolled;
+        _voiceSamplesCount = count;
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setBool(_voiceEnrolledKey, enrolled);
+        await prefs.setInt(_voiceSamplesCountKey, count);
+        notifyListeners();
+      }
+    } catch (_) {}
+  }
+
+  Future<void> setVoiceEnrolled({required int samplesCount}) async {
+    _voiceEnrolled = true;
+    _voiceSamplesCount = samplesCount;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_voiceEnrolledKey, true);
+    await prefs.setInt(_voiceSamplesCountKey, samplesCount);
     notifyListeners();
   }
 

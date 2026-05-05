@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import '../theme/design_tokens.dart';
 import '../services/app_cache_service.dart';
 import '../services/auth_service.dart';
+import '../providers/settings_provider.dart';
 import '../routes/app_routes.dart';
 import '../widgets/settings/settings_widgets.dart';
 import '../widgets/animated_background.dart';
@@ -151,6 +152,28 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             subtitle: 'Wake word and voice modes',
                             onTap: () => Navigator.pushNamed(context, AppRoutes.voiceAssistant),
                           ),
+                          TileDivider(isDark: isDark),
+                          Builder(builder: (ctx) {
+                            final sp = ctx.watch<SettingsProvider>();
+                            final enrolled = sp.voiceEnrolled;
+                            final samples = sp.voiceSamplesCount;
+                            return SettingsNavigationTile(
+                              isDark: isDark,
+                              iconBg: enrolled
+                                  ? Colors.green.withAlpha(40)
+                                  : cs.primary.withAlpha(51),
+                              iconColor: enrolled ? Colors.green : cs.primary,
+                              icon: enrolled
+                                  ? Icons.verified_rounded
+                                  : Icons.record_voice_over_rounded,
+                              title: 'Voice Enrollment',
+                              subtitle: enrolled
+                                  ? '$samples sample${samples == 1 ? '' : 's'} · active'
+                                  : 'Identify your voice in sessions',
+                              onTap: () => Navigator.pushNamed(
+                                  context, AppRoutes.voiceEnrollment),
+                            );
+                          }),
                           TileDivider(isDark: isDark),
                           SettingsNavigationTile(
                             isDark: isDark,
