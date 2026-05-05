@@ -17,6 +17,7 @@ class SettingsProvider with ChangeNotifier {
   static const String _quickActionsStyleKey = 'quick_actions_style';
   static const String _sessionHeroStyleKey = 'session_hero_style';
   static const String _enabledQuickActionsKey = 'enabled_quick_actions';
+  static const String _currentMoodKey = 'current_mood';
 
   SettingsRepository? _repository;
   void setRepository(SettingsRepository repo) => _repository = repo;
@@ -29,7 +30,8 @@ class SettingsProvider with ChangeNotifier {
   bool _alwaysPromptForTone = false;
   String _quickActionsStyle = 'pills';
   String _sessionHeroStyle = 'orb';
-  List<String> _enabledQuickActions = ['consultant', 'sessions', 'roleplay', 'game-center', 'graph-explorer', 'insights'];
+  String? _currentMood;
+  List<String> _enabledQuickActions = ['consultant', 'sessions', 'roleplay', 'game-center', 'graph-explorer', 'insights', 'performa'];
 
   bool _pushHighlights = true;
   bool _pushEvents = true;
@@ -54,6 +56,7 @@ class SettingsProvider with ChangeNotifier {
   bool get alwaysPromptForTone => _alwaysPromptForTone;
   String get quickActionsStyle => _quickActionsStyle;
   String get sessionHeroStyle => _sessionHeroStyle;
+  String? get currentMood => _currentMood;
   List<String> get enabledQuickActions => _enabledQuickActions;
   bool get pushHighlights => _pushHighlights;
   bool get pushEvents => _pushEvents;
@@ -98,6 +101,7 @@ class SettingsProvider with ChangeNotifier {
               ? 'cards'
               : rawStyle;
       _sessionHeroStyle = prefs.getString(_sessionHeroStyleKey) ?? 'orb';
+      _currentMood = prefs.getString(_currentMoodKey);
       final list = prefs.getStringList(_enabledQuickActionsKey);
       if (list != null) _enabledQuickActions = list;
 
@@ -251,6 +255,13 @@ class SettingsProvider with ChangeNotifier {
     _sessionHeroStyle = style;
     notifyListeners();
     await _updateSetting(_sessionHeroStyleKey, style);
+  }
+
+  Future<void> setMood(String mood) async {
+    _currentMood = mood;
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_currentMoodKey, mood);
   }
 
   Future<void> setEnabledQuickActions(List<String> actions) async {

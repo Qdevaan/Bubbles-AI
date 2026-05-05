@@ -106,10 +106,11 @@ class _QuickActionCardState extends State<QuickActionCard> {
 const Map<String, Color> _kActionAccents = {
   'consultant': Color(0xFF38BDF8),
   'sessions': Color(0xFF34D399),
-  'roleplay': Colors.deepPurple,
-  'game-center': AppColors.xpGold,
+  'roleplay': Color(0xFF818CF8),
+  'game-center': Color(0xFFFBBF24),
   'graph-explorer': Color(0xFF8B5CF6),
   'insights': Color(0xFFF59E0B),
+  'performa': Color(0xFFF43F5E),
 };
 
 // ── QuickActionsSection (container with layout switching) ──────────────────────
@@ -144,8 +145,8 @@ class QuickActionsSection extends StatelessWidget {
       {
         'id': 'roleplay',
         'icon': Icons.theater_comedy_outlined,
-        'iconColor': Colors.deepPurple,
-        'iconBg': Colors.deepPurple.withAlpha(51),
+        'iconColor': const Color(0xFF818CF8),
+        'iconBg': const Color(0xFF818CF8).withAlpha(51),
         'title': 'Roleplay Mode',
         'subtitle': 'Practice with personas',
         'route': '/roleplay-setup',
@@ -153,8 +154,8 @@ class QuickActionsSection extends StatelessWidget {
       {
         'id': 'game-center',
         'icon': Icons.emoji_events,
-        'iconColor': AppColors.xpGold,
-        'iconBg': AppColors.xpGold.withAlpha(51),
+        'iconColor': const Color(0xFFFBBF24),
+        'iconBg': const Color(0xFFFBBF24).withAlpha(51),
         'title': 'Game Center',
         'subtitle': 'Quests & achievements',
         'route': '/game-center',
@@ -176,6 +177,15 @@ class QuickActionsSection extends StatelessWidget {
         'title': 'Insights',
         'subtitle': 'Events & highlights',
         'route': '/insights',
+      },
+      {
+        'id': 'performa',
+        'icon': Icons.bar_chart_rounded,
+        'iconColor': const Color(0xFFF43F5E),
+        'iconBg': const Color(0xFFF43F5E).withAlpha(51),
+        'title': 'Performa',
+        'subtitle': 'Track performance',
+        'route': '/performa',
       },
     ].where((a) => enabledIds.contains(a['id'])).toList();
 
@@ -278,7 +288,7 @@ class _QuickPillsMode extends StatelessWidget {
       child: Column(
         children: pairs.map((pair) {
           return Padding(
-            padding: const EdgeInsets.only(bottom: 8),
+            padding: const EdgeInsets.only(bottom: 6),
             child: Row(
               children: List.generate(pair.length, (idx) {
                 final a = pair[idx];
@@ -295,24 +305,24 @@ class _QuickPillsMode extends StatelessWidget {
                           Navigator.pushNamed(context, a['route'] as String),
                       child: Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 14, vertical: 10),
+                            horizontal: 10, vertical: 7),
                         decoration: BoxDecoration(
-                          color: accent.withAlpha(25),
+                          color: accent.withAlpha(22),
                           borderRadius: BorderRadius.circular(50),
-                          border: Border.all(color: accent.withAlpha(80)),
+                          border: Border.all(color: accent.withAlpha(70)),
                         ),
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(a['icon'] as IconData, color: accent, size: 18),
-                            const SizedBox(width: 6),
+                            Icon(a['icon'] as IconData, color: accent, size: 16),
+                            const SizedBox(width: 5),
                             Flexible(
                               child: Text(
                                 a['title'] as String,
                                 overflow: TextOverflow.ellipsis,
                                 style: GoogleFonts.manrope(
-                                  fontSize: 13,
+                                  fontSize: 12,
                                   fontWeight: FontWeight.w600,
                                   color: accent,
                                 ),

@@ -48,6 +48,7 @@ import 'screens/entity_screen.dart';
 import 'screens/session_analytics_screen.dart';
 import 'screens/roleplay_setup_screen.dart';
 import 'screens/game_center_screen.dart';
+import 'screens/performa_screen.dart';
 import 'providers/gamification_provider.dart';
 import 'providers/performa_provider.dart';
 import 'repositories/performa_repository.dart';
@@ -501,6 +502,8 @@ class BubblesApp extends StatelessWidget {
                   const AuthGuard(child: DataManagementScreen()),
               AppRoutes.updatePassword: (context) =>
                   const UpdatePasswordScreen(),
+              AppRoutes.performa: (context) =>
+                  const AuthGuard(child: PerformaScreen()),
             },
           );
         },

@@ -415,7 +415,8 @@ class _ConsultantScreenState extends State<ConsultantScreen>
 
     _controller.clear();
     final api = Provider.of<ApiService>(context, listen: false);
-    chat.sendMessage(text, api, tone: _conversationTone);
+    final sp = Provider.of<SettingsProvider>(context, listen: false);
+    chat.sendMessage(text, api, tone: _conversationTone, mood: sp.currentMood);
     _scrollToBottom();
   }
 
@@ -532,10 +533,12 @@ class _ConsultantScreenState extends State<ConsultantScreen>
     });
 
     final api = Provider.of<ApiService>(context, listen: false);
+    final sp2 = Provider.of<SettingsProvider>(context, listen: false);
     await _chat.sendMessage(
       text,
       api,
       tone: _conversationTone,
+      mood: sp2.currentMood,
       onFirstToken: () {
         if (mounted && _voiceModeActive) {
           _setVoiceMode(CVoiceMode.speaking);

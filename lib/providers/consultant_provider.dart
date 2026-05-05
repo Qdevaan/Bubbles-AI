@@ -137,6 +137,7 @@ class ConsultantProvider extends ChangeNotifier {
     String text,
     ApiService api, {
     String tone = 'casual',
+    String? mood,
     void Function()? onFirstToken,
     void Function(String fullResponse)? onComplete,
   }) async {
@@ -167,6 +168,7 @@ class ConsultantProvider extends ChangeNotifier {
         sessionId: _currentSessionId,
         mode: 'consultant',
         persona: tone,
+        mood: mood,
         onSessionCreated: (sid) {
           _currentSessionId = sid;
           _drawerLoaded = false;

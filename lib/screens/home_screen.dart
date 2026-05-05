@@ -23,6 +23,7 @@ import '../widgets/mood_check_widget.dart';
 import '../widgets/performa_approval_sheet.dart';
 import '../providers/performa_provider.dart';
 import '../widgets/compact_streak_chip.dart';
+import '../widgets/session_hero_card.dart';
 import '../widgets/skeleton_loader.dart';
 
 // ============================================================================
@@ -502,11 +503,11 @@ class _HomeScreenState extends State<HomeScreen>
                               SliverToBoxAdapter(
                                 child: Padding(
                                   padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
-                                  child: MoodCheckWidget(
-                                    onMoodSelected: (mood) {
-                                      // TODO: persist mood via provider
-                                      debugPrint('Mood selected: $mood');
-                                    },
+                                  child: Consumer<SettingsProvider>(
+                                    builder: (context, sp, _) => MoodCheckWidget(
+                                      currentMood: sp.currentMood,
+                                      onMoodSelected: sp.setMood,
+                                    ),
                                   ),
                                 ),
                               ),
@@ -514,35 +515,35 @@ class _HomeScreenState extends State<HomeScreen>
                               // --- HERO CARD: LIVE WINGMAN ---
                               SliverToBoxAdapter(
                                 child: Padding(
-                                  padding: const EdgeInsets.fromLTRB(
-                                      16, 16, 16, 8),
-                                  child: Selector<ConnectionService, bool>(
-                                    selector: (_, cs) => cs.isConnected,
-                                    builder: (context, isConnected, __) =>
-                                        GestureDetector(
-                                      onTap: () {
+                                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                                  child: Selector2<ConnectionService, SettingsProvider, (bool, String)>(
+                                    selector: (_, cs, sp) => (cs.isConnected, sp.sessionHeroStyle),
+                                    builder: (context, data, __) {
+                                      final (isConnected, heroStyle) = data;
+                                      void onHeroTap() {
                                         HapticFeedback.mediumImpact();
                                         if (isConnected) {
-                                          Navigator.pushNamed(
-                                              context, '/new-session');
+                                          Navigator.pushNamed(context, '/new-session');
                                         } else {
                                           _showNotConnectedDialog(context);
                                         }
-                                      },
-                                      child: EntityOrb(
-                                        isConnected: isConnected,
-                                        breatheAnimation: _breatheCtrl,
-                                        onTap: () {
-                                          HapticFeedback.mediumImpact();
-                                          if (isConnected) {
-                                            Navigator.pushNamed(
-                                                context, '/new-session');
-                                          } else {
-                                            _showNotConnectedDialog(context);
-                                          }
-                                        },
-                                      ),
-                                    ),
+                                      }
+                                      if (heroStyle == 'card') {
+                                        return SessionHeroCard(
+                                          isConnected: isConnected,
+                                          breatheAnimation: _breatheCtrl,
+                                          onTap: onHeroTap,
+                                        );
+                                      }
+                                      return GestureDetector(
+                                        onTap: onHeroTap,
+                                        child: EntityOrb(
+                                          isConnected: isConnected,
+                                          breatheAnimation: _breatheCtrl,
+                                          onTap: onHeroTap,
+                                        ),
+                                      );
+                                    },
                                   ),
                                 ),
                               ),
@@ -789,6 +790,7 @@ class _HomeScreenState extends State<HomeScreen>
       {'id': 'game-center', 'title': 'Game Center', 'icon': Icons.emoji_events},
       {'id': 'graph-explorer', 'title': 'Knowledge Graph', 'icon': Icons.hub_rounded},
       {'id': 'insights', 'title': 'Insights', 'icon': Icons.lightbulb_outline},
+      {'id': 'performa', 'title': 'Performa', 'icon': Icons.bar_chart_rounded},
     ];
 
     showModalBottomSheet(

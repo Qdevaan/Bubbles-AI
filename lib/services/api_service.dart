@@ -369,6 +369,7 @@ class ApiService {
     String? sessionId,
     String mode = 'consultant',
     String persona = 'casual',
+    String? mood,
     void Function(String sessionId)? onSessionCreated,
   }) async* {
     if (_baseUrl.isEmpty) {
@@ -392,6 +393,7 @@ class ApiService {
         'mode': mode,
         'persona': persona,
         if (sessionId != null) 'session_id': sessionId,
+        if (mood != null) 'mood': mood,
       });
 
       final streamedResponse = await client
