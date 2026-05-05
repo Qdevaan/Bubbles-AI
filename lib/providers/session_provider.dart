@@ -3,7 +3,6 @@ import 'package:flutter/foundation.dart';
 import '../services/api_service.dart';
 import '../services/auth_service.dart';
 import '../services/deepgram_service.dart';
-import '../services/analytics_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// Dedicated state manager for the NewSession (Live Wingman) screen.
@@ -82,12 +81,6 @@ class SessionProvider extends ChangeNotifier {
   void toggleSwapSpeakers() {
     _swapSpeakers = !_swapSpeakers;
     notifyListeners();
-    AnalyticsService.instance.logAction(
-      action: 'speakers_swapped',
-      entityType: 'session',
-      entityId: _sessionId,
-      details: {'swap_speakers': _swapSpeakers},
-    );
   }
 
   /// Re-attribute a specific turn to a new speaker.
@@ -303,18 +296,6 @@ class SessionProvider extends ChangeNotifier {
     }
     notifyListeners();
 
-    AnalyticsService.instance.logAction(
-      action: 'session_started',
-      entityType: 'session',
-      entityId: _sessionId,
-      details: {
-        'mode': sessionMode,
-        'tone': tone,
-        'is_ephemeral': isEphemeral,
-        'is_multiplayer': isMultiplayer,
-        if (targetEntityId != null) 'target_entity_id': targetEntityId,
-      },
-    );
   }
 
   /// End the session, save data, and persist audio recording to device.
@@ -359,12 +340,6 @@ class SessionProvider extends ChangeNotifier {
       debugPrint("Save failed: $e");
       return false;
     } finally {
-      AnalyticsService.instance.logAction(
-        action: 'session_ended',
-        entityType: 'session',
-        entityId: _sessionId,
-        details: {'log_count': _sessionLogs.length},
-      );
       _isSaving = false;
       _sessionId = null;
       notifyListeners();

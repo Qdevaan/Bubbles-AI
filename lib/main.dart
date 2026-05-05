@@ -9,7 +9,6 @@ import 'services/livekit_service.dart';
 import 'services/deepgram_service.dart';
 import 'services/voice_assistant_service.dart';
 import 'services/wake_word_service.dart';
-import 'services/analytics_service.dart';
 import 'services/device_service.dart';
 import 'services/auth_service.dart';
 import 'services/app_cache_service.dart';
@@ -119,7 +118,6 @@ Future<void> main() async {
         });
       }
     } else if (event == AuthChangeEvent.signedOut) {
-      AnalyticsService.instance.flushNow();
       WidgetsBinding.instance.addPostFrameCallback((_) {
         final ctx = BubblesApp.navigatorKey.currentContext;
         ctx?.read<HydrationService>().clearUserId();
@@ -332,7 +330,7 @@ class BubblesApp extends StatelessWidget {
         builder: (context, themeProvider, settingsProvider, child) {
           return MaterialApp(
             navigatorKey: BubblesApp.navigatorKey,
-            navigatorObservers: [_AnalyticsNavigatorObserver()],
+            navigatorObservers: [],
             debugShowCheckedModeBanner: false,
             title: 'Bubbles',
 
@@ -535,27 +533,3 @@ class _VoiceOverlayWrapper extends StatelessWidget {
 /// The Gatekeeper Widget
 /// Dynamically switches between Login and Home based on auth state.
 
-/// Navigator observer that logs screen views to audit_log.
-class _AnalyticsNavigatorObserver extends NavigatorObserver {
-  @override
-  void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) {
-    super.didPush(route, previousRoute);
-    _logScreenView(route);
-  }
-
-  @override
-  void didReplace({Route<dynamic>? newRoute, Route<dynamic>? oldRoute}) {
-    super.didReplace(newRoute: newRoute, oldRoute: oldRoute);
-    if (newRoute != null) _logScreenView(newRoute);
-  }
-
-  void _logScreenView(Route<dynamic> route) {
-    final routeName = route.settings.name;
-    if (routeName == null || routeName.isEmpty) return;
-    AnalyticsService.instance.logAction(
-      action: 'screen_view',
-      entityType: 'screen',
-      details: {'screen': routeName},
-    );
-  }
-}

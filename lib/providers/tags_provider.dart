@@ -1,7 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/auth_service.dart';
-import '../services/analytics_service.dart';
 
 /// Manages user-defined tags and session-tag associations (schema_v2 I1-I3).
 class TagsProvider extends ChangeNotifier {
@@ -43,12 +42,6 @@ class TagsProvider extends ChangeNotifier {
       }).select().single();
       _tags.add(res);
       notifyListeners();
-      AnalyticsService.instance.logAction(
-        action: 'tag_created',
-        entityType: 'tag',
-        entityId: res['id'] as String?,
-        details: {'name': name.trim(), 'color': color},
-      );
       return res;
     } catch (e) {
       debugPrint('TagsProvider.createTag: $e');
@@ -62,11 +55,6 @@ class TagsProvider extends ChangeNotifier {
       await _supabase.from('tags').delete().eq('id', tagId);
       _tags.removeWhere((t) => t['id'] == tagId);
       notifyListeners();
-      AnalyticsService.instance.logAction(
-        action: 'tag_deleted',
-        entityType: 'tag',
-        entityId: tagId,
-      );
       return true;
     } catch (e) {
       debugPrint('TagsProvider.deleteTag: $e');
@@ -84,12 +72,6 @@ class TagsProvider extends ChangeNotifier {
         'tag_id': tagId,
         'user_id': user.id,
       });
-      AnalyticsService.instance.logAction(
-        action: 'session_tagged',
-        entityType: 'session',
-        entityId: sessionId,
-        details: {'tag_id': tagId},
-      );
       return true;
     } catch (e) {
       debugPrint('TagsProvider.tagSession: $e');
@@ -105,12 +87,6 @@ class TagsProvider extends ChangeNotifier {
           .delete()
           .eq('session_id', sessionId)
           .eq('tag_id', tagId);
-      AnalyticsService.instance.logAction(
-        action: 'session_untagged',
-        entityType: 'session',
-        entityId: sessionId,
-        details: {'tag_id': tagId},
-      );
       return true;
     } catch (e) {
       debugPrint('TagsProvider.untagSession: $e');
@@ -144,12 +120,6 @@ class TagsProvider extends ChangeNotifier {
         'tag_id': tagId,
         'user_id': user.id,
       });
-      AnalyticsService.instance.logAction(
-        action: 'entity_tagged',
-        entityType: 'entity',
-        entityId: entityId,
-        details: {'tag_id': tagId},
-      );
       return true;
     } catch (e) {
       debugPrint('TagsProvider.tagEntity: $e');
@@ -165,12 +135,6 @@ class TagsProvider extends ChangeNotifier {
           .delete()
           .eq('entity_id', entityId)
           .eq('tag_id', tagId);
-      AnalyticsService.instance.logAction(
-        action: 'entity_untagged',
-        entityType: 'entity',
-        entityId: entityId,
-        details: {'tag_id': tagId},
-      );
       return true;
     } catch (e) {
       debugPrint('TagsProvider.untagEntity: $e');

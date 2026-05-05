@@ -2,13 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/auth_service.dart';
-import '../services/analytics_service.dart';
 import '../repositories/settings_repository.dart';
 
 /// Manages user preferences with dual persistence:
 ///  - SharedPreferences for offline/instant reads
 ///  - Supabase `user_settings` table for cross-device sync (schema_v2)
-///  - Audit logging via AnalyticsService for every change
 class SettingsProvider with ChangeNotifier {
   static const String _liveToneKey = 'default_live_tone';
   static const String _consultantToneKey = 'default_consultant_tone';
@@ -254,7 +252,6 @@ class SettingsProvider with ChangeNotifier {
       if (remoteUpdates != null) await _upsertUserSettings(remoteUpdates);
     }
     notifyListeners();
-    _logSettingsChange(key, value);
   }
 
   Future<void> _upsertUserSettings(Map<String, dynamic> updates) async {
@@ -269,14 +266,6 @@ class SettingsProvider with ChangeNotifier {
     } catch (e) {
       debugPrint('SettingsProvider._upsertUserSettings: $e');
     }
-  }
-
-  void _logSettingsChange(String key, dynamic value) {
-    AnalyticsService.instance.logAction(
-      action: 'settings_changed',
-      entityType: 'user_settings',
-      details: {'key': key, 'value': value.toString()},
-    );
   }
 
   // ── Setters ───────────────────────────────────────────────────────────────

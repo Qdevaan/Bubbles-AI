@@ -3,7 +3,6 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/auth_service.dart';
-import '../services/analytics_service.dart';
 import '../theme/design_tokens.dart';
 
 class ThemeProvider extends ChangeNotifier {
@@ -77,11 +76,6 @@ class ThemeProvider extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt(_colorKey, color.value);
     _upsertSetting({'accent_color': color.value.toString()});
-    AnalyticsService.instance.logAction(
-      action: 'settings_changed',
-      entityType: 'user_settings',
-      details: {'key': 'accent_color', 'value': color.value.toString()},
-    );
   }
 
   Future<void> setThemeMode(ThemeMode mode) async {
@@ -93,11 +87,6 @@ class ThemeProvider extends ChangeNotifier {
     if (mode == ThemeMode.dark) tStr = 'dark';
     else if (mode == ThemeMode.light) tStr = 'light';
     _upsertSetting({'theme': tStr});
-    AnalyticsService.instance.logAction(
-      action: 'settings_changed',
-      entityType: 'user_settings',
-      details: {'key': 'theme', 'value': tStr},
-    );
   }
 
   TextTheme get _manropeTextTheme => GoogleFonts.manropeTextTheme();

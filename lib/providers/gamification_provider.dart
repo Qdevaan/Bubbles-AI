@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/api_service.dart';
@@ -73,6 +74,14 @@ class GamificationProvider extends ChangeNotifier {
   List<Map<String, dynamic>> get newlyUnlockedBadges =>
       List.unmodifiable(_newlyUnlockedBadges);
   static const String _kLastSeenBadgeAt = 'gam_last_seen_badge_at';
+  static const String _kSnapLevel = 'gam_snap_level';
+  static const String _kSnapXp = 'gam_snap_xp';
+  static const String _kSnapStreak = 'gam_snap_streak';
+  static const String _kSnapLongestStreak = 'gam_snap_longest_streak';
+  static const String _kSnapXpProgress = 'gam_snap_xp_progress';
+  static const String _kSnapXpCurrentLevel = 'gam_snap_xp_current_level';
+  static const String _kSnapXpNextLevel = 'gam_snap_xp_next_level';
+  static const String _kSnapBadges = 'gam_snap_badges';
 
   List<Map<String, dynamic>> _recentXp = [];
   List<Map<String, dynamic>> get recentXp => List.unmodifiable(_recentXp);
@@ -199,6 +208,10 @@ class GamificationProvider extends ChangeNotifier {
     if (userId == null || userId.isEmpty) return;
 
     if (_repository == null) return;
+
+    // Show last-known state immediately so UI never shows level 0 while loading
+    if (_level <= 1 && _totalXp == 0) await _loadProfileFromPrefs();
+
     _profileLoading = true;
     notifyListeners();
 
@@ -228,11 +241,13 @@ class GamificationProvider extends ChangeNotifier {
           _stats = statsRaw.map((k, v) => MapEntry(k, (v as num?)?.toInt() ?? 0));
         }
         if (oldLevel > 0 && _level > oldLevel) _levelUpTriggered = true;
+        _saveProfileToPrefs(); // fire-and-forget: persist for offline use
       }
       _profileLoading = false;
       notifyListeners();
     } catch (e) {
       debugPrint('GamificationProvider.loadProfile repo error: $e');
+      await _loadProfileFromPrefs(); // fall back to last snapshot on network failure
       _profileLoading = false;
       notifyListeners();
     }
@@ -334,6 +349,44 @@ class GamificationProvider extends ChangeNotifier {
       }
     }
     await prefs.setString(key, newest.toIso8601String());
+  }
+
+  Future<void> _saveProfileToPrefs() async {
+    final userId = AuthService.instance.currentUser?.id;
+    if (userId == null) return;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt('${_kSnapLevel}_$userId', _level);
+    await prefs.setInt('${_kSnapXp}_$userId', _totalXp);
+    await prefs.setInt('${_kSnapStreak}_$userId', _currentStreak);
+    await prefs.setInt('${_kSnapLongestStreak}_$userId', _longestStreak);
+    await prefs.setDouble('${_kSnapXpProgress}_$userId', _xpProgressPct);
+    await prefs.setInt('${_kSnapXpCurrentLevel}_$userId', _xpCurrentLevel);
+    await prefs.setInt('${_kSnapXpNextLevel}_$userId', _xpNextLevel);
+    await prefs.setString('${_kSnapBadges}_$userId', jsonEncode(_badges));
+  }
+
+  Future<bool> _loadProfileFromPrefs() async {
+    final userId = AuthService.instance.currentUser?.id;
+    if (userId == null) return false;
+    final prefs = await SharedPreferences.getInstance();
+    final cachedLevel = prefs.getInt('${_kSnapLevel}_$userId');
+    if (cachedLevel == null) return false;
+    _level = cachedLevel;
+    _totalXp = prefs.getInt('${_kSnapXp}_$userId') ?? 0;
+    _currentStreak = prefs.getInt('${_kSnapStreak}_$userId') ?? 0;
+    _longestStreak = prefs.getInt('${_kSnapLongestStreak}_$userId') ?? 0;
+    _xpProgressPct = prefs.getDouble('${_kSnapXpProgress}_$userId') ?? 0.0;
+    _xpCurrentLevel = prefs.getInt('${_kSnapXpCurrentLevel}_$userId') ?? 0;
+    _xpNextLevel = prefs.getInt('${_kSnapXpNextLevel}_$userId') ?? 100;
+    final badgesJson = prefs.getString('${_kSnapBadges}_$userId');
+    if (badgesJson != null) {
+      try {
+        _badges = List<Map<String, dynamic>>.from(
+          (jsonDecode(badgesJson) as List).map((e) => Map<String, dynamic>.from(e as Map)),
+        );
+      } catch (_) {}
+    }
+    return true;
   }
 
   /// Remove the badge with the given id from the unlock queue.

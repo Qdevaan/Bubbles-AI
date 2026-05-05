@@ -1,7 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/auth_service.dart';
-import '../services/analytics_service.dart';
 import '../services/notification_service.dart';
 import '../repositories/home_repository.dart';
 
@@ -60,14 +59,8 @@ class HomeProvider extends ChangeNotifier {
         .update({'is_dismissed': true})
         .eq('user_id', user.id)
         .eq('is_dismissed', false);
-    final count = _highlights.length;
     _highlights.clear();
     notifyListeners();
-    AnalyticsService.instance.logAction(
-      action: 'highlights_cleared',
-      entityType: 'highlight',
-      details: {'count': count},
-    );
   }
 
   /// Optimistically removes a single insight card and dismisses/archives it in Supabase.
@@ -117,11 +110,6 @@ class HomeProvider extends ChangeNotifier {
           .eq('id', notifId);
       _notifications.removeWhere((n) => n['id'] == notifId);
       notifyListeners();
-      AnalyticsService.instance.logAction(
-        action: 'notification_read',
-        entityType: 'notification',
-        entityId: notifId,
-      );
     } catch (e) {
       debugPrint('markNotificationRead error: $e');
     }

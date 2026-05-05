@@ -21,13 +21,14 @@ class _ScanlinePainter extends CustomPainter {
 class _WaveRingPainter extends CustomPainter {
   final double progress;
   final Color color;
+  final double cyFraction;
 
-  _WaveRingPainter({required this.progress, required this.color});
+  _WaveRingPainter({required this.progress, required this.color, this.cyFraction = 0.5});
 
   @override
   void paint(Canvas canvas, Size size) {
     final cx = size.width / 2;
-    final cy = size.height / 2;
+    final cy = size.height * cyFraction;
 
     for (int i = 0; i < 3; i++) {
       final phase = (progress + i * 0.33) % 1.0;
@@ -172,6 +173,7 @@ class SessionHeroCard extends StatelessWidget {
                       painter: _WaveRingPainter(
                         progress: t,
                         color: glowColor,
+                        cyFraction: 0.36,
                       ),
                     ),
                   ),

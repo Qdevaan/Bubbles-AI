@@ -123,32 +123,55 @@ class _GameCenterScreenState extends State<GameCenterScreen>
                           IconButton(
                             onPressed: () => Navigator.pop(context),
                             icon: Icon(Icons.arrow_back,
-                                color:
-                                    isDark ? Colors.white : Colors.black87),
+                                color: isDark ? Colors.white : Colors.black87),
                           ),
                           Expanded(
-                            child: Text(
-                              'Game Center',
-                              textAlign: TextAlign.center,
-                              style: GoogleFonts.manrope(
-                                fontSize: 20,
-                                fontWeight: FontWeight.w800,
-                                color: isDark
-                                    ? Colors.white
-                                    : AppColors.slate900,
-                              ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                ShaderMask(
+                                  shaderCallback: (bounds) => LinearGradient(
+                                    colors: [primary, AppColors.levelBadge],
+                                  ).createShader(bounds),
+                                  child: Text(
+                                    'Game Center',
+                                    style: GoogleFonts.manrope(
+                                      fontSize: 22,
+                                      fontWeight: FontWeight.w900,
+                                      color: Colors.white,
+                                      letterSpacing: -0.5,
+                                    ),
+                                  ),
+                                ),
+                                Text(
+                                  'Level ${gp.level} · ${gp.totalXp} XP',
+                                  style: GoogleFonts.manrope(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                    color: isDark
+                                        ? AppColors.slate400
+                                        : AppColors.slate500,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                           // Skill tier badge
                           Container(
                             padding: const EdgeInsets.symmetric(
-                                horizontal: 10, vertical: 4),
+                                horizontal: 10, vertical: 6),
                             decoration: BoxDecoration(
-                              color: AppColors.levelBadge.withAlpha(30),
+                              gradient: LinearGradient(
+                                colors: [
+                                  AppColors.levelBadge.withAlpha(40),
+                                  AppColors.levelBadge.withAlpha(20),
+                                ],
+                              ),
                               borderRadius:
                                   BorderRadius.circular(AppRadius.full),
                               border: Border.all(
-                                  color: AppColors.levelBadge.withAlpha(80)),
+                                  color: AppColors.levelBadge.withAlpha(100)),
                             ),
                             child: Text(
                               '${gp.skillTierEmoji} ${gp.skillTierLabel}',
@@ -344,16 +367,36 @@ class _GameCenterScreenState extends State<GameCenterScreen>
         child: Container(
           padding: const EdgeInsets.all(24),
           decoration: BoxDecoration(
-            color: isDark ? AppColors.glassWhite : Colors.white,
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: isDark
+                  ? [
+                      const Color(0xFF0A1628),
+                      primary.withAlpha(45),
+                      AppColors.levelBadge.withAlpha(30),
+                    ]
+                  : [
+                      Colors.white,
+                      primary.withAlpha(18),
+                      AppColors.levelBadge.withAlpha(14),
+                    ],
+              stops: const [0.0, 0.55, 1.0],
+            ),
             borderRadius: BorderRadius.circular(AppRadius.xxl),
             border: Border.all(
-              color: isDark ? AppColors.glassBorder : Colors.grey.shade200,
+              color: primary.withAlpha(isDark ? 90 : 55),
             ),
             boxShadow: [
               BoxShadow(
-                color: primary.withAlpha(isDark ? 30 : 15),
-                blurRadius: 24,
+                color: primary.withAlpha(isDark ? 65 : 30),
+                blurRadius: 40,
                 spreadRadius: -4,
+              ),
+              BoxShadow(
+                color: AppColors.levelBadge.withAlpha(isDark ? 30 : 14),
+                blurRadius: 70,
+                spreadRadius: -10,
               ),
             ],
           ),
@@ -430,25 +473,66 @@ class _GameCenterScreenState extends State<GameCenterScreen>
                 ],
               ),
               const SizedBox(height: 6),
-              // XP bar
+              // XP bar – gradient
               ClipRRect(
-                borderRadius: BorderRadius.circular(6),
-                child: LinearProgressIndicator(
-                  value: gp.xpProgressPct.clamp(0.0, 1.0),
-                  minHeight: 8,
-                  backgroundColor: isDark
-                      ? Colors.white.withAlpha(15)
-                      : Colors.grey.shade200,
-                  color: primary,
+                borderRadius: BorderRadius.circular(8),
+                child: Stack(
+                  children: [
+                    Container(
+                      height: 10,
+                      color: isDark
+                          ? Colors.white.withAlpha(12)
+                          : Colors.grey.shade100,
+                    ),
+                    FractionallySizedBox(
+                      widthFactor: gp.xpProgressPct.clamp(0.0, 1.0),
+                      child: Container(
+                        height: 10,
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [primary, AppColors.levelBadge],
+                          ),
+                          borderRadius: BorderRadius.circular(8),
+                          boxShadow: [
+                            BoxShadow(
+                              color: primary.withAlpha(110),
+                              blurRadius: 10,
+                              spreadRadius: -2,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(height: 6),
-              Text(
-                '${gp.xpToNextLevel} XP to Level ${gp.level + 1}',
-                style: GoogleFonts.manrope(
-                  fontSize: 12,
-                  color: isDark ? AppColors.slate500 : AppColors.slate400,
-                ),
+              const SizedBox(height: 8),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    '${gp.xpCurrentLevel} XP',
+                    style: GoogleFonts.manrope(
+                      fontSize: 11,
+                      color: isDark ? AppColors.slate500 : AppColors.slate400,
+                    ),
+                  ),
+                  Text(
+                    '${gp.xpToNextLevel} to Level ${gp.level + 1}',
+                    style: GoogleFonts.manrope(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: isDark ? AppColors.slate300 : AppColors.slate600,
+                    ),
+                  ),
+                  Text(
+                    '${gp.xpNextLevel} XP',
+                    style: GoogleFonts.manrope(
+                      fontSize: 11,
+                      color: isDark ? AppColors.slate500 : AppColors.slate400,
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -482,18 +566,51 @@ class _GameCenterScreenState extends State<GameCenterScreen>
               children: [
                 Text(
                   gp.currentStreak > 0 ? '🔥' : '💤',
-                  style: const TextStyle(fontSize: 22),
+                  style: const TextStyle(fontSize: 28),
                 ),
-                const SizedBox(width: 8),
-                Text(
-                  '${gp.currentStreak}-Day Streak',
-                  style: GoogleFonts.manrope(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w800,
-                    color: gp.isStreakHot
-                        ? AppColors.streakFire
-                        : (isDark ? Colors.white : AppColors.slate900),
+                const SizedBox(width: 10),
+                ShaderMask(
+                  shaderCallback: (bounds) => LinearGradient(
+                    colors: gp.isStreakHot
+                        ? [AppColors.streakFire, const Color(0xFFFF8C00)]
+                        : [
+                            Theme.of(context).colorScheme.primary,
+                            AppColors.levelBadge,
+                          ],
+                  ).createShader(bounds),
+                  child: Text(
+                    '${gp.currentStreak}',
+                    style: GoogleFonts.manrope(
+                      fontSize: 36,
+                      fontWeight: FontWeight.w900,
+                      color: Colors.white,
+                      height: 1.0,
+                    ),
                   ),
+                ),
+                const SizedBox(width: 6),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'day${gp.currentStreak != 1 ? 's' : ''}',
+                      style: GoogleFonts.manrope(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: gp.isStreakHot
+                            ? AppColors.streakFire
+                            : (isDark ? Colors.white : AppColors.slate900),
+                      ),
+                    ),
+                    Text(
+                      'streak',
+                      style: GoogleFonts.manrope(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: isDark ? AppColors.slate400 : AppColors.slate500,
+                      ),
+                    ),
+                  ],
                 ),
                 const Spacer(),
                 if (gp.streakFreezes > 0)
@@ -720,25 +837,38 @@ class _GameCenterScreenState extends State<GameCenterScreen>
           ),
           const SizedBox(height: 10),
           SizedBox(
-            height: 90,
+            height: 104,
             child: ListView.builder(
               scrollDirection: Axis.horizontal,
               itemCount: gp.badges.length,
               itemBuilder: (_, i) {
                 final badge = gp.badges[i];
                 return Container(
-                  width: 80,
-                  margin: const EdgeInsets.only(right: 10),
+                  width: 88,
+                  margin: const EdgeInsets.only(right: 12),
                   decoration: BoxDecoration(
-                    color: isDark ? AppColors.glassWhite : Colors.white,
-                    borderRadius: BorderRadius.circular(16),
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: isDark
+                          ? [
+                              AppColors.achievementGlow.withAlpha(20),
+                              AppColors.glassWhite,
+                            ]
+                          : [
+                              AppColors.achievementGlow.withAlpha(12),
+                              Colors.white,
+                            ],
+                    ),
+                    borderRadius: BorderRadius.circular(20),
                     border: Border.all(
-                      color: AppColors.achievementGlow.withAlpha(60),
+                      color: AppColors.achievementGlow.withAlpha(90),
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: AppColors.achievementGlow.withAlpha(20),
-                        blurRadius: 8,
+                        color: AppColors.achievementGlow.withAlpha(35),
+                        blurRadius: 14,
+                        spreadRadius: -2,
                       ),
                     ],
                   ),
@@ -747,7 +877,7 @@ class _GameCenterScreenState extends State<GameCenterScreen>
                     children: [
                       Text(
                         badge['icon'] as String? ?? '🏆',
-                        style: const TextStyle(fontSize: 28),
+                        style: const TextStyle(fontSize: 32),
                       ),
                       const SizedBox(height: 4),
                       Padding(
@@ -1212,9 +1342,25 @@ class _QuestCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(AppRadius.xxl),
         border: Border.all(
           color: isCompleted
-              ? AppColors.success.withAlpha(60)
-              : (isDark ? AppColors.glassBorder : Colors.grey.shade200),
+              ? AppColors.success.withAlpha(80)
+              : _missionAccentColor(missionType).withAlpha(isDark ? 70 : 50),
         ),
+        boxShadow: isCompleted
+            ? [
+                BoxShadow(
+                  color: AppColors.success.withAlpha(isDark ? 30 : 20),
+                  blurRadius: 12,
+                  spreadRadius: -2,
+                ),
+              ]
+            : [
+                BoxShadow(
+                  color: _missionAccentColor(missionType)
+                      .withAlpha(isDark ? 25 : 15),
+                  blurRadius: 12,
+                  spreadRadius: -3,
+                ),
+              ],
       ),
       child: Row(
         children: [
@@ -1259,14 +1405,37 @@ class _QuestCard extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 2),
-                Text(
-                  '+$xpReward XP',
-                  style: GoogleFonts.manrope(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: isCompleted
-                        ? AppColors.success
-                        : AppColors.xpGold,
+                Container(
+                  margin: const EdgeInsets.only(top: 3),
+                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: (isCompleted ? AppColors.success : AppColors.xpGold)
+                        .withAlpha(isDark ? 30 : 20),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(
+                      color: (isCompleted ? AppColors.success : AppColors.xpGold)
+                          .withAlpha(60),
+                      width: 0.5,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.star_rounded,
+                        size: 11,
+                        color: isCompleted ? AppColors.success : AppColors.xpGold,
+                      ),
+                      const SizedBox(width: 3),
+                      Text(
+                        '+$xpReward XP',
+                        style: GoogleFonts.manrope(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: isCompleted ? AppColors.success : AppColors.xpGold,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
                 if (reason != null && reason.isNotEmpty) ...[
@@ -1325,6 +1494,17 @@ class _QuestCard extends StatelessWidget {
         return Icons.forum_rounded;
       default:
         return Icons.star_rounded;
+    }
+  }
+
+  Color _missionAccentColor(String type) {
+    switch (type) {
+      case 'question_set':
+        return const Color(0xFF8B5CF6);
+      case 'conversation':
+        return const Color(0xFF10B981);
+      default:
+        return AppColors.xpGold;
     }
   }
 
