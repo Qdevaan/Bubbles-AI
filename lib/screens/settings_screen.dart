@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import '../theme/design_tokens.dart';
 import '../services/app_cache_service.dart';
 import '../services/auth_service.dart';
+import '../providers/settings_provider.dart';
 import '../routes/app_routes.dart';
 import '../widgets/settings/settings_widgets.dart';
 import '../widgets/settings/settings_dialogs.dart';
@@ -115,6 +116,56 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ),
 
                     const SizedBox(height: 24),
+
+                    // — Home Screen —
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Consumer<SettingsProvider>(
+                        builder: (context, sp, _) {
+                          return GroupedContainer(
+                            isDark: isDark,
+                            children: [
+                              Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Home Screen',
+                                      style: GoogleFonts.manrope(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w700,
+                                        color: isDark ? AppColors.slate400 : AppColors.slate500,
+                                        letterSpacing: 0.5,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 16),
+                                    _HomePickerRow(
+                                      label: 'Session hero',
+                                      options: const ['orb', 'card'],
+                                      labels: const ['Orb', 'Card'],
+                                      selected: sp.sessionHeroStyle,
+                                      onChanged: sp.setSessionHeroStyle,
+                                      isDark: isDark,
+                                    ),
+                                    const SizedBox(height: 12),
+                                    _HomePickerRow(
+                                      label: 'Quick actions',
+                                      options: const ['pills', 'icons', 'cards'],
+                                      labels: const ['Pills', 'Icons', 'Cards'],
+                                      selected: sp.quickActionsStyle,
+                                      onChanged: sp.setQuickActionsStyle,
+                                      isDark: isDark,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          );
+                        },
+                      ),
+                    ),
+                    const SizedBox(height: 16),
 
                     // ── Content ───────────────────────────────────────────
                     Padding(
@@ -601,6 +652,79 @@ class _SectionHeader extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+// ── Home Picker Row ────────────────────────────────────────────────────────────
+class _HomePickerRow extends StatelessWidget {
+  final String label;
+  final List<String> options;
+  final List<String> labels;
+  final String selected;
+  final Future<void> Function(String) onChanged;
+  final bool isDark;
+
+  const _HomePickerRow({
+    required this.label,
+    required this.options,
+    required this.labels,
+    required this.selected,
+    required this.onChanged,
+    required this.isDark,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final primary = Theme.of(context).colorScheme.primary;
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            label,
+            style: GoogleFonts.manrope(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: isDark ? Colors.white : AppColors.slate900,
+            ),
+          ),
+        ),
+        Wrap(
+          spacing: 6,
+          children: List.generate(options.length, (i) {
+            final isSelected = selected == options[i];
+            return GestureDetector(
+              onTap: () => onChanged(options[i]),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 150),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: isSelected ? primary.withAlpha(25) : Colors.transparent,
+                  borderRadius: BorderRadius.circular(AppRadius.full),
+                  border: Border.all(
+                    color: isSelected
+                        ? primary
+                        : (isDark
+                            ? AppColors.glassBorder
+                            : Colors.grey.shade300),
+                  ),
+                ),
+                child: Text(
+                  labels[i],
+                  style: GoogleFonts.manrope(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: isSelected
+                        ? primary
+                        : (isDark ? AppColors.slate400 : AppColors.slate500),
+                  ),
+                ),
+              ),
+            );
+          }),
+        ),
+      ],
     );
   }
 }

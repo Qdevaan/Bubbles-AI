@@ -101,6 +101,17 @@ class _QuickActionCardState extends State<QuickActionCard> {
   }
 }
 
+// ── Accent colours keyed by action id ────────────────────────────────────────
+
+const Map<String, Color> _kActionAccents = {
+  'consultant': Color(0xFF38BDF8),
+  'sessions': Color(0xFF34D399),
+  'roleplay': Colors.deepPurple,
+  'game-center': AppColors.xpGold,
+  'graph-explorer': Color(0xFF8B5CF6),
+  'insights': Color(0xFFF59E0B),
+};
+
 // ── QuickActionsSection (container with layout switching) ──────────────────────
 
 class QuickActionsSection extends StatelessWidget {
@@ -172,23 +183,8 @@ class QuickActionsSection extends StatelessWidget {
       return const SizedBox();
     }
 
-    if (style == 'list') {
-      return Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        child: Column(
-          children: actions.map((a) => Padding(
-            padding: const EdgeInsets.only(bottom: 12),
-            child: QuickActionListTile(
-              icon: a['icon'] as IconData,
-              iconColor: a['iconColor'] as Color,
-              iconBg: a['iconBg'] as Color,
-              title: a['title'] as String,
-              subtitle: a['subtitle'] as String,
-              onTap: () => Navigator.pushNamed(context, a['route'] as String),
-            ),
-          )).toList(),
-        ),
-      );
+    if (style == 'pills') {
+      return _QuickPillsMode(actions: actions);
     } else if (style == 'icons') {
       final rowCount = (actions.length / 3).ceil();
       return Padding(
@@ -221,7 +217,7 @@ class QuickActionsSection extends StatelessWidget {
         ),
       );
     } else {
-      // Default to 'grid'
+      // Default to 'cards'
       return Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16),
         child: Column(
@@ -262,6 +258,78 @@ class QuickActionsSection extends StatelessWidget {
         ),
       );
     }
+  }
+}
+
+// ── _QuickPillsMode (2-per-line pill layout) ───────────────────────────────────
+
+class _QuickPillsMode extends StatelessWidget {
+  final List<Map<String, dynamic>> actions;
+  const _QuickPillsMode({required this.actions});
+
+  @override
+  Widget build(BuildContext context) {
+    final pairs = <List<Map<String, dynamic>>>[];
+    for (var i = 0; i < actions.length; i += 2) {
+      pairs.add(actions.sublist(i, i + 2 > actions.length ? actions.length : i + 2));
+    }
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Column(
+        children: pairs.map((pair) {
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Row(
+              children: List.generate(pair.length, (idx) {
+                final a = pair[idx];
+                final accent =
+                    _kActionAccents[a['id'] as String] ?? AppColors.primary;
+                return Expanded(
+                  child: Padding(
+                    padding: EdgeInsets.only(
+                      left: idx > 0 ? 4 : 0,
+                      right: idx == 0 ? 4 : 0,
+                    ),
+                    child: GestureDetector(
+                      onTap: () =>
+                          Navigator.pushNamed(context, a['route'] as String),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 10),
+                        decoration: BoxDecoration(
+                          color: accent.withAlpha(25),
+                          borderRadius: BorderRadius.circular(50),
+                          border: Border.all(color: accent.withAlpha(80)),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(a['icon'] as IconData, color: accent, size: 18),
+                            const SizedBox(width: 6),
+                            Flexible(
+                              child: Text(
+                                a['title'] as String,
+                                overflow: TextOverflow.ellipsis,
+                                style: GoogleFonts.manrope(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  color: accent,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              }),
+            ),
+          );
+        }).toList(),
+      ),
+    );
   }
 }
 

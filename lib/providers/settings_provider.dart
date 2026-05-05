@@ -15,6 +15,7 @@ class SettingsProvider with ChangeNotifier {
   static const String _alwaysPromptKey = 'always_prompt_for_tone';
   static const String _localeKey = 'app_locale';
   static const String _quickActionsStyleKey = 'quick_actions_style';
+  static const String _sessionHeroStyleKey = 'session_hero_style';
   static const String _enabledQuickActionsKey = 'enabled_quick_actions';
 
   SettingsRepository? _repository;
@@ -26,7 +27,8 @@ class SettingsProvider with ChangeNotifier {
   String _defaultLiveTone = 'casual';
   String _defaultConsultantTone = 'casual';
   bool _alwaysPromptForTone = false;
-  String _quickActionsStyle = 'grid'; // 'list', 'grid', or 'icons'
+  String _quickActionsStyle = 'pills';
+  String _sessionHeroStyle = 'orb';
   List<String> _enabledQuickActions = ['consultant', 'sessions', 'roleplay', 'game-center', 'graph-explorer', 'insights'];
 
   bool _pushHighlights = true;
@@ -51,6 +53,7 @@ class SettingsProvider with ChangeNotifier {
   String get defaultConsultantTone => _defaultConsultantTone;
   bool get alwaysPromptForTone => _alwaysPromptForTone;
   String get quickActionsStyle => _quickActionsStyle;
+  String get sessionHeroStyle => _sessionHeroStyle;
   List<String> get enabledQuickActions => _enabledQuickActions;
   bool get pushHighlights => _pushHighlights;
   bool get pushEvents => _pushEvents;
@@ -88,7 +91,13 @@ class SettingsProvider with ChangeNotifier {
       _defaultConsultantTone = prefs.getString(_consultantToneKey) ?? 'casual';
       if (_defaultConsultantTone == 'serious') _defaultConsultantTone = 'formal';
       _alwaysPromptForTone = prefs.getBool(_alwaysPromptKey) ?? true;
-      _quickActionsStyle = prefs.getString(_quickActionsStyleKey) ?? 'grid';
+      final rawStyle = prefs.getString(_quickActionsStyleKey) ?? 'pills';
+      _quickActionsStyle = rawStyle == 'list'
+          ? 'pills'
+          : rawStyle == 'grid'
+              ? 'cards'
+              : rawStyle;
+      _sessionHeroStyle = prefs.getString(_sessionHeroStyleKey) ?? 'orb';
       final list = prefs.getStringList(_enabledQuickActionsKey);
       if (list != null) _enabledQuickActions = list;
 
@@ -136,7 +145,13 @@ class SettingsProvider with ChangeNotifier {
     
     // Non-synced/local only
     if (settings[_alwaysPromptKey] != null) _alwaysPromptForTone = settings[_alwaysPromptKey];
-    if (settings[_quickActionsStyleKey] != null) _quickActionsStyle = settings[_quickActionsStyleKey];
+    final rawStyle2 = (settings[_quickActionsStyleKey] as String?) ?? _quickActionsStyle;
+    _quickActionsStyle = rawStyle2 == 'list'
+        ? 'pills'
+        : rawStyle2 == 'grid'
+            ? 'cards'
+            : rawStyle2;
+    _sessionHeroStyle = (settings[_sessionHeroStyleKey] as String?) ?? _sessionHeroStyle;
     if (settings[_enabledQuickActionsKey] != null) _enabledQuickActions = List<String>.from(settings[_enabledQuickActionsKey]);
     if (settings[_localeKey] != null) _locale = Locale(settings[_localeKey]);
     
@@ -228,7 +243,14 @@ class SettingsProvider with ChangeNotifier {
 
   Future<void> setQuickActionsStyle(String style) async {
     _quickActionsStyle = style;
+    notifyListeners();
     await _updateSetting(_quickActionsStyleKey, style);
+  }
+
+  Future<void> setSessionHeroStyle(String style) async {
+    _sessionHeroStyle = style;
+    notifyListeners();
+    await _updateSetting(_sessionHeroStyleKey, style);
   }
 
   Future<void> setEnabledQuickActions(List<String> actions) async {

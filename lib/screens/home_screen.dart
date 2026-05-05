@@ -22,7 +22,7 @@ import '../widgets/insights/insight_item.dart';
 import '../widgets/mood_check_widget.dart';
 import '../widgets/performa_approval_sheet.dart';
 import '../providers/performa_provider.dart';
-import '../widgets/streak_strip.dart';
+import '../widgets/compact_streak_chip.dart';
 import '../widgets/skeleton_loader.dart';
 
 // ============================================================================
@@ -352,38 +352,12 @@ class _HomeScreenState extends State<HomeScreen>
                                   ),
                                 ),
                               ),
-                              Expanded(
-                                child: Padding(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                                  child: Center(
-                                    child: SingleChildScrollView(
-                                      scrollDirection: Axis.horizontal,
-                                      child: Selector<GamificationProvider,
-                                          (int, int, int, int, String)>(
-                                        selector: (_, gp) => (
-                                          gp.currentStreak,
-                                          gp.totalXp,
-                                          gp.level,
-                                          gp.streakFreezes,
-                                          gp.skillTierEmoji,
-                                        ),
-                                        builder: (context, gpData, __) {
-                                          final (streak, totalXp, level,
-                                              streakFreezes, skillTierEmoji) =
-                                              gpData;
-                                          return StreakStrip(
-                                            streak: streak,
-                                            totalXp: totalXp,
-                                            level: level,
-                                            streakFreezes: streakFreezes,
-                                            skillTierEmoji: skillTierEmoji,
-                                            onTap: () => Navigator.pushNamed(
-                                                context, '/game-center'),
-                                          );
-                                        },
-                                      ),
-                                    ),
-                                  ),
+                              Selector<GamificationProvider, (int, int)>(
+                                selector: (_, gp) => (gp.currentStreak, gp.totalXp),
+                                builder: (context, gpData, _) => CompactStreakChip(
+                                  streak: gpData.$1,
+                                  xp: gpData.$2,
+                                  onTap: () => Navigator.pushNamed(context, '/game-center'),
                                 ),
                               ),
                               Selector<HomeProvider, (int, bool)>(
