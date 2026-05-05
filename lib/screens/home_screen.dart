@@ -782,15 +782,14 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   void _showQuickActionsEditSheet(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final allActions = [
-      {'id': 'consultant', 'title': 'Consultant AI', 'icon': Icons.psychology_rounded},
-      {'id': 'sessions', 'title': 'History', 'icon': Icons.history_rounded},
-      {'id': 'roleplay', 'title': 'Roleplay Mode', 'icon': Icons.theater_comedy_outlined},
-      {'id': 'game-center', 'title': 'Game Center', 'icon': Icons.emoji_events},
-      {'id': 'graph-explorer', 'title': 'Knowledge Graph', 'icon': Icons.hub_rounded},
-      {'id': 'insights', 'title': 'Insights', 'icon': Icons.lightbulb_outline},
-      {'id': 'performa', 'title': 'Performa', 'icon': Icons.bar_chart_rounded},
+    const allActions = [
+      {'id': 'consultant',    'title': 'Consultant AI',    'icon': Icons.psychology_rounded,       'accent': Color(0xFF38BDF8)},
+      {'id': 'sessions',      'title': 'History',          'icon': Icons.history_rounded,          'accent': Color(0xFF34D399)},
+      {'id': 'roleplay',      'title': 'Roleplay Mode',    'icon': Icons.theater_comedy_outlined,  'accent': Color(0xFF818CF8)},
+      {'id': 'game-center',   'title': 'Game Center',      'icon': Icons.emoji_events,             'accent': Color(0xFFFBBF24)},
+      {'id': 'graph-explorer','title': 'Knowledge Graph',  'icon': Icons.hub_rounded,              'accent': Color(0xFF8B5CF6)},
+      {'id': 'insights',      'title': 'Insights',         'icon': Icons.lightbulb_outline,        'accent': Color(0xFFF59E0B)},
+      {'id': 'performa',      'title': 'Performa',         'icon': Icons.bar_chart_rounded,        'accent': Color(0xFFF43F5E)},
     ];
 
     showModalBottomSheet(
@@ -799,59 +798,174 @@ class _HomeScreenState extends State<HomeScreen>
       isScrollControlled: true,
       builder: (ctx) {
         return StatefulBuilder(
-          builder: (context, setSheetState) {
-            final sp = context.read<SettingsProvider>();
+          builder: (sheetCtx, setSheetState) {
+            final isDark = Theme.of(sheetCtx).brightness == Brightness.dark;
+            final primary = Theme.of(sheetCtx).colorScheme.primary;
+            final sp = sheetCtx.read<SettingsProvider>();
             final enabled = List<String>.from(sp.enabledQuickActions);
 
             return Container(
-              padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                color: isDark ? AppColors.surfaceDark : Colors.white,
                 borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
               ),
               child: SafeArea(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(
-                      'Customize Quick Actions',
-                      style: GoogleFonts.manrope(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
-                        color: isDark ? Colors.white : AppColors.slate900,
+                    // Handle bar
+                    const SizedBox(height: 12),
+                    Container(
+                      width: 40, height: 4,
+                      decoration: BoxDecoration(
+                        color: isDark ? AppColors.glassBorder : AppColors.slate200,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    // Header
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Quick Actions',
+                                  style: GoogleFonts.manrope(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w800,
+                                    color: isDark ? Colors.white : AppColors.slate900,
+                                  ),
+                                ),
+                                Text(
+                                  'Toggle to show or hide shortcuts',
+                                  style: GoogleFonts.manrope(
+                                    fontSize: 12,
+                                    color: isDark ? AppColors.slate400 : AppColors.slate500,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                     const SizedBox(height: 16),
-                    ...allActions.map((action) {
-                      final isSelected = enabled.contains(action['id'] as String);
-                      return CheckboxListTile(
-                        title: Text(action['title'] as String, style: GoogleFonts.manrope()),
-                        secondary: Icon(action['icon'] as IconData),
-                        value: isSelected,
-                        activeColor: Theme.of(context).colorScheme.primary,
-                        onChanged: (val) {
-                          if (val == true) {
-                            enabled.add(action['id'] as String);
-                          } else {
-                            enabled.remove(action['id'] as String);
-                          }
-                          setSheetState(() {});
-                          sp.setEnabledQuickActions(enabled);
-                        },
-                      );
-                    }),
-                    const SizedBox(height: 16),
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: () => Navigator.pop(ctx),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Theme.of(context).colorScheme.primary,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    // Action tiles
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: isDark ? AppColors.glassWhite : Colors.white,
+                          borderRadius: BorderRadius.circular(AppRadius.xxl),
+                          border: Border.all(
+                            color: isDark ? AppColors.glassBorder : Colors.grey.shade200,
+                          ),
                         ),
-                        child: Text('Done', style: GoogleFonts.manrope(fontWeight: FontWeight.w700)),
+                        child: Column(
+                          children: List.generate(allActions.length, (i) {
+                            final action = allActions[i];
+                            final id = action['id'] as String;
+                            final accent = action['accent'] as Color;
+                            final isOn = enabled.contains(id);
+                            final isLast = i == allActions.length - 1;
+
+                            return Column(
+                              children: [
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 16, vertical: 12),
+                                  child: Row(
+                                    children: [
+                                      // Accent icon
+                                      Container(
+                                        width: 40,
+                                        height: 40,
+                                        decoration: BoxDecoration(
+                                          color: accent.withAlpha(25),
+                                          borderRadius: BorderRadius.circular(10),
+                                        ),
+                                        child: Icon(
+                                          action['icon'] as IconData,
+                                          color: accent,
+                                          size: 20,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 14),
+                                      // Title
+                                      Expanded(
+                                        child: Text(
+                                          action['title'] as String,
+                                          style: GoogleFonts.manrope(
+                                            fontSize: 15,
+                                            fontWeight: FontWeight.w600,
+                                            color: isDark
+                                                ? Colors.white
+                                                : AppColors.slate900,
+                                          ),
+                                        ),
+                                      ),
+                                      // Toggle switch
+                                      Switch(
+                                        value: isOn,
+                                        activeThumbColor: accent,
+                                        activeTrackColor: accent.withAlpha(60),
+                                        inactiveThumbColor: isDark
+                                            ? AppColors.slate500
+                                            : AppColors.slate300,
+                                        inactiveTrackColor: isDark
+                                            ? AppColors.glassWhite
+                                            : AppColors.slate100,
+                                        onChanged: (val) {
+                                          if (val) {
+                                            enabled.add(id);
+                                          } else {
+                                            enabled.remove(id);
+                                          }
+                                          setSheetState(() {});
+                                          sp.setEnabledQuickActions(enabled);
+                                        },
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                if (!isLast)
+                                  Divider(
+                                    height: 1,
+                                    indent: 70,
+                                    color: isDark
+                                        ? Colors.white.withAlpha(10)
+                                        : Colors.grey.shade100,
+                                  ),
+                              ],
+                            );
+                          }),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    // Done button
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                      child: SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          onPressed: () => Navigator.pop(ctx),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: primary,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(AppRadius.lg)),
+                          ),
+                          child: Text('Done',
+                              style: GoogleFonts.manrope(
+                                  fontWeight: FontWeight.w700, fontSize: 15)),
+                        ),
                       ),
                     ),
                   ],
