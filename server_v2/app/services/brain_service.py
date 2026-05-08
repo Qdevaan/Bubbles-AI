@@ -197,6 +197,7 @@ class BrainService:
             f"\n{graph_context}"
             f"\n------------------------------------------"
         ) if has_graph_facts else ""
+        # TODO(Task 11): replace empty stub with PersonaService persona-fragment include
         about_you_block = (
             f"\n\n{performa_context}"
         ) if performa_context.strip() else ""
@@ -346,6 +347,7 @@ class BrainService:
             if graph_context and "No known graph facts" not in graph_context
             else ""
         )
+        # TODO(Task 11): replace empty stub with PersonaService persona-fragment include
         about_block = f"\n\n{performa_context}" if performa_context.strip() else ""
 
         system_prompt = (

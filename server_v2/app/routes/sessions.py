@@ -43,9 +43,7 @@ _MAX_GLOBAL_SESSIONS = 500
 # -- Context cache warm-up
 
 async def _warm_context_cache(user_id: str, session_id: str) -> None:
-    """Pre-load graph + vector + performa context at session start for zero-latency per-turn use."""
-    import app.services.performa_service as performa_svc
-
+    """Pre-load graph + vector context at session start for zero-latency per-turn use."""
     def _graph():
         graph_svc.load_graph(user_id)
         return graph_svc.find_context(user_id, "")
@@ -53,25 +51,20 @@ async def _warm_context_cache(user_id: str, session_id: str) -> None:
     def _vector():
         return vector_svc.search_memory(user_id, "")
 
-    def _performa():
-        return performa_svc.build_context_block(user_id)
-
     try:
-        g_ctx, v_ctx, p_ctx = await asyncio.wait_for(
+        g_ctx, v_ctx = await asyncio.wait_for(
             asyncio.gather(
                 asyncio.to_thread(_graph),
                 asyncio.to_thread(_vector),
-                asyncio.to_thread(_performa),
             ),
             timeout=2.0,
         )
         await session_store.set_context_cache(session_id, {
             "graph": g_ctx or "",
             "vector": v_ctx or "",
-            "performa": p_ctx or "",
         })
     except asyncio.TimeoutError:
-        await session_store.set_context_cache(session_id, {"graph": "", "vector": "", "performa": ""})
+        await session_store.set_context_cache(session_id, {"graph": "", "vector": ""})
 
 
 
@@ -389,7 +382,8 @@ async def process_transcript_wingman(
         g_ctx = f"ROLEPLAY TARGET ENTITY CONTEXT:\n{e_ctx}\n\n" + g_ctx
 
     # 2. Get wingman advice — this is what the client is waiting for
-    p_ctx = cached.get("performa", "") if cached else ""
+    # TODO(Task 11): replace empty stub with PersonaService persona-fragment include
+    p_ctx = ""
     result = await brain_svc.get_wingman_advice(
         user_id, transcript, g_ctx, v_ctx, req.mode, req.persona,
         performa_context=p_ctx,
@@ -638,31 +632,7 @@ async def end_session_endpoint(
     fire_and_forget(gamification_svc.update_streak(req.user_id))
     fire_and_forget(dispatcher_svc.personalize_quest_briefs(req.user_id))
 
-    # Post-session performa insight analysis (fire-and-forget)
-    async def _run_performa_analysis():
-        try:
-            import app.services.performa_service as _ps
-            from app.database import db as _db
-            logs_res = await asyncio.to_thread(
-                lambda: _db.table("session_logs")
-                .select("role, content")
-                .eq("session_id", req.session_id)
-                .order("created_at")
-                .execute()
-            )
-            text = "\n".join(
-                f'{"You" if r["role"] == "user" else "Other"}: {r["content"]}'
-                for r in (logs_res.data or []) if r.get("content")
-            )
-            if text:
-                await _ps.analyze_session_for_insights(
-                    req.user_id, req.session_id, text,
-                    llm_client=brain_svc.client,
-                    model=settings.WINGMAN_MODEL,
-                )
-        except Exception as e:
-            logger.warning(f"Performa post-session analysis error: {e}")
-    asyncio.create_task(_run_performa_analysis())
+    # TODO(Task 11): post-session persona insight analysis will be re-added via PersonaService
 
     return {"status": "completed", "session_id": req.session_id}
 
@@ -674,9 +644,11 @@ async def end_session_endpoint(
 async def _load_session_context(
     user_id: str, session_id: str | None, transcript: str,
 ) -> tuple[str, str, str, str]:
-    """Return (graph_ctx, vector_ctx, entity_ctx, performa_ctx).
+    """Return (graph_ctx, vector_ctx, entity_ctx, persona_ctx).
 
     Cache-first; falls back to live fetch with a 200ms hard timeout cap.
+    persona_ctx is currently always "" — Task 11 will replace it with the
+    new PersonaService persona-fragment block.
     """
     if not session_id:
         return "", "", "", ""
@@ -695,7 +667,7 @@ async def _load_session_context(
             cached.get("graph", ""),
             cached.get("vector", ""),
             e_ctx,
-            cached.get("performa", ""),
+            "",
         )
 
     def _graph_ctx():
