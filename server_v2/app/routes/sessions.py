@@ -23,6 +23,8 @@ from app.models.requests import (
     SaveSessionRequest,
     EndSessionRequest,
     WingmanRequest,
+    SuggestReplyRequest,
+    SuggestReplyResponse,
 )
 from app.services import graph_svc, vector_svc, brain_svc, session_svc, entity_svc, audit_svc, gamification_svc, dispatcher_svc
 from app.utils import fire_and_forget
@@ -663,3 +665,105 @@ async def end_session_endpoint(
     asyncio.create_task(_run_performa_analysis())
 
     return {"status": "completed", "session_id": req.session_id}
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# POST /suggest_reply  (live 3-candidate suggestion engine)
+# ══════════════════════════════════════════════════════════════════════════════
+
+async def _load_session_context(
+    user_id: str, session_id: str | None, transcript: str,
+) -> tuple[str, str, str, str]:
+    """Return (graph_ctx, vector_ctx, entity_ctx, performa_ctx).
+
+    Cache-first; falls back to live fetch with a 200ms hard timeout cap.
+    """
+    if not session_id:
+        return "", "", "", ""
+
+    meta = await session_store.get_metadata(session_id) or {}
+    target_entity_id = meta.get("target_entity_id")
+    cached = await session_store.get_context_cache(session_id) or {}
+
+    if cached:
+        e_ctx = ""
+        if target_entity_id:
+            e_ctx = await asyncio.to_thread(
+                entity_svc.get_entity_context, user_id, str(target_entity_id)
+            )
+        return (
+            cached.get("graph", ""),
+            cached.get("vector", ""),
+            e_ctx,
+            cached.get("performa", ""),
+        )
+
+    def _graph_ctx():
+        graph_svc.load_graph(user_id)
+        return graph_svc.find_context(user_id, transcript)
+
+    def _entity_ctx():
+        if target_entity_id:
+            return entity_svc.get_entity_context(user_id, str(target_entity_id))
+        return ""
+
+    try:
+        g_ctx, v_ctx, e_ctx = await asyncio.wait_for(
+            asyncio.gather(
+                asyncio.to_thread(_graph_ctx),
+                asyncio.to_thread(vector_svc.search_memory, user_id, transcript),
+                asyncio.to_thread(_entity_ctx),
+            ),
+            timeout=0.2,
+        )
+        return g_ctx, v_ctx, e_ctx, ""
+    except asyncio.TimeoutError:
+        return "", "", "", ""
+
+
+@router.post("/suggest_reply", response_model=SuggestReplyResponse)
+@limiter.limit("60/minute")
+async def suggest_reply_endpoint(
+    request: Request,
+    req: SuggestReplyRequest,
+    user: VerifiedUser = Depends(get_verified_user),
+):
+    """Return 3 candidate replies in the user's selected tone for the partner's
+    most recent utterance. Used by the live-session suggestion strip."""
+    import uuid
+    import time
+
+    rid = uuid.uuid4().hex[:8]
+    t0 = time.time()
+    transcript = validate_transcript(sanitize_input(req.partner_utterance))
+
+    g_ctx, v_ctx, e_ctx, p_ctx = await _load_session_context(
+        req.user_id, req.session_id, transcript,
+    )
+    if e_ctx:
+        g_ctx = f"ROLEPLAY TARGET ENTITY CONTEXT:\n{e_ctx}\n\n" + g_ctx
+
+    result = await brain_svc.get_wingman_suggestions(
+        user_id=req.user_id,
+        transcript=transcript,
+        graph_context=g_ctx,
+        vector_context=v_ctx,
+        persona=req.tone,
+        performa_context=p_ctx,
+        is_draft=req.is_draft,
+    )
+    suggestions = (result or {}).get("suggestions", [])[:3]
+
+    if not suggestions:
+        kind = "error"
+    elif req.is_draft:
+        kind = "draft"
+    else:
+        kind = "final"
+
+    return SuggestReplyResponse(
+        suggestions=suggestions,
+        kind=kind,
+        latency_ms=int((time.time() - t0) * 1000),
+        request_id=rid,
+    )
