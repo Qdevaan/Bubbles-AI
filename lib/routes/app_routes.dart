@@ -27,4 +27,6 @@ class AppRoutes {
   static const permissions = '/settings/permissions';
   static const data        = '/settings/data';
   static const updatePassword = '/update-password';
+  static const authGate = '/auth-gate';
+  static const performaWizard = '/performa-wizard';
 }

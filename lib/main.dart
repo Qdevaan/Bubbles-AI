@@ -56,6 +56,8 @@ import 'screens/language_screen.dart';
 import 'screens/permissions_screen.dart';
 import 'screens/data_management_screen.dart';
 import 'screens/update_password_screen.dart';
+import 'screens/auth_gate.dart';
+import 'screens/performa/performa_wizard_screen.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'providers/tags_provider.dart';
 import 'providers/profile_provider.dart';
@@ -465,6 +467,10 @@ class BubblesApp extends StatelessWidget {
                   const AuthGuard(child: DataManagementScreen()),
               AppRoutes.updatePassword: (context) =>
                   const UpdatePasswordScreen(),
+              AppRoutes.authGate: (context) =>
+                  const AuthGuard(child: AuthGate()),
+              AppRoutes.performaWizard: (context) =>
+                  const AuthGuard(child: PerformaWizardScreen()),
             },
           );
         },

@@ -140,7 +140,7 @@ class _SplashScreenState extends State<SplashScreen> {
         } catch (_) {}
       }
 
-      _targetRoute = isComplete ? '/home' : '/profile-completion';
+      _targetRoute = isComplete ? '/auth-gate' : '/profile-completion';
     } else {
       _targetRoute = '/login';
     }

@@ -39,7 +39,7 @@ class _SignupScreenState extends State<SignupScreen> {
     ) {
       if (data.event == AuthChangeEvent.signedIn && data.session != null) {
         if (!_isEmailLoading && mounted) {
-          Navigator.pushReplacementNamed(context, '/home');
+          Navigator.pushReplacementNamed(context, '/auth-gate');
         }
       }
     });
