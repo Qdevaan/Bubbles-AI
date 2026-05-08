@@ -1,7 +1,7 @@
 """
 Service singletons — initialized once and shared across all routes.
 Import from here: `from app.services import graph_svc, vector_svc, brain_svc,
-session_svc, entity_svc, audit_svc, gamification_svc`
+session_svc, entity_svc, audit_svc, gamification_svc, persona_svc`
 """
 
 from app.services.graph_service import GraphService
@@ -35,3 +35,9 @@ print("📝 Grammar Service: initialised")
 from app.services.reminder_service import ReminderService
 reminder_svc = ReminderService()
 print("📨 Reminder Service: instance created (FCM init deferred to startup)")
+
+# Persona service for user profile management and role classification
+from app.services.persona_service import PersonaService
+from app.database import db as _db
+persona_svc = PersonaService(db=_db)
+print("👤 Persona Service: initialised")

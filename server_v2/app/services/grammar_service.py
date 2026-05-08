@@ -13,6 +13,41 @@ from typing import Any, Dict, List, Optional
 import httpx
 
 from app.config import settings
+from app.services.prompt_loader import render_persona_block, render_scenario_header
+
+# Lazy-resolved persona_svc -- the service singleton is created in
+# app.services.__init__ AFTER this module is imported, so we cannot bind
+# `persona_svc` at module load. Tests patch `app.services.grammar_service.persona_svc`
+# to inject a mock; the proxy honours that by reading via getattr at call time.
+import app.services as _services_pkg
+
+
+class _PersonaSvcProxy:
+    def get(self, user_id):
+        svc = getattr(_services_pkg, "persona_svc", None)
+        if svc is None:
+            return None
+        return svc.get(user_id)
+
+
+persona_svc = _PersonaSvcProxy()
+
+
+_DEFAULT_PERSONA_DICT: Dict[str, Any] = {
+    "role_family": "default",
+    "native_language": "en",
+    "learning_language": "en",
+    "formality_preference": "neutral",
+}
+
+
+_GRAMMAR_INSTRUCTIONS = (
+    "You are a strict spoken-English reviewer. Identify filler words, awkward "
+    "phrasing, repetition, and grammar/style issues. Output STRICT JSON with "
+    "this shape: "
+    '{"issues": [{"category": "...", "snippet": "exact phrase", '
+    '"suggestion": "rewrite or empty"}]}. Empty list if nothing flagged.'
+)
 
 
 _CATEGORY_MAP = {
@@ -46,6 +81,39 @@ class GrammarService:
     def __init__(self):
         self._embedded: Optional[Any] = None  # lazy
         self._embedded_lock = asyncio.Lock()
+
+    def build_check_prompt(
+        self,
+        user_id: Optional[str],
+        text: str,
+        session_context: Optional[dict] = None,
+    ) -> str:
+        """Compose a persona-aware grammar-check prompt.
+
+        Even though grammar detection itself runs through LanguageTool today,
+        downstream consumers (e.g. mistake-explanation LLM calls) need the
+        same persona+scenario framing brain_service uses, so the helper lives
+        here as the canonical builder for any LLM-mediated grammar prompt.
+        """
+        if user_id:
+            try:
+                persona = persona_svc.get(user_id)
+            except Exception:  # pragma: no cover -- defensive
+                persona = None
+        else:
+            persona = None
+
+        if persona is None:
+            persona_dict: Dict[str, Any] = dict(_DEFAULT_PERSONA_DICT)
+        else:
+            persona_dict = persona.model_dump(mode="json")
+
+        persona_block = render_persona_block(persona_dict)
+        scenario_block = render_scenario_header(session_context)
+        header = persona_block
+        if scenario_block.strip():
+            header = f"{persona_block}\n{scenario_block}"
+        return f"{header.rstrip()}\n\n{_GRAMMAR_INSTRUCTIONS}\n\nText: {text}"
 
     async def _ensure_embedded(self) -> Any:
         if self._embedded is None:

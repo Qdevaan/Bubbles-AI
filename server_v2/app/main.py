@@ -27,7 +27,7 @@ from app.utils import _background_tasks
 from app.utils.rate_limit import limiter
 from app.utils.session_store import session_store
 
-from app.routes import health, sessions, consultant, voice, analytics, entities, gamification, stt, performance, performa, grammar
+from app.routes import health, sessions, consultant, voice, analytics, entities, gamification, stt, performance, grammar, persona
 
 
 # ── Session TTL ───────────────────────────────────────────────────────────────
@@ -205,6 +205,13 @@ app.add_middleware(
 
 @app.exception_handler(RequestValidationError)
 async def validation_error_handler(request: Request, exc: RequestValidationError):
+    # Routes that opt in to standard 422 semantics (preserves Pydantic body
+    # schema in OpenAPI for typed request bodies).
+    path = request.url.path
+    if path.startswith("/v1/me/persona") or (
+        path.startswith("/v1/sessions/") and path.endswith("/context")
+    ):
+        return JSONResponse(status_code=422, content={"detail": exc.errors()})
     return JSONResponse(
         status_code=400,
         content={
@@ -250,8 +257,8 @@ v1.include_router(entities.router)
 v1.include_router(gamification.router)
 v1.include_router(stt.router)
 v1.include_router(performance.router)
-v1.include_router(performa.router)
 v1.include_router(grammar.router)
+v1.include_router(persona.router)
 
 app.include_router(v1)
 

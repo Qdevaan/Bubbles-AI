@@ -20,8 +20,6 @@ import '../widgets/home/home_widgets.dart';
 import '../widgets/insights/insight_item.dart';
 
 import '../widgets/mood_check_widget.dart';
-import '../widgets/performa_approval_sheet.dart';
-import '../providers/performa_provider.dart';
 import '../widgets/compact_streak_chip.dart';
 import '../widgets/session_hero_card.dart';
 import '../widgets/skeleton_loader.dart';
@@ -57,9 +55,6 @@ class _HomeScreenState extends State<HomeScreen>
       final userId = AuthService.instance.currentUser?.id;
       if (userId != null) {
         Provider.of<GraphRepository>(context, listen: false).getGraphExport(userId, forceRefresh: true);
-        Provider.of<PerformaProvider>(context, listen: false).load(userId).then((_) {
-          if (mounted) PerformaApprovalSheet.showIfNeeded(context);
-        });
       }
     });
   }
@@ -789,7 +784,6 @@ class _HomeScreenState extends State<HomeScreen>
       {'id': 'game-center',   'title': 'Game Center',      'icon': Icons.emoji_events,             'accent': Color(0xFFFBBF24)},
       {'id': 'graph-explorer','title': 'Knowledge Graph',  'icon': Icons.hub_rounded,              'accent': Color(0xFF8B5CF6)},
       {'id': 'insights',      'title': 'Insights',         'icon': Icons.lightbulb_outline,        'accent': Color(0xFFF59E0B)},
-      {'id': 'performa',      'title': 'Performa',         'icon': Icons.bar_chart_rounded,        'accent': Color(0xFFF43F5E)},
     ];
 
     showModalBottomSheet(

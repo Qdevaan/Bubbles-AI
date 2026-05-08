@@ -9,8 +9,6 @@ import 'package:provider/provider.dart';
 import '../theme/design_tokens.dart';
 import '../widgets/glass_morphism.dart';
 import '../services/api_service.dart';
-import '../providers/performa_provider.dart';
-import '../screens/performa_screen.dart';
 import '../services/auth_service.dart';
 import '../services/deepgram_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -26,6 +24,8 @@ import '../widgets/suggestion_strip.dart';
 import '../providers/mistake_provider.dart';
 import '../services/mistake_service.dart';
 import '../widgets/mistake_badge.dart';
+import '../providers/persona_provider.dart';
+import 'session/session_context_dialog.dart';
 
 // ============================================================================
 //  NEW SESSION SCREEN  (Live Wingman)
@@ -369,12 +369,14 @@ class _NewSessionScreenState extends State<NewSessionScreen>
         }
       }
     } else {
+      // Optional: collect quick scenario context before starting the session.
+      // Skipping returns null and we proceed without context (default scenario).
+      final ctxResult =
+          mounted ? await showSessionContextDialog(context) : null;
+      if (!mounted) return;
+
       final serverUrl = context.read<ConnectionService>().serverUrl;
       final jwt = Supabase.instance.client.auth.currentSession?.accessToken ?? '';
-      final userId = Supabase.instance.client.auth.currentUser?.id;
-      if (userId != null && mounted) {
-        context.read<PerformaProvider>().load(userId);
-      }
       await _session.startSession(
         api,
         deepgram,
@@ -384,6 +386,23 @@ class _NewSessionScreenState extends State<NewSessionScreen>
         serverUrl: serverUrl,
         jwt: jwt,
       );
+
+      // Attach persona-aware context if user provided it.
+      final newSid = _session.sessionId;
+      if (ctxResult != null && newSid != null && mounted) {
+        try {
+          await context.read<PersonaProvider>().service.setSessionContext(
+                newSid,
+                scenario: ctxResult['scenario'] as String,
+                roleMode: ctxResult['role_mode'] as String,
+                notes: ctxResult['notes'] as String?,
+              );
+        } catch (e) {
+          // non-fatal: persona-aware suggestions will fall back to default scenario.
+          debugPrint('setSessionContext failed: $e');
+        }
+      }
+
       if (mounted) _initSuggestionEngine();
     }
   }
@@ -498,14 +517,7 @@ class _NewSessionScreenState extends State<NewSessionScreen>
                   ),
                 ),
               ),
-              IconButton(
-                icon: const Icon(Icons.person_outline),
-                tooltip: 'Performa',
-                onPressed: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const PerformaScreen()),
-                ),
-              ),
+              // TODO(persona-wizard): re-add settings entry once wizard exists
             ],
           ),
         ),
@@ -880,14 +892,7 @@ class _NewSessionScreenState extends State<NewSessionScreen>
                   ),
                 ),
               ),
-              IconButton(
-                icon: const Icon(Icons.person_outline),
-                tooltip: 'Performa',
-                onPressed: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const PerformaScreen()),
-                ),
-              ),
+              // TODO(persona-wizard): re-add settings entry once wizard exists
             ],
           ),
         ),

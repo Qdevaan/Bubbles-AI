@@ -14,7 +14,7 @@ import json
 from datetime import datetime
 from typing import Dict, List
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from starlette.responses import StreamingResponse
 
 from app.config import settings
@@ -33,6 +33,8 @@ from app.utils.text_sanitizer import sanitize_input
 from app.utils.session_store import session_store
 from app.utils.auth_guard import get_verified_user, VerifiedUser
 from app.utils.validation import validate_transcript, validate_batch_logs
+from app.models.persona import SessionContext
+from app.database import db as _db
 
 logger = logging.getLogger(__name__)
 
@@ -43,9 +45,7 @@ _MAX_GLOBAL_SESSIONS = 500
 # -- Context cache warm-up
 
 async def _warm_context_cache(user_id: str, session_id: str) -> None:
-    """Pre-load graph + vector + performa context at session start for zero-latency per-turn use."""
-    import app.services.performa_service as performa_svc
-
+    """Pre-load graph + vector context at session start for zero-latency per-turn use."""
     def _graph():
         graph_svc.load_graph(user_id)
         return graph_svc.find_context(user_id, "")
@@ -53,25 +53,20 @@ async def _warm_context_cache(user_id: str, session_id: str) -> None:
     def _vector():
         return vector_svc.search_memory(user_id, "")
 
-    def _performa():
-        return performa_svc.build_context_block(user_id)
-
     try:
-        g_ctx, v_ctx, p_ctx = await asyncio.wait_for(
+        g_ctx, v_ctx = await asyncio.wait_for(
             asyncio.gather(
                 asyncio.to_thread(_graph),
                 asyncio.to_thread(_vector),
-                asyncio.to_thread(_performa),
             ),
             timeout=2.0,
         )
         await session_store.set_context_cache(session_id, {
             "graph": g_ctx or "",
             "vector": v_ctx or "",
-            "performa": p_ctx or "",
         })
     except asyncio.TimeoutError:
-        await session_store.set_context_cache(session_id, {"graph": "", "vector": "", "performa": ""})
+        await session_store.set_context_cache(session_id, {"graph": "", "vector": ""})
 
 
 
@@ -388,11 +383,17 @@ async def process_transcript_wingman(
     if e_ctx:
         g_ctx = f"ROLEPLAY TARGET ENTITY CONTEXT:\n{e_ctx}\n\n" + g_ctx
 
-    # 2. Get wingman advice — this is what the client is waiting for
-    p_ctx = cached.get("performa", "") if cached else ""
+    # 2. Get wingman advice — this is what the client is waiting for.
+    # Persona is injected directly by brain_service via PersonaService;
+    # session_context (per-meeting scenario JSONB) is loaded here so the
+    # scenario block is included in the system prompt.
+    sess_ctx = (
+        await asyncio.to_thread(_get_session_context, session_id, user_id)
+        if session_id else None
+    )
     result = await brain_svc.get_wingman_advice(
         user_id, transcript, g_ctx, v_ctx, req.mode, req.persona,
-        performa_context=p_ctx,
+        session_context=sess_ctx,
     )
     advice_text = result.get("answer", "WAITING")
 
@@ -638,31 +639,8 @@ async def end_session_endpoint(
     fire_and_forget(gamification_svc.update_streak(req.user_id))
     fire_and_forget(dispatcher_svc.personalize_quest_briefs(req.user_id))
 
-    # Post-session performa insight analysis (fire-and-forget)
-    async def _run_performa_analysis():
-        try:
-            import app.services.performa_service as _ps
-            from app.database import db as _db
-            logs_res = await asyncio.to_thread(
-                lambda: _db.table("session_logs")
-                .select("role, content")
-                .eq("session_id", req.session_id)
-                .order("created_at")
-                .execute()
-            )
-            text = "\n".join(
-                f'{"You" if r["role"] == "user" else "Other"}: {r["content"]}'
-                for r in (logs_res.data or []) if r.get("content")
-            )
-            if text:
-                await _ps.analyze_session_for_insights(
-                    req.user_id, req.session_id, text,
-                    llm_client=brain_svc.client,
-                    model=settings.WINGMAN_MODEL,
-                )
-        except Exception as e:
-            logger.warning(f"Performa post-session analysis error: {e}")
-    asyncio.create_task(_run_performa_analysis())
+    # Future: post-session persona insight analysis (e.g. updating
+    # PersonaService with derived signals) will be re-added here.
 
     return {"status": "completed", "session_id": req.session_id}
 
@@ -674,9 +652,12 @@ async def end_session_endpoint(
 async def _load_session_context(
     user_id: str, session_id: str | None, transcript: str,
 ) -> tuple[str, str, str, str]:
-    """Return (graph_ctx, vector_ctx, entity_ctx, performa_ctx).
+    """Return (graph_ctx, vector_ctx, entity_ctx, persona_ctx).
 
     Cache-first; falls back to live fetch with a 200ms hard timeout cap.
+    persona_ctx is now always "" — persona/scenario framing is composed
+    inside brain_service via PersonaService instead of being threaded
+    through this loader.
     """
     if not session_id:
         return "", "", "", ""
@@ -695,7 +676,7 @@ async def _load_session_context(
             cached.get("graph", ""),
             cached.get("vector", ""),
             e_ctx,
-            cached.get("performa", ""),
+            "",
         )
 
     def _graph_ctx():
@@ -743,14 +724,18 @@ async def suggest_reply_endpoint(
     if e_ctx:
         g_ctx = f"ROLEPLAY TARGET ENTITY CONTEXT:\n{e_ctx}\n\n" + g_ctx
 
+    sess_ctx = (
+        await asyncio.to_thread(_get_session_context, req.session_id, req.user_id)
+        if req.session_id else None
+    )
     result = await brain_svc.get_wingman_suggestions(
         user_id=req.user_id,
         transcript=transcript,
         graph_context=g_ctx,
         vector_context=v_ctx,
         persona=req.tone,
-        performa_context=p_ctx,
         is_draft=req.is_draft,
+        session_context=sess_ctx,
     )
     suggestions = (result or {}).get("suggestions", [])[:3]
 
@@ -767,3 +752,50 @@ async def suggest_reply_endpoint(
         latency_ms=int((time.time() - t0) * 1000),
         request_id=rid,
     )
+
+
+def _set_session_context(session_id: str, user_id: str, ctx: SessionContext) -> bool:
+    """Write session_context JSONB. Returns True if row updated, False if not owned."""
+    resp = (
+        _db.table("sessions")
+        .update({"session_context": ctx.model_dump(mode="json")})
+        .eq("id", session_id)
+        .eq("user_id", user_id)
+        .execute()
+    )
+    return bool(resp.data)
+
+
+def _get_session_context(session_id: str, user_id: str) -> dict | None:
+    """Fetch session_context JSONB for an owned session. Returns None if missing
+    or not owned. Used by wingman/suggest paths to inject the per-meeting
+    scenario block into the system prompt."""
+    try:
+        resp = (
+            _db.table("sessions")
+            .select("session_context")
+            .eq("id", session_id)
+            .eq("user_id", user_id)
+            .limit(1)
+            .execute()
+        )
+        rows = resp.data or []
+        if not rows:
+            return None
+        return rows[0].get("session_context")
+    except Exception:
+        return None
+
+
+@router.post("/sessions/{session_id}/context")
+@limiter.limit("30/minute")
+async def post_session_context(
+    request: Request,
+    session_id: str,
+    ctx: SessionContext,
+    user: VerifiedUser = Depends(get_verified_user),
+):
+    ok = await asyncio.to_thread(_set_session_context, session_id, user.id, ctx)
+    if not ok:
+        raise HTTPException(status_code=403, detail="session_not_owned_or_missing")
+    return {"ok": True}

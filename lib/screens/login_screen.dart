@@ -179,7 +179,7 @@ class _LoginScreenState extends State<LoginScreen> {
     }
     
     if (mounted) {
-      Navigator.pushReplacementNamed(context, isComplete ? '/home' : '/profile-completion');
+      Navigator.pushReplacementNamed(context, isComplete ? '/auth-gate' : '/profile-completion');
     }
   }
 

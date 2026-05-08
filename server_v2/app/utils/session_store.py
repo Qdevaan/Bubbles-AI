@@ -45,7 +45,7 @@ class _InMemoryStore:
         self._meta: Dict[str, dict] = {}          # session_id → metadata dict
         self._timestamps: Dict[str, datetime] = {}
         self._turn_counters: Dict[str, int] = {}
-        self._ctx_cache: Dict[str, dict] = {}     # session_id → {graph, vector, performa}
+        self._ctx_cache: Dict[str, dict] = {}     # session_id → {graph, vector}
 
     async def get_live_session(self, user_id: str) -> Optional[str]:
         return self._live.get(user_id)

@@ -403,7 +403,7 @@ class _ProfileCompletionScreenState extends State<ProfileCompletionScreen> {
       );
 
       if (!mounted) return;
-      Navigator.of(context).pushReplacementNamed('/home');
+      Navigator.of(context).pushReplacementNamed('/auth-gate');
     } catch (e) {
       ScaffoldMessenger.of(
         context,
