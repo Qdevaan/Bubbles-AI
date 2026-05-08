@@ -313,6 +313,83 @@ class BrainService:
                 "latency_ms": 0, "tokens_prompt": 0, "tokens_completion": 0,
                 "tokens_used": 0, "finish_reason": "error"}
 
+    # ── Suggestions (3-candidate replies) ────────────────────────────────────
+
+    async def get_wingman_suggestions(
+        self,
+        user_id: str,
+        transcript: str,
+        graph_context: str,
+        vector_context: str,
+        persona: str = "casual",
+        performa_context: str = "",
+        is_draft: bool = False,
+    ) -> Dict[str, Any]:
+        """Return 3 candidate replies in the requested tone as JSON.
+
+        Always uses Groq aclient (json_object format unsupported on Cerebras).
+        """
+        import time
+        import json as _json
+
+        graph_context = self._truncate_to_token_limit(graph_context, 200)
+        vector_context = self._truncate_to_token_limit(vector_context, 200)
+
+        tone_label = {
+            "formal": "formal and polished",
+            "semi-formal": "professional but warm",
+            "casual": "casual and friendly",
+        }.get(persona, "casual and friendly")
+
+        facts_block = (
+            f"\n\nKNOWN FACTS:\n{graph_context}"
+            if graph_context and "No known graph facts" not in graph_context
+            else ""
+        )
+        about_block = f"\n\n{performa_context}" if performa_context.strip() else ""
+
+        system_prompt = (
+            "You are Bubbles, a real-time conversation coach. The user is in a "
+            "live conversation. Their partner just said something. Generate "
+            f"exactly 3 short reply candidates the user could say back. Tone: "
+            f"{tone_label}. Each reply: 1-2 sentences, natural spoken English, "
+            "no quotes, no numbering, no preamble. Output STRICT JSON: "
+            '{"suggestions": ["reply1", "reply2", "reply3"]}'
+            f"{facts_block}{about_block}"
+        )
+        user_prompt = f"Partner just said: \"{transcript}\""
+
+        t0 = time.time()
+        try:
+            completion = await self.aclient.chat.completions.create(
+                model="llama-3.1-8b-instant",
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt},
+                ],
+                response_format={"type": "json_object"},
+                max_tokens=200,
+                temperature=0.7,
+            )
+            latency_ms = int((time.time() - t0) * 1000)
+            raw = completion.choices[0].message.content or "{}"
+            try:
+                data = _json.loads(raw)
+                sugg = data.get("suggestions", [])
+                if isinstance(sugg, list):
+                    sugg = [str(s).strip() for s in sugg if str(s).strip()][:3]
+                else:
+                    sugg = []
+            except (ValueError, TypeError):
+                sugg = []
+            return {"suggestions": sugg, "latency_ms": latency_ms}
+        except Exception as e:
+            print(f"⚠️ get_wingman_suggestions failed: {e}")
+            return {
+                "suggestions": [],
+                "latency_ms": int((time.time() - t0) * 1000),
+            }
+
     # ── Consultant ────────────────────────────────────────────────────────────
 
     def _build_consultant_system_prompt(
