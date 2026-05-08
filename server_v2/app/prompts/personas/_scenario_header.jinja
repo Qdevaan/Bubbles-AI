@@ -1,0 +1,4 @@
+{% if ctx %}
+Current scenario: {{ ctx.scenario }}. Role mode: {{ ctx.role_mode|default("default") }}.
+{% if ctx.notes %}Session notes: {{ ctx.notes }}.{% endif %}
+{% endif %}
