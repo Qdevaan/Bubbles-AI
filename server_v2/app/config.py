@@ -6,6 +6,7 @@ raise a clear ValidationError at startup, not silently at request time.
 
 import sys
 from pathlib import Path
+from typing import Optional
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -77,6 +78,11 @@ class Settings(BaseSettings):
     CONSULTANT_MODEL: str = "llama-3.3-70b-versatile"
     WINGMAN_MODEL: str = "llama-3.1-8b-instant"
     CEREBRAS_WINGMAN_MODEL: str = "llama3.1-8b"
+
+    # ── Grammar / mistake tracker ────────────────────────────────────────
+    LANGUAGETOOL_URL: Optional[str] = None        # if None, use embedded LT subprocess
+    FCM_CREDENTIALS_PATH: Optional[str] = None    # path to Firebase service-account JSON
+    REMINDER_TICK_SECONDS: int = 60               # apscheduler interval
     GEMINI_CONSULTANT_MODEL: str = "gemini-2.5-flash-preview-04-17"
 
 
