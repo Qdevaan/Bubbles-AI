@@ -79,6 +79,34 @@ class SuggestReplyResponse(BaseModel):
     request_id: str
 
 
+# ── Mistake tracker ───────────────────────────────────────────────────────────
+
+class CheckUserTurnRequest(BaseModel):
+    user_id: str
+    session_id: str
+    transcript: str
+    language: str = "en-US"
+
+
+class MistakeOut(BaseModel):
+    id: str
+    category: Literal[
+        "grammar", "tense", "agreement", "article", "preposition",
+        "word_choice", "style", "filler", "awkward", "repetition",
+    ]
+    snippet: str
+    suggestion: Optional[str] = None
+    rule_id: str
+    source: Literal["lt", "llm"]
+
+
+class CheckUserTurnResponse(BaseModel):
+    count: int
+    by_category: Dict[str, int]
+    items: List[MistakeOut]
+    latency_ms: int
+
+
 # ── Entity Endpoints ──────────────────────────────────────────────────────────
 
 class EntityQueryRequest(BaseModel):

@@ -390,6 +390,75 @@ class BrainService:
                 "latency_ms": int((time.time() - t0) * 1000),
             }
 
+    # ── Filler / Awkward Detection ────────────────────────────────────────
+
+    async def check_filler_awkward(
+        self, text: str
+    ) -> Dict[str, Any]:
+        """Detect ONLY filler / awkward / repetition issues in `text`.
+
+        Returns {"issues": [{category, snippet, suggestion}], "latency_ms": int}.
+        """
+        import time
+        import json as _json
+
+        ALLOWED = {"filler", "awkward", "repetition"}
+
+        system_prompt = (
+            "You are a strict spoken-English reviewer. Identify ONLY these "
+            "categories of issues: filler (um, uh, like, so, you know), "
+            "awkward (unnatural phrasing for native speakers), repetition "
+            "(unnecessarily repeated words). Ignore grammar — another tool "
+            "handles that. Output STRICT JSON with this shape: "
+            '{"issues": [{"category": "filler"|"awkward"|"repetition", '
+            '"snippet": "exact phrase", "suggestion": "rewrite or empty"}]}. '
+            "Empty list if nothing flagged."
+        )
+        user_prompt = f'Sentence: "{text}"'
+
+        t0 = time.time()
+        try:
+            completion = await self.aclient.chat.completions.create(
+                model="llama-3.1-8b-instant",
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt},
+                ],
+                response_format={"type": "json_object"},
+                max_tokens=200,
+                temperature=0.3,
+            )
+            latency_ms = int((time.time() - t0) * 1000)
+            raw = completion.choices[0].message.content or "{}"
+            try:
+                data = _json.loads(raw)
+                issues = data.get("issues", [])
+                if not isinstance(issues, list):
+                    issues = []
+                cleaned: List[Dict[str, Any]] = []
+                for it in issues:
+                    if not isinstance(it, dict):
+                        continue
+                    cat = str(it.get("category", "")).strip().lower()
+                    snippet = str(it.get("snippet", "")).strip()
+                    if cat not in ALLOWED or not snippet:
+                        continue
+                    cleaned.append({
+                        "category": cat,
+                        "snippet": snippet,
+                        "suggestion": str(it.get("suggestion") or "").strip()
+                        or None,
+                    })
+                return {"issues": cleaned[:6], "latency_ms": latency_ms}
+            except (ValueError, TypeError):
+                return {"issues": [], "latency_ms": latency_ms}
+        except Exception as e:
+            print(f"⚠️ check_filler_awkward failed: {e}")
+            return {
+                "issues": [],
+                "latency_ms": int((time.time() - t0) * 1000),
+            }
+
     # ── Consultant ────────────────────────────────────────────────────────────
 
     def _build_consultant_system_prompt(

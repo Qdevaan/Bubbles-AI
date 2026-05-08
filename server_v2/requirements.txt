@@ -42,3 +42,8 @@ python-multipart
 redis[asyncio]
 python-dateutil
 pyngrok
+
+# Grammar / Mistake Tracker
+language-tool-python==2.8.0
+apscheduler==3.10.4
+firebase-admin==6.5.0

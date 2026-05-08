@@ -9,6 +9,8 @@ import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/auth_service.dart';
+import '../services/connection_service.dart';
+import '../services/mistake_service.dart';
 import '../repositories/sessions_repository.dart';
 import '../widgets/glass_morphism.dart';
 import '../theme/design_tokens.dart';
@@ -143,7 +145,7 @@ class _SessionAnalyticsScreenState extends State<SessionAnalyticsScreen>
         body: TabBarView(
           controller: _tabController,
           children: [
-            _AnalyticsTab(analytics: _analytics, loading: _analyticsLoading, error: _analyticsError),
+            _AnalyticsTab(sessionId: widget.sessionId, analytics: _analytics, loading: _analyticsLoading, error: _analyticsError),
             _CoachingTab(report: _report, loading: _reportLoading, error: _reportError),
             _PlaybackTab(sessionId: widget.sessionId),
           ],
@@ -155,10 +157,45 @@ class _SessionAnalyticsScreenState extends State<SessionAnalyticsScreen>
 
 // ── Analytics Tab ─────────────────────────────────────────────────────────────
 class _AnalyticsTab extends StatelessWidget {
+  final String sessionId;
   final Map<String, dynamic>? analytics;
   final bool loading;
   final String? error;
-  const _AnalyticsTab({required this.analytics, required this.loading, required this.error});
+  const _AnalyticsTab({
+    required this.sessionId,
+    required this.analytics,
+    required this.loading,
+    required this.error,
+  });
+
+  Future<List<MistakeItem>> _loadMistakes(BuildContext context) {
+    final connection = context.read<ConnectionService>();
+    final jwt =
+        Supabase.instance.client.auth.currentSession?.accessToken ?? '';
+    return MistakeService(connection.serverUrl, jwt)
+        .listForSession(sessionId: sessionId);
+  }
+
+  Widget _mistakesSection(BuildContext context) {
+    return FutureBuilder<List<MistakeItem>>(
+      future: _loadMistakes(context),
+      builder: (ctx, snap) {
+        if (snap.connectionState != ConnectionState.done) {
+          return const SizedBox.shrink();
+        }
+        final items = snap.data ?? [];
+        if (items.isEmpty) return const SizedBox.shrink();
+        final grouped = <String, int>{};
+        for (final it in items) {
+          grouped[it.category] = (grouped[it.category] ?? 0) + 1;
+        }
+        return _SectionCard(title: '🚩 Mistakes (${items.length})', children: [
+          for (final e in grouped.entries)
+            _StatRow(e.key.replaceAll('_', ' '), e.value.toString()),
+        ]);
+      },
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -169,6 +206,8 @@ class _AnalyticsTab extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
+        _mistakesSection(context),
+        const SizedBox(height: 12),
         if (a['session_summary'] != null && (a['session_summary'] as String).isNotEmpty) ...[
           _SectionCard(title: '📝 Summary', children: [
             Text(
