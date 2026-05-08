@@ -14,7 +14,8 @@ import json
 from datetime import datetime
 from typing import Dict, List
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Body, Depends, HTTPException, Request
+from pydantic import ValidationError
 from starlette.responses import StreamingResponse
 
 from app.config import settings
@@ -33,6 +34,8 @@ from app.utils.text_sanitizer import sanitize_input
 from app.utils.session_store import session_store
 from app.utils.auth_guard import get_verified_user, VerifiedUser
 from app.utils.validation import validate_transcript, validate_batch_logs
+from app.models.persona import SessionContext
+from app.database import db as _db
 
 logger = logging.getLogger(__name__)
 
@@ -739,3 +742,33 @@ async def suggest_reply_endpoint(
         latency_ms=int((time.time() - t0) * 1000),
         request_id=rid,
     )
+
+
+def _set_session_context(session_id: str, user_id: str, ctx: SessionContext) -> bool:
+    """Write session_context JSONB. Returns True if row updated, False if not owned."""
+    resp = (
+        _db.table("sessions")
+        .update({"session_context": ctx.model_dump(mode="json")})
+        .eq("id", session_id)
+        .eq("user_id", user_id)
+        .execute()
+    )
+    return bool(resp.data)
+
+
+@router.post("/sessions/{session_id}/context")
+@limiter.limit("30/minute")
+async def post_session_context(
+    request: Request,
+    session_id: str,
+    payload: dict = Body(...),
+    user: VerifiedUser = Depends(get_verified_user),
+):
+    try:
+        ctx = SessionContext.model_validate(payload)
+    except ValidationError as e:
+        raise HTTPException(status_code=422, detail=e.errors())
+    ok = await asyncio.to_thread(_set_session_context, session_id, user.id, ctx)
+    if not ok:
+        raise HTTPException(status_code=403, detail="session_not_owned_or_missing")
+    return {"ok": True}
