@@ -102,6 +102,54 @@ if "slowapi" not in sys.modules:
 if "networkx" not in sys.modules:
     _stub_module("networkx", {"DiGraph": MagicMock, "Graph": MagicMock})
 
+if "language_tool_python" not in sys.modules:
+    class _LT:
+        def __init__(self, *a, **kw):
+            pass
+
+        def check(self, text):
+            return []
+
+        def close(self):
+            pass
+
+    _stub_module("language_tool_python", {"LanguageTool": _LT})
+
+if "apscheduler" not in sys.modules:
+    _stub_module("apscheduler", {})
+    _stub_module("apscheduler.schedulers", {})
+
+    class _Sched:
+        def __init__(self, *a, **kw):
+            pass
+
+        def add_job(self, *a, **kw):
+            pass
+
+        def start(self):
+            pass
+
+        def shutdown(self, *a, **kw):
+            pass
+
+    _stub_module("apscheduler.schedulers.asyncio", {"AsyncIOScheduler": _Sched})
+    _stub_module("apscheduler.triggers", {})
+    _stub_module("apscheduler.triggers.cron", {"CronTrigger": MagicMock})
+    _stub_module("apscheduler.triggers.interval", {"IntervalTrigger": MagicMock})
+
+if "firebase_admin" not in sys.modules:
+    _stub_module("firebase_admin", {
+        "initialize_app": lambda *a, **kw: MagicMock(),
+        "credentials": MagicMock(),
+    })
+    _stub_module("firebase_admin.credentials",
+                 {"Certificate": lambda *a, **kw: MagicMock()})
+    _stub_module("firebase_admin.messaging", {
+        "Message": MagicMock,
+        "Notification": MagicMock,
+        "send": lambda *a, **kw: "fake-message-id",
+    })
+
 
 # ── Fixtures ─────────────────────────────────────────────────────────────────
 
