@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:bubbles/controllers/suggestion_controller.dart';
 import 'package:bubbles/services/suggestion_service.dart';
 import 'package:flutter_test/flutter_test.dart';
