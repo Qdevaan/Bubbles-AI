@@ -26,6 +26,11 @@ class DeepgramService extends ChangeNotifier {
   double _currentConfidence = 1.0;
   double get currentConfidence => _currentConfidence;
 
+  // Interim-transcript stream — feeds the live suggestion engine.
+  final StreamController<String> _interimCtrl =
+      StreamController<String>.broadcast();
+  Stream<String> get interimStream => _interimCtrl.stream;
+
   // Recording state
   final BytesBuilder _audioBuffer = BytesBuilder(copy: true);
   final List<Map<String, dynamic>> _fullTranscript = [];
@@ -146,6 +151,13 @@ class DeepgramService extends ChangeNotifier {
         if (alternatives.isNotEmpty) {
           final alt = alternatives[0];
           final transcript = alt['transcript'] as String;
+
+          // Emit interim transcripts to the live-suggestion stream.
+          // Note: interim text is NOT committed to _currentTranscript or
+          // _fullTranscript; only is_final results land there.
+          if (transcript.trim().isNotEmpty && data['is_final'] != true) {
+            _interimCtrl.add(transcript.trim());
+          }
 
           if (transcript.trim().isNotEmpty && data['is_final'] == true) {
             int speakerId = 0;
@@ -311,6 +323,12 @@ class DeepgramService extends ChangeNotifier {
 
     await _channel?.sink.close();
     _channel = null;
+  }
+
+  @override
+  void dispose() {
+    _interimCtrl.close();
+    super.dispose();
   }
 
   /// Save the buffered audio as a WAV file and the full transcript as a .txt

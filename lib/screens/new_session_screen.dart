@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math';
 import 'dart:ui';
 import 'package:flutter/material.dart';
@@ -14,11 +15,14 @@ import '../services/auth_service.dart';
 import '../services/deepgram_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/connection_service.dart';
+import '../services/suggestion_service.dart';
 import '../providers/session_provider.dart';
 import '../providers/settings_provider.dart';
+import '../controllers/suggestion_controller.dart';
 import '../widgets/chat_bubble.dart';
 import '../widgets/feedback_dialog.dart';
 import '../widgets/session/session_widgets.dart';
+import '../widgets/suggestion_strip.dart';
 
 // ============================================================================
 //  NEW SESSION SCREEN  (Live Wingman)
@@ -39,6 +43,10 @@ class _NewSessionScreenState extends State<NewSessionScreen>
   bool _isIncognito = false;
   String _selectedPersona = 'casual';
   bool _toneInitialized = false;
+
+  // Live suggestion engine
+  SuggestionController? _suggestionCtrl;
+  StreamSubscription<String>? _interimSub;
 
   // Animations (local only)
   late AnimationController _pulseController;
@@ -102,6 +110,8 @@ class _NewSessionScreenState extends State<NewSessionScreen>
     final deepgram = Provider.of<DeepgramService>(context, listen: false);
     deepgram.removeListener(_onDeepgramUpdate);
     deepgram.disconnect();
+    _interimSub?.cancel();
+    _suggestionCtrl?.dispose();
     _scrollController.dispose();
     _pulseController.dispose();
     _blobController.dispose();
@@ -114,6 +124,44 @@ class _NewSessionScreenState extends State<NewSessionScreen>
     final api = Provider.of<ApiService>(context, listen: false);
     _session.onTranscriptReceived(deepgram, api);
     _scrollToBottom();
+
+    // Live-suggestion engine: fire on partner's final transcripts; clear on user turn.
+    if (deepgram.currentSpeaker != "user" &&
+        deepgram.currentTranscript.isNotEmpty) {
+      _suggestionCtrl?.onFinalTranscript(deepgram.currentTranscript);
+    } else if (deepgram.currentSpeaker == "user") {
+      _suggestionCtrl?.clear();
+    }
+  }
+
+  void _initSuggestionEngine() {
+    if (_suggestionCtrl != null) return;
+    final connection = context.read<ConnectionService>();
+    final jwt =
+        Supabase.instance.client.auth.currentSession?.accessToken ?? '';
+    final uid = Supabase.instance.client.auth.currentUser?.id ?? '';
+    final sid = _session.sessionId;
+    if (sid == null || uid.isEmpty) return;
+
+    final svc = SuggestionService(connection.serverUrl, jwt);
+    _suggestionCtrl = SuggestionController(
+      service: svc,
+      userId: uid,
+      sessionId: sid,
+      tone: _selectedPersona,
+    );
+    final dg = context.read<DeepgramService>();
+    _interimSub = dg.interimStream.listen((text) {
+      _suggestionCtrl?.onInterimTranscript(text);
+    });
+    setState(() {}); // rebuild so the strip mounts
+  }
+
+  void _teardownSuggestionEngine() {
+    _interimSub?.cancel();
+    _interimSub = null;
+    _suggestionCtrl?.dispose();
+    _suggestionCtrl = null;
   }
 
   void _toggleSession() async {
@@ -243,6 +291,7 @@ class _NewSessionScreenState extends State<NewSessionScreen>
       }
 
       final completedSessionId = _session.sessionId;
+      _teardownSuggestionEngine();
       final success = await _session.endSession(api, deepgram);
 
       if (mounted) {
@@ -316,6 +365,7 @@ class _NewSessionScreenState extends State<NewSessionScreen>
         serverUrl: serverUrl,
         jwt: jwt,
       );
+      if (mounted) _initSuggestionEngine();
     }
   }
 
@@ -926,6 +976,12 @@ class _NewSessionScreenState extends State<NewSessionScreen>
                 ),
               ),
 
+              // Live suggestion strip — only visible when controller has produced suggestions.
+              if (_suggestionCtrl != null)
+                ChangeNotifierProvider<SuggestionController>.value(
+                  value: _suggestionCtrl!,
+                  child: const SuggestionStrip(),
+                ),
 
               // Controls
               Selector<SessionProvider, bool>(
@@ -1180,6 +1236,7 @@ class _NewSessionScreenState extends State<NewSessionScreen>
                     onTap: () {
                       setState(() => _selectedPersona = id);
                       context.read<SessionProvider>().changeLiveTone(id);
+                      _suggestionCtrl?.tone = id;
                       Navigator.pop(ctx);
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
@@ -1227,7 +1284,10 @@ class _NewSessionScreenState extends State<NewSessionScreen>
               final isSelected = _selectedPersona == tone;
               return Expanded(
                 child: GestureDetector(
-                  onTap: () => setState(() => _selectedPersona = tone),
+                  onTap: () {
+                    setState(() => _selectedPersona = tone);
+                    _suggestionCtrl?.tone = tone;
+                  },
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 200),
                     margin: const EdgeInsets.symmetric(horizontal: 4),
