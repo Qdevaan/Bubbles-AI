@@ -31,3 +31,7 @@ graph_svc.model = vector_svc.model
 from app.services.grammar_service import GrammarService
 grammar_svc = GrammarService()
 print("📝 Grammar Service: initialised")
+
+from app.services.reminder_service import ReminderService
+reminder_svc = ReminderService()
+print("📨 Reminder Service: instance created (FCM init deferred to startup)")

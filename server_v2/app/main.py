@@ -89,6 +89,28 @@ async def lifespan(app: FastAPI):
     cleanup_task = asyncio.create_task(_cleanup_stale_sessions())
     ping_task = asyncio.create_task(_self_ping())
 
+    # Mistake-tracker daily reminders
+    from app.services import reminder_svc
+    reminder_svc.init_fcm()
+    scheduler = None
+    try:
+        from apscheduler.schedulers.asyncio import AsyncIOScheduler
+        from apscheduler.triggers.interval import IntervalTrigger
+        scheduler = AsyncIOScheduler()
+
+        async def _reminder_tick():
+            await reminder_svc.fire_due_reminders()
+
+        scheduler.add_job(
+            _reminder_tick,
+            IntervalTrigger(seconds=settings.REMINDER_TICK_SECONDS),
+        )
+        scheduler.start()
+        print(f"⏰ Reminder scheduler started "
+              f"(every {settings.REMINDER_TICK_SECONDS}s)")
+    except Exception as e:
+        print(f"⚠️  Reminder scheduler failed to start: {e}")
+
     auth_mode = "DEBUG (no JWT)" if settings.DEBUG_SKIP_AUTH else "JWT Verified"
     store_mode = "Redis" if settings.REDIS_URL else "In-Memory"
 
@@ -129,6 +151,12 @@ async def lifespan(app: FastAPI):
     # === Shutdown: drain tracked background tasks (XP, quests, streaks) ===
     cleanup_task.cancel()
     ping_task.cancel()
+    if scheduler is not None:
+        try:
+            scheduler.shutdown(wait=False)
+            print("⏰ Reminder scheduler stopped")
+        except Exception:
+            pass
     if _background_tasks:
         print(f"⏳ Draining {len(_background_tasks)} background task(s)...")
         done, pending = await asyncio.wait(_background_tasks, timeout=10)
