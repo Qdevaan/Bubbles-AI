@@ -1,8 +1,7 @@
 """Persona routes -- typed performa CRUD."""
 
 import asyncio
-from fastapi import APIRouter, Body, Depends, HTTPException, Request
-from pydantic import ValidationError
+from fastapi import APIRouter, Depends, HTTPException, Request
 
 from app.utils.auth_guard import get_verified_user, VerifiedUser
 from app.utils.rate_limit import limiter
@@ -28,16 +27,9 @@ async def get_my_persona(
 @limiter.limit("20/minute")
 async def put_my_persona(
     request: Request,
-    payload: dict = Body(...),
+    update: UserPersonaUpdate,
     user: VerifiedUser = Depends(get_verified_user),
 ):
-    # Validate manually so invalid fields surface as 422 (not the project-wide
-    # 400 RequestValidationError handler).
-    try:
-        update = UserPersonaUpdate.model_validate(payload)
-    except ValidationError as exc:
-        raise HTTPException(status_code=422, detail=exc.errors())
-
     persona = await asyncio.to_thread(persona_svc.upsert, user.id, update)
     persona_svc.invalidate(user.id)
     return persona.model_dump(mode="json")

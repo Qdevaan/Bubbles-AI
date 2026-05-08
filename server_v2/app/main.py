@@ -205,6 +205,13 @@ app.add_middleware(
 
 @app.exception_handler(RequestValidationError)
 async def validation_error_handler(request: Request, exc: RequestValidationError):
+    # Routes that opt in to standard 422 semantics (preserves Pydantic body
+    # schema in OpenAPI for typed request bodies).
+    path = request.url.path
+    if path.startswith("/v1/me/persona") or (
+        path.startswith("/v1/sessions/") and path.endswith("/context")
+    ):
+        return JSONResponse(status_code=422, content={"detail": exc.errors()})
     return JSONResponse(
         status_code=400,
         content={
