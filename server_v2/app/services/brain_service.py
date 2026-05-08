@@ -233,7 +233,7 @@ class BrainService:
         vector_context: str,
         mode: str = "casual",
         persona: str = "casual",
-        performa_context: str = "",  # deprecated -- replaced by persona injection
+        persona_context: str = "",  # deprecated -- replaced by persona injection
         session_context: Optional[dict] = None,
     ) -> Dict[str, Any]:
         """Real-time wingman coaching. Cerebras primary → Groq fallback.
@@ -383,7 +383,7 @@ class BrainService:
         graph_context: str,
         vector_context: str,
         persona: str = "casual",
-        performa_context: str = "",  # deprecated -- replaced by persona injection
+        persona_context: str = "",  # deprecated -- replaced by persona injection
         is_draft: bool = False,
         session_context: Optional[dict] = None,
     ) -> Dict[str, Any]:

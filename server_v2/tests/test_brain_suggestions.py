@@ -18,7 +18,7 @@ async def test_returns_three_suggestions():
     result = await bs.get_wingman_suggestions(
         user_id="u1", transcript="how are you?",
         graph_context="", vector_context="",
-        persona="formal", performa_context="",
+        persona="formal", persona_context="",
     )
     assert result["suggestions"] == ["s1", "s2", "s3"]
     assert "latency_ms" in result
@@ -36,7 +36,7 @@ async def test_malformed_json_returns_empty():
     result = await bs.get_wingman_suggestions(
         user_id="u1", transcript="hi",
         graph_context="", vector_context="",
-        persona="casual", performa_context="",
+        persona="casual", persona_context="",
     )
     assert result["suggestions"] == []
 
