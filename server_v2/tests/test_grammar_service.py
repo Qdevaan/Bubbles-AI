@@ -85,7 +85,7 @@ def test_category_mapping():
 
 
 def test_grammar_prompt_includes_persona_role_family():
-    from datetime import datetime
+    from datetime import datetime, timezone
 
     from app.services.grammar_service import GrammarService
     from app.models.persona import UserPersona
@@ -96,8 +96,8 @@ def test_grammar_prompt_includes_persona_role_family():
         native_language="en",
         learning_language="en",
         role_family="educator",
-        created_at=datetime.utcnow(),
-        updated_at=datetime.utcnow(),
+        created_at=datetime.now(timezone.utc),
+        updated_at=datetime.now(timezone.utc),
     )
 
     svc = GrammarService()

@@ -1,5 +1,5 @@
 from unittest.mock import MagicMock, patch
-from datetime import datetime
+from datetime import datetime, timezone
 
 from fastapi.testclient import TestClient
 
@@ -34,8 +34,8 @@ def test_get_persona_returns_200_when_present(mock_svc):
         native_language="en",
         learning_language="en",
         role_family="educator",
-        created_at=datetime.utcnow(),
-        updated_at=datetime.utcnow(),
+        created_at=datetime.now(timezone.utc),
+        updated_at=datetime.now(timezone.utc),
     )
     app.dependency_overrides[get_verified_user] = _override_user
     try:
@@ -57,9 +57,9 @@ def test_put_persona_upserts_and_returns_persona(mock_svc):
         native_language="en",
         learning_language="en",
         role_family="learner",
-        completed_at=datetime.utcnow(),
-        created_at=datetime.utcnow(),
-        updated_at=datetime.utcnow(),
+        completed_at=datetime.now(timezone.utc),
+        created_at=datetime.now(timezone.utc),
+        updated_at=datetime.now(timezone.utc),
     )
     app.dependency_overrides[get_verified_user] = _override_user
     try:

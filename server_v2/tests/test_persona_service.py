@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from unittest.mock import MagicMock
 
 import pytest
@@ -36,9 +36,9 @@ def _row(role_primary="teacher", completed=True):
         "avoid_list": None,
         "age_range": None,
         "role_family": "educator",
-        "completed_at": datetime.utcnow().isoformat() if completed else None,
-        "created_at": datetime.utcnow().isoformat(),
-        "updated_at": datetime.utcnow().isoformat(),
+        "completed_at": datetime.now(timezone.utc).isoformat() if completed else None,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "updated_at": datetime.now(timezone.utc).isoformat(),
     }
 
 

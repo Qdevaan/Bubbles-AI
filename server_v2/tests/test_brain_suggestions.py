@@ -1,6 +1,6 @@
 import pytest
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 
 
@@ -52,8 +52,8 @@ def test_brain_prompt_includes_educator_block_when_user_is_teacher():
         native_language="en",
         learning_language="en",
         role_family="educator",
-        created_at=datetime.utcnow(),
-        updated_at=datetime.utcnow(),
+        created_at=datetime.now(timezone.utc),
+        updated_at=datetime.now(timezone.utc),
     )
     with patch("app.services.brain_service.persona_svc") as mock_svc:
         mock_svc.get.return_value = persona

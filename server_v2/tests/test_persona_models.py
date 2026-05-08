@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 import pytest
 from pydantic import ValidationError
 
@@ -16,8 +16,8 @@ def _base_payload():
         "native_language": "en",
         "learning_language": "en",
         "role_family": "educator",
-        "created_at": datetime.utcnow(),
-        "updated_at": datetime.utcnow(),
+        "created_at": datetime.now(timezone.utc),
+        "updated_at": datetime.now(timezone.utc),
     }
 
 
@@ -56,8 +56,8 @@ def test_session_context_required_scenario():
         scenario="lecture",
         role_mode="mentor",
         notes="intro to thermodynamics",
-        set_at=datetime.utcnow(),
+        set_at=datetime.now(timezone.utc),
     )
     assert ctx.scenario == "lecture"
     with pytest.raises(ValidationError):
-        SessionContext(scenario="invalid_scenario", set_at=datetime.utcnow())
+        SessionContext(scenario="invalid_scenario", set_at=datetime.now(timezone.utc))

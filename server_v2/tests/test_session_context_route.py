@@ -1,5 +1,5 @@
 from unittest.mock import MagicMock, patch
-from datetime import datetime
+from datetime import datetime, timezone
 from fastapi.testclient import TestClient
 
 from app.main import app
@@ -16,7 +16,7 @@ def test_post_session_context_writes_jsonb_for_owned_session():
         "scenario": "lecture",
         "role_mode": "mentor",
         "notes": "intro to thermo",
-        "set_at": datetime.utcnow().isoformat(),
+        "set_at": datetime.now(timezone.utc).isoformat(),
     }
     app.dependency_overrides[get_verified_user] = lambda: _override_user("u1")
     try:
@@ -37,7 +37,7 @@ def test_post_session_context_rejects_invalid_scenario():
     client = TestClient(app)
     payload = {
         "scenario": "tea_party",
-        "set_at": datetime.utcnow().isoformat(),
+        "set_at": datetime.now(timezone.utc).isoformat(),
     }
     app.dependency_overrides[get_verified_user] = lambda: _override_user("u1")
     try:
@@ -55,7 +55,7 @@ def test_post_session_context_returns_403_when_not_owner():
     client = TestClient(app)
     payload = {
         "scenario": "lecture",
-        "set_at": datetime.utcnow().isoformat(),
+        "set_at": datetime.now(timezone.utc).isoformat(),
     }
     app.dependency_overrides[get_verified_user] = lambda: _override_user("u1")
     try:
