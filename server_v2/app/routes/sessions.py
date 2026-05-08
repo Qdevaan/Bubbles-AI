@@ -384,11 +384,16 @@ async def process_transcript_wingman(
         g_ctx = f"ROLEPLAY TARGET ENTITY CONTEXT:\n{e_ctx}\n\n" + g_ctx
 
     # 2. Get wingman advice — this is what the client is waiting for.
-    # Persona + scenario context is injected directly by brain_service via
-    # PersonaService; session_context lookup will be wired in a follow-up.
+    # Persona is injected directly by brain_service via PersonaService;
+    # session_context (per-meeting scenario JSONB) is loaded here so the
+    # scenario block is included in the system prompt.
+    sess_ctx = (
+        await asyncio.to_thread(_get_session_context, session_id, user_id)
+        if session_id else None
+    )
     result = await brain_svc.get_wingman_advice(
         user_id, transcript, g_ctx, v_ctx, req.mode, req.persona,
-        session_context=None,
+        session_context=sess_ctx,
     )
     advice_text = result.get("answer", "WAITING")
 
@@ -719,6 +724,10 @@ async def suggest_reply_endpoint(
     if e_ctx:
         g_ctx = f"ROLEPLAY TARGET ENTITY CONTEXT:\n{e_ctx}\n\n" + g_ctx
 
+    sess_ctx = (
+        await asyncio.to_thread(_get_session_context, req.session_id, req.user_id)
+        if req.session_id else None
+    )
     result = await brain_svc.get_wingman_suggestions(
         user_id=req.user_id,
         transcript=transcript,
@@ -726,7 +735,7 @@ async def suggest_reply_endpoint(
         vector_context=v_ctx,
         persona=req.tone,
         is_draft=req.is_draft,
-        session_context=None,
+        session_context=sess_ctx,
     )
     suggestions = (result or {}).get("suggestions", [])[:3]
 
@@ -755,6 +764,27 @@ def _set_session_context(session_id: str, user_id: str, ctx: SessionContext) -> 
         .execute()
     )
     return bool(resp.data)
+
+
+def _get_session_context(session_id: str, user_id: str) -> dict | None:
+    """Fetch session_context JSONB for an owned session. Returns None if missing
+    or not owned. Used by wingman/suggest paths to inject the per-meeting
+    scenario block into the system prompt."""
+    try:
+        resp = (
+            _db.table("sessions")
+            .select("session_context")
+            .eq("id", session_id)
+            .eq("user_id", user_id)
+            .limit(1)
+            .execute()
+        )
+        rows = resp.data or []
+        if not rows:
+            return None
+        return rows[0].get("session_context")
+    except Exception:
+        return None
 
 
 @router.post("/sessions/{session_id}/context")
