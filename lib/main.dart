@@ -60,6 +60,8 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'providers/tags_provider.dart';
 import 'providers/profile_provider.dart';
 import 'providers/task_event_provider.dart';
+import 'providers/persona_provider.dart';
+import 'services/persona_service.dart';
 import 'widgets/auth_guard.dart';
 import 'routes/app_routes.dart';
 
@@ -291,6 +293,13 @@ class BubblesApp extends StatelessWidget {
         ChangeNotifierProxyProvider<GamificationRepository, GamificationProvider>(
           create: (context) => GamificationProvider(context.read<ApiService>()),
           update: (context, repo, provider) => provider!..setRepository(repo),
+        ),
+
+        // 15. Persona Provider (role-aware AI)
+        ChangeNotifierProvider<PersonaProvider>(
+          create: (ctx) => PersonaProvider(
+            service: PersonaService(ctx.read<ApiService>()),
+          ),
         ),
       ],
       child: Consumer2<ThemeProvider, SettingsProvider>(

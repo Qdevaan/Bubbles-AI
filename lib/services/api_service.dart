@@ -5,6 +5,7 @@ import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../models/persona.dart';
 import 'connection_service.dart';
 import 'auth_service.dart';
 
@@ -870,6 +871,72 @@ class ApiService {
     } catch (e) {
       debugPrint('askGraphQuery error: $e');
       return {'answer': 'Error: $e', 'session_id': null};
+    }
+  }
+
+  // --- 16. PERSONA (Role-aware AI) ---
+  /// Returns the current user's persona. Returns null on 404, throws on other errors.
+  Future<Map<String, dynamic>?> getMyPersona() async {
+    if (_baseUrl.isEmpty) {
+      throw Exception('Server URL not set.');
+    }
+    final res = await http
+        .get(
+          Uri.parse('$_baseUrl/v1/me/persona'),
+          headers: await _authHeaders(),
+        )
+        .timeout(const Duration(seconds: 15));
+    if (res.statusCode == 200) {
+      return jsonDecode(res.body) as Map<String, dynamic>;
+    }
+    if (res.statusCode == 404) {
+      return null;
+    }
+    throw Exception('getMyPersona failed: ${res.statusCode} ${res.body}');
+  }
+
+  /// Upserts the current user's persona. Returns parsed JSON on 200, throws otherwise.
+  Future<Map<String, dynamic>> upsertMyPersona(PersonaUpdate update) async {
+    if (_baseUrl.isEmpty) {
+      throw Exception('Server URL not set.');
+    }
+    final res = await http
+        .put(
+          Uri.parse('$_baseUrl/v1/me/persona'),
+          headers: await _authHeaders(),
+          body: jsonEncode(update.toJson()),
+        )
+        .timeout(const Duration(seconds: 20));
+    if (res.statusCode == 200) {
+      return jsonDecode(res.body) as Map<String, dynamic>;
+    }
+    throw Exception('upsertMyPersona failed: ${res.statusCode} ${res.body}');
+  }
+
+  /// Sets per-session context (scenario / role-mode / notes). Throws on non-200.
+  Future<void> setSessionContext(
+    String sessionId, {
+    required String scenario,
+    String roleMode = 'default',
+    String? notes,
+  }) async {
+    if (_baseUrl.isEmpty) {
+      throw Exception('Server URL not set.');
+    }
+    final body = <String, dynamic>{
+      'scenario': scenario,
+      'role_mode': roleMode,
+      if (notes != null) 'notes': notes,
+    };
+    final res = await http
+        .post(
+          Uri.parse('$_baseUrl/v1/sessions/$sessionId/context'),
+          headers: await _authHeaders(),
+          body: jsonEncode(body),
+        )
+        .timeout(const Duration(seconds: 15));
+    if (res.statusCode != 200) {
+      throw Exception('setSessionContext failed: ${res.statusCode} ${res.body}');
     }
   }
 
