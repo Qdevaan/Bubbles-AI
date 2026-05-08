@@ -21,6 +21,26 @@ from groq import AsyncGroq, Groq
 import re
 
 from app.config import settings
+from app.services.prompt_loader import render_persona_block, render_scenario_header
+
+# Lazy import shim: app.services.__init__ instantiates persona_svc AFTER
+# BrainService is imported, so we can't `from app.services import persona_svc`
+# at module load. Tests patch `app.services.brain_service.persona_svc` and
+# expect attribute resolution at call time -- the lookup below honours both.
+import app.services as _services_pkg
+
+
+class _PersonaSvcProxy:
+    """Resolves persona_svc lazily off the services package at call time."""
+
+    def get(self, user_id):  # noqa: D401 -- thin pass-through
+        svc = getattr(_services_pkg, "persona_svc", None)
+        if svc is None:
+            return None
+        return svc.get(user_id)
+
+
+persona_svc = _PersonaSvcProxy()
 
 # ── Module-level helpers ──────────────────────────────────────────────────────
 
@@ -37,6 +57,47 @@ def _sanitize_ai_disclaimer(text: str, is_roleplay: bool) -> str:
     if not is_roleplay:
         return text
     return _AI_DISCLAIMER_PATTERNS.sub("", text).strip()
+
+
+_DEFAULT_PERSONA_DICT: Dict[str, Any] = {
+    "role_family": "default",
+    "native_language": "en",
+    "learning_language": "en",
+    "formality_preference": "neutral",
+}
+
+
+def _persona_dict_for(user_id: Optional[str]) -> Dict[str, Any]:
+    """Look up persona via PersonaService; fall back to a neutral default dict."""
+    if not user_id:
+        return dict(_DEFAULT_PERSONA_DICT)
+    try:
+        persona = persona_svc.get(user_id)
+    except Exception as e:  # pragma: no cover -- defensive
+        print(f"⚠️ persona_svc.get failed for {user_id}: {e}")
+        persona = None
+    if persona is None:
+        return dict(_DEFAULT_PERSONA_DICT)
+    return persona.model_dump(mode="json")
+
+
+def build_system_prompt(
+    user_id: Optional[str],
+    session_context: Optional[dict] = None,
+) -> str:
+    """Compose the persona + scenario header block injected into LLM prompts.
+
+    Used by both wingman advice (`get_wingman_advice`) and the suggestion
+    engine (`get_wingman_suggestions`) so the persona-aware framing stays
+    DRY across surfaces. Returns a string that ALWAYS begins with the
+    persona block; the scenario header is appended only when non-empty.
+    """
+    persona_dict = _persona_dict_for(user_id)
+    persona_block = render_persona_block(persona_dict)
+    scenario_block = render_scenario_header(session_context)
+    if scenario_block.strip():
+        return f"{persona_block}\n{scenario_block}".rstrip()
+    return persona_block.rstrip()
 
 
 class BrainService:
@@ -172,7 +233,8 @@ class BrainService:
         vector_context: str,
         mode: str = "casual",
         persona: str = "casual",
-        performa_context: str = "",
+        performa_context: str = "",  # deprecated -- replaced by persona injection
+        session_context: Optional[dict] = None,
     ) -> Dict[str, Any]:
         """Real-time wingman coaching. Cerebras primary → Groq fallback.
 
@@ -197,10 +259,8 @@ class BrainService:
             f"\n{graph_context}"
             f"\n------------------------------------------"
         ) if has_graph_facts else ""
-        # TODO(Task 11): replace empty stub with PersonaService persona-fragment include
-        about_you_block = (
-            f"\n\n{performa_context}"
-        ) if performa_context.strip() else ""
+        persona_scenario_text = build_system_prompt(user_id, session_context)
+        about_you_block = f"\n\n{persona_scenario_text}".rstrip() if persona_scenario_text.strip() else ""
 
         if is_roleplay:
             # Roleplay keeps entity context + related memories (needed to embody
@@ -323,8 +383,9 @@ class BrainService:
         graph_context: str,
         vector_context: str,
         persona: str = "casual",
-        performa_context: str = "",
+        performa_context: str = "",  # deprecated -- replaced by persona injection
         is_draft: bool = False,
+        session_context: Optional[dict] = None,
     ) -> Dict[str, Any]:
         """Return 3 candidate replies in the requested tone as JSON.
 
@@ -347,8 +408,8 @@ class BrainService:
             if graph_context and "No known graph facts" not in graph_context
             else ""
         )
-        # TODO(Task 11): replace empty stub with PersonaService persona-fragment include
-        about_block = f"\n\n{performa_context}" if performa_context.strip() else ""
+        persona_scenario_text = build_system_prompt(user_id, session_context)
+        about_block = f"\n\n{persona_scenario_text}".rstrip() if persona_scenario_text.strip() else ""
 
         system_prompt = (
             "You are Bubbles, a real-time conversation coach. The user is in a "

@@ -384,12 +384,12 @@ async def process_transcript_wingman(
     if e_ctx:
         g_ctx = f"ROLEPLAY TARGET ENTITY CONTEXT:\n{e_ctx}\n\n" + g_ctx
 
-    # 2. Get wingman advice — this is what the client is waiting for
-    # TODO(Task 11): replace empty stub with PersonaService persona-fragment include
-    p_ctx = ""
+    # 2. Get wingman advice — this is what the client is waiting for.
+    # Persona + scenario context is injected directly by brain_service via
+    # PersonaService; session_context lookup will be wired in a follow-up.
     result = await brain_svc.get_wingman_advice(
         user_id, transcript, g_ctx, v_ctx, req.mode, req.persona,
-        performa_context=p_ctx,
+        session_context=None,
     )
     advice_text = result.get("answer", "WAITING")
 
@@ -635,7 +635,8 @@ async def end_session_endpoint(
     fire_and_forget(gamification_svc.update_streak(req.user_id))
     fire_and_forget(dispatcher_svc.personalize_quest_briefs(req.user_id))
 
-    # TODO(Task 11): post-session persona insight analysis will be re-added via PersonaService
+    # Future: post-session persona insight analysis (e.g. updating
+    # PersonaService with derived signals) will be re-added here.
 
     return {"status": "completed", "session_id": req.session_id}
 
@@ -650,8 +651,9 @@ async def _load_session_context(
     """Return (graph_ctx, vector_ctx, entity_ctx, persona_ctx).
 
     Cache-first; falls back to live fetch with a 200ms hard timeout cap.
-    persona_ctx is currently always "" — Task 11 will replace it with the
-    new PersonaService persona-fragment block.
+    persona_ctx is now always "" — persona/scenario framing is composed
+    inside brain_service via PersonaService instead of being threaded
+    through this loader.
     """
     if not session_id:
         return "", "", "", ""
@@ -724,8 +726,8 @@ async def suggest_reply_endpoint(
         graph_context=g_ctx,
         vector_context=v_ctx,
         persona=req.tone,
-        performa_context=p_ctx,
         is_draft=req.is_draft,
+        session_context=None,
     )
     suggestions = (result or {}).get("suggestions", [])[:3]
 

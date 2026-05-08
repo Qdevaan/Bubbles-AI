@@ -82,3 +82,30 @@ def test_category_mapping():
     assert _map_lt_category("PUNCTUATION") == "grammar"
     assert _map_lt_category("agreement") == "agreement"
     assert _map_lt_category("UNKNOWN_THING") == "grammar"
+
+
+def test_grammar_prompt_includes_persona_role_family():
+    from datetime import datetime
+
+    from app.services.grammar_service import GrammarService
+    from app.models.persona import UserPersona
+
+    persona = UserPersona(
+        user_id="00000000-0000-0000-0000-000000000001",
+        role_primary="teacher",
+        native_language="en",
+        learning_language="en",
+        role_family="educator",
+        created_at=datetime.utcnow(),
+        updated_at=datetime.utcnow(),
+    )
+
+    svc = GrammarService()
+    with patch("app.services.grammar_service.persona_svc") as mock_svc:
+        mock_svc.get.return_value = persona
+        prompt = svc.build_check_prompt(
+            user_id="u1", text="he go to school", session_context=None,
+        )
+
+    assert "educator" in prompt.lower() or "pedagogical" in prompt.lower()
+    assert "he go to school" in prompt
