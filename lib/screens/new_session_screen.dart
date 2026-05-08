@@ -23,6 +23,9 @@ import '../widgets/chat_bubble.dart';
 import '../widgets/feedback_dialog.dart';
 import '../widgets/session/session_widgets.dart';
 import '../widgets/suggestion_strip.dart';
+import '../providers/mistake_provider.dart';
+import '../services/mistake_service.dart';
+import '../widgets/mistake_badge.dart';
 
 // ============================================================================
 //  NEW SESSION SCREEN  (Live Wingman)
@@ -47,6 +50,9 @@ class _NewSessionScreenState extends State<NewSessionScreen>
   // Live suggestion engine
   SuggestionController? _suggestionCtrl;
   StreamSubscription<String>? _interimSub;
+
+  // Mistake tracker
+  MistakeProvider? _mistakeProvider;
 
   // Animations (local only)
   late AnimationController _pulseController;
@@ -126,11 +132,20 @@ class _NewSessionScreenState extends State<NewSessionScreen>
     _scrollToBottom();
 
     // Live-suggestion engine: fire on partner's final transcripts; clear on user turn.
-    if (deepgram.currentSpeaker != "user" &&
-        deepgram.currentTranscript.isNotEmpty) {
-      _suggestionCtrl?.onFinalTranscript(deepgram.currentTranscript);
+    final transcript = deepgram.currentTranscript;
+    if (deepgram.currentSpeaker != "user" && transcript.isNotEmpty) {
+      _suggestionCtrl?.onFinalTranscript(transcript);
     } else if (deepgram.currentSpeaker == "user") {
       _suggestionCtrl?.clear();
+      // Mistake tracker fires on user-turn final.
+      if (transcript.isNotEmpty) {
+        final uid =
+            Supabase.instance.client.auth.currentUser?.id ?? '';
+        final sid = _session.sessionId;
+        if (sid != null && uid.isNotEmpty) {
+          _mistakeProvider?.onUserTurnFinal(uid, sid, transcript);
+        }
+      }
     }
   }
 
@@ -154,7 +169,9 @@ class _NewSessionScreenState extends State<NewSessionScreen>
     _interimSub = dg.interimStream.listen((text) {
       _suggestionCtrl?.onInterimTranscript(text);
     });
-    setState(() {}); // rebuild so the strip mounts
+    _mistakeProvider =
+        MistakeProvider(service: MistakeService(connection.serverUrl, jwt));
+    setState(() {}); // rebuild so the strip + badge mount
   }
 
   void _teardownSuggestionEngine() {
@@ -162,6 +179,8 @@ class _NewSessionScreenState extends State<NewSessionScreen>
     _interimSub = null;
     _suggestionCtrl?.dispose();
     _suggestionCtrl = null;
+    _mistakeProvider?.dispose();
+    _mistakeProvider = null;
   }
 
   void _toggleSession() async {
@@ -975,6 +994,19 @@ class _NewSessionScreenState extends State<NewSessionScreen>
                   hasUncertainSpeaker: _hasUncertainSpeaker(sp),
                 ),
               ),
+
+              // Mistake counter badge — visible when count > 0.
+              if (_mistakeProvider != null)
+                ChangeNotifierProvider<MistakeProvider>.value(
+                  value: _mistakeProvider!,
+                  child: const Padding(
+                    padding: EdgeInsets.only(left: 12, top: 4, bottom: 4),
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: MistakeBadge(),
+                    ),
+                  ),
+                ),
 
               // Live suggestion strip — only visible when controller has produced suggestions.
               if (_suggestionCtrl != null)
