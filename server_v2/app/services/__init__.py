@@ -26,3 +26,8 @@ dispatcher_svc = TaskDispatcherService()
 # Share the SentenceTransformer model so GraphService can do semantic search
 # without loading the model twice
 graph_svc.model = vector_svc.model
+
+# Grammar / mistake tracker
+from app.services.grammar_service import GrammarService
+grammar_svc = GrammarService()
+print("📝 Grammar Service: initialised")
