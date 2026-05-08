@@ -108,33 +108,43 @@ class _Step2LanguageState extends State<Step2Language> {
           alignment: Alignment.centerLeft,
           child: Text('Proficiency (self-rated)'),
         ),
-        for (final lvl in Step2Language.proficiencyLevels)
-          RadioListTile<String>(
-            title: Text(lvl),
-            value: lvl,
-            groupValue: draft.proficiencySelfRated,
-            onChanged: (v) {
-              setState(() => draft.proficiencySelfRated = v);
-              widget.onChanged();
-            },
+        RadioGroup<String>(
+          groupValue: draft.proficiencySelfRated,
+          onChanged: (v) {
+            setState(() => draft.proficiencySelfRated = v);
+            widget.onChanged();
+          },
+          child: Column(
+            children: [
+              for (final lvl in Step2Language.proficiencyLevels)
+                RadioListTile<String>(
+                  title: Text(lvl),
+                  value: lvl,
+                ),
+            ],
           ),
+        ),
         const SizedBox(height: 16),
         const Align(
           alignment: Alignment.centerLeft,
           child: Text('Formality preference'),
         ),
-        for (final f in Step2Language.formalityLevels)
-          RadioListTile<String>(
-            title: Text(f),
-            value: f,
-            // ignore: deprecated_member_use
-            groupValue: draft.formalityPreference,
-            // ignore: deprecated_member_use
-            onChanged: (v) {
-              setState(() => draft.formalityPreference = v ?? 'neutral');
-              widget.onChanged();
-            },
+        RadioGroup<String>(
+          groupValue: draft.formalityPreference,
+          onChanged: (v) {
+            setState(() => draft.formalityPreference = v ?? 'neutral');
+            widget.onChanged();
+          },
+          child: Column(
+            children: [
+              for (final f in Step2Language.formalityLevels)
+                RadioListTile<String>(
+                  title: Text(f),
+                  value: f,
+                ),
+            ],
           ),
+        ),
         const SizedBox(height: 16),
         const Align(
           alignment: Alignment.centerLeft,
