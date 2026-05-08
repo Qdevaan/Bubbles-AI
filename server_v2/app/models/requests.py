@@ -2,7 +2,7 @@
 Pydantic request schemas — one place for all POST body models.
 """
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Literal, Optional
 from pydantic import BaseModel, Field
 
 
@@ -61,6 +61,22 @@ class WingmanRequest(BaseModel):
     confidence: Optional[float] = None
     mode: str = Field("live_wingman", description="Session mode")
     persona: str = Field("casual", description="Persona tone")
+
+
+class SuggestReplyRequest(BaseModel):
+    user_id: str
+    session_id: str
+    partner_utterance: str
+    tone: Literal["formal", "semi-formal", "casual"] = "casual"
+    is_draft: bool = False
+    speaker_id: Optional[str] = None
+
+
+class SuggestReplyResponse(BaseModel):
+    suggestions: List[str]
+    kind: Literal["draft", "final", "error"]
+    latency_ms: int
+    request_id: str
 
 
 # ── Entity Endpoints ──────────────────────────────────────────────────────────
