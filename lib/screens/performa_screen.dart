@@ -213,7 +213,7 @@ class _PerformaTabBarState extends State<_PerformaTabBar> {
                         ? primary.withAlpha(120)
                         : (widget.isDark
                             ? AppColors.glassBorder
-                            : Colors.grey.shade200),
+                            : AppColors.slate200),
                   ),
                 ),
                 child: Text(
@@ -352,7 +352,7 @@ class _GlassCard extends StatelessWidget {
         color: isDark ? AppColors.glassWhite : Colors.white,
         borderRadius: BorderRadius.circular(AppRadius.xxl),
         border: Border.all(
-          color: isDark ? AppColors.glassBorder : Colors.grey.shade200,
+          color: isDark ? AppColors.glassBorder : AppColors.slate200,
         ),
       ),
       child: child,
@@ -1369,7 +1369,7 @@ class _ContactTile extends StatelessWidget {
           color: isDark ? Colors.white.withAlpha(8) : AppColors.slate50,
           borderRadius: BorderRadius.circular(AppRadius.lg),
           border: Border.all(
-              color: isDark ? AppColors.glassBorder : Colors.grey.shade200),
+              color: isDark ? AppColors.glassBorder : AppColors.slate200),
         ),
         child: Row(
           children: [

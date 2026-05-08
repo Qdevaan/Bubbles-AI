@@ -20,12 +20,7 @@ class AppRoutes {
   static const quests = '/quests';
   static const gameCenter = '/game-center'; // Replaces quests as primary nav target
   static const graphExplorer = '/graph-explorer';
-  static const healthDashboard = '/health-dashboard';
-  static const expensesTracker = '/expenses-tracker';
   static const tasks = '/tasks';
-  static const smartHome = '/smart-home';
-  static const tripsPlanner = '/trips-planner';
-  static const integrations = '/integrations';
   static const subscription = '/subscription';
   static const insights = '/insights';
   static const language    = '/settings/language';

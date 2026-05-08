@@ -5,7 +5,6 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'services/connection_service.dart';
 import 'services/api_service.dart';
-import 'services/livekit_service.dart';
 import 'services/deepgram_service.dart';
 import 'services/voice_assistant_service.dart';
 import 'services/wake_word_service.dart';
@@ -53,12 +52,7 @@ import 'providers/gamification_provider.dart';
 import 'providers/performa_provider.dart';
 import 'repositories/performa_repository.dart';
 import 'screens/graph_explorer_screen.dart';
-import 'screens/health_dashboard_screen.dart';
-import 'screens/expense_tracker_screen.dart';
 import 'screens/tasks_screen.dart';
-import 'screens/smart_home_dashboard_screen.dart';
-import 'screens/trips_planner_screen.dart';
-import 'screens/integrations_hub_screen.dart';
 import 'screens/subscription_screen.dart';
 import 'screens/insights_screen.dart';
 import 'screens/language_screen.dart';
@@ -68,10 +62,7 @@ import 'screens/update_password_screen.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'providers/tags_provider.dart';
 import 'providers/profile_provider.dart';
-import 'providers/health_finance_provider.dart';
 import 'providers/task_event_provider.dart';
-import 'providers/iot_manager_provider.dart';
-import 'providers/enterprise_provider.dart';
 import 'widgets/auth_guard.dart';
 import 'routes/app_routes.dart';
 
@@ -246,14 +237,6 @@ class BubblesApp extends StatelessWidget {
           update: (_, __, prev) => prev!,
         ),
 
-        // 3. LiveKit Service (Depends on ApiService)
-        // FIX: Reuse previous instance instead of creating new one on every update
-        ChangeNotifierProxyProvider<ApiService, LiveKitService>(
-          create: (context) =>
-              LiveKitService(Provider.of<ApiService>(context, listen: false)),
-          update: (context, api, previous) => previous!..updateApiService(api),
-        ),
-
         // 4. Theme Provider
         ChangeNotifierProvider(create: (_) => ThemeProvider(
           initialThemeMode: initialThemeMode,
@@ -304,16 +287,10 @@ class BubblesApp extends StatelessWidget {
         // 12. Profile / Identity Provider (Schema v4)
         ChangeNotifierProvider(create: (_) => ProfileProvider()),
 
-        // 13. Health & Finance Provider (Schema v4)
-        ChangeNotifierProvider(create: (_) => HealthFinanceProvider()),
-
-        // 14. Tasks & Events Provider
+        // 13. Tasks & Events Provider
         ChangeNotifierProvider(create: (_) => TaskEventProvider()),
 
-        // 15. Enterprise & Subscriptions Provider
-        ChangeNotifierProvider(create: (_) => EnterpriseProvider()),
-
-        // 16. Gamification Provider (Depends on GamificationRepository)
+        // 14. Gamification Provider (Depends on GamificationRepository)
         ProxyProvider<ApiService, PerformaRepository>(
           update: (context, api, _) => PerformaRepository(api),
         ),
@@ -467,22 +444,8 @@ class BubblesApp extends StatelessWidget {
                   const AuthGuard(child: GraphExplorerScreen()),
               AppRoutes.insights: (context) =>
                   const AuthGuard(child: InsightsScreen()),
-              AppRoutes.healthDashboard: (context) =>
-                  const AuthGuard(child: HealthDashboardScreen()),
-              AppRoutes.expensesTracker: (context) =>
-                  const AuthGuard(child: ExpenseTrackerScreen()),
-              AppRoutes.tasks: (context) => 
+              AppRoutes.tasks: (context) =>
                   const AuthGuard(child: TasksScreen()),
-              AppRoutes.smartHome: (context) => AuthGuard(
-                child: ChangeNotifierProvider(
-                  create: (_) => IoTManagerProvider(),
-                  child: const SmartHomeDashboardScreen(),
-                ),
-              ),
-              AppRoutes.tripsPlanner: (context) =>
-                  const AuthGuard(child: TripsPlannerScreen()),
-              AppRoutes.integrations: (context) =>
-                  const AuthGuard(child: IntegrationsHubScreen()),
               AppRoutes.subscription: (context) =>
                   const AuthGuard(child: SubscriptionScreen()),
               AppRoutes.settings: (context) =>
