@@ -47,10 +47,7 @@ import 'screens/entity_screen.dart';
 import 'screens/session_analytics_screen.dart';
 import 'screens/roleplay_setup_screen.dart';
 import 'screens/game_center_screen.dart';
-import 'screens/performa_screen.dart';
 import 'providers/gamification_provider.dart';
-import 'providers/performa_provider.dart';
-import 'repositories/performa_repository.dart';
 import 'screens/graph_explorer_screen.dart';
 import 'screens/tasks_screen.dart';
 import 'screens/subscription_screen.dart';
@@ -291,13 +288,6 @@ class BubblesApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => TaskEventProvider()),
 
         // 14. Gamification Provider (Depends on GamificationRepository)
-        ProxyProvider<ApiService, PerformaRepository>(
-          update: (context, api, _) => PerformaRepository(api),
-        ),
-        ChangeNotifierProxyProvider<PerformaRepository, PerformaProvider>(
-          create: (context) => PerformaProvider(context.read<PerformaRepository>()),
-          update: (context, repo, prev) => prev ?? PerformaProvider(repo),
-        ),
         ChangeNotifierProxyProvider<GamificationRepository, GamificationProvider>(
           create: (context) => GamificationProvider(context.read<ApiService>()),
           update: (context, repo, provider) => provider!..setRepository(repo),
@@ -466,8 +456,6 @@ class BubblesApp extends StatelessWidget {
                   const AuthGuard(child: DataManagementScreen()),
               AppRoutes.updatePassword: (context) =>
                   const UpdatePasswordScreen(),
-              AppRoutes.performa: (context) =>
-                  const AuthGuard(child: PerformaScreen()),
             },
           );
         },

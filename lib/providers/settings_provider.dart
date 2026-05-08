@@ -33,7 +33,7 @@ class SettingsProvider with ChangeNotifier {
   String? _currentMood;
   bool _voiceEnrolled = false;
   int _voiceSamplesCount = 0;
-  List<String> _enabledQuickActions = ['consultant', 'sessions', 'roleplay', 'game-center', 'graph-explorer', 'insights', 'performa'];
+  List<String> _enabledQuickActions = ['consultant', 'sessions', 'roleplay', 'game-center', 'graph-explorer', 'insights'];
 
   bool _pushHighlights = true;
   bool _pushEvents = true;

@@ -110,7 +110,6 @@ const Map<String, Color> _kActionAccents = {
   'game-center': Color(0xFFFBBF24),
   'graph-explorer': Color(0xFF8B5CF6),
   'insights': Color(0xFFF59E0B),
-  'performa': Color(0xFFF43F5E),
 };
 
 // ── QuickActionsSection (container with layout switching) ──────────────────────
@@ -177,15 +176,6 @@ class QuickActionsSection extends StatelessWidget {
         'title': 'Insights',
         'subtitle': 'Events & highlights',
         'route': '/insights',
-      },
-      {
-        'id': 'performa',
-        'icon': Icons.bar_chart_rounded,
-        'iconColor': const Color(0xFFF43F5E),
-        'iconBg': const Color(0xFFF43F5E).withAlpha(51),
-        'title': 'Performa',
-        'subtitle': 'Track performance',
-        'route': '/performa',
       },
     ].where((a) => enabledIds.contains(a['id'])).toList();
 
