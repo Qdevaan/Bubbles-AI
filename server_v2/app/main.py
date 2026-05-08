@@ -27,7 +27,7 @@ from app.utils import _background_tasks
 from app.utils.rate_limit import limiter
 from app.utils.session_store import session_store
 
-from app.routes import health, sessions, consultant, voice, analytics, entities, gamification, stt, performance, grammar
+from app.routes import health, sessions, consultant, voice, analytics, entities, gamification, stt, performance, grammar, persona
 
 
 # ── Session TTL ───────────────────────────────────────────────────────────────
@@ -250,8 +250,8 @@ v1.include_router(entities.router)
 v1.include_router(gamification.router)
 v1.include_router(stt.router)
 v1.include_router(performance.router)
-# (persona router added in Task 7)
 v1.include_router(grammar.router)
+v1.include_router(persona.router)
 
 app.include_router(v1)
 
