@@ -39,12 +39,12 @@ Hybrid landing page serving two audiences:
 - `@vercel/og` (OG image, optional)
 - `canvas-confetti` (waitlist success)
 
-**Repo location:** new `landing/` folder at repo root (monorepo style w/ existing Flutter app + `server_v2/`).
+**Repo location:** **separate sibling repository** at `E:\FYP\FYP_V2\Bubbles-AI-landing` (own git history, own `package.json`, own deploy). NOT a subfolder of the Bubbles-AI Flutter repo. GitHub remote created later when ready to ship.
 
-**Project tree:**
+**Project tree** (root of separate `Bubbles-AI-landing` repo):
 
 ```text
-landing/
+Bubbles-AI-landing/        # = repo root (own .git)
 ├── package.json
 ├── next.config.ts
 ├── tailwind.config.ts
@@ -323,7 +323,7 @@ revoke all on public.waitlist from anon, authenticated;
 -- Service-role bypasses RLS, used server-side only.
 ```
 
-Migration file: `server_v2/migrations/2026-05-09_waitlist.sql` (or wherever existing migrations live — TBD by writer of plan).
+Migration applied directly to the existing Supabase project (via MCP `apply_migration` or the SQL editor). SQL also committed in the landing repo at `migrations/2026-05-09_waitlist.sql` for record.
 
 ### 6.2 API: `POST /api/waitlist`
 
@@ -367,7 +367,8 @@ Set in Vercel project settings:
 
 **Vercel:**
 
-- Project root: `landing/` (set in Project Settings → Root Directory).
+- Connect Vercel to the `Bubbles-AI-landing` GitHub repo (created when ready to ship).
+- Project root: repo root (no nested folder).
 - Framework: Next.js (auto).
 - Node version: 20.x.
 - Build: `next build`.
@@ -460,7 +461,7 @@ All sections are independent: no cross-component state shared except theme (CSS 
 - **GitHub repo URL:** not yet confirmed in spec. Implementation plan should fill in actual URL or leave as `NEXT_PUBLIC_GITHUB_URL` env.
 - **`/about` content depth:** stub on first ship; expand iteratively.
 - **Logo `Bubbles` text mark:** wordmark not yet in `assets/logos/`; need to either generate gradient text in CSS (chosen here) or commission/render an SVG wordmark later.
-- **Migration location:** spec assumes `server_v2/migrations/`; planner to confirm against existing migration convention before placing.
+- **Migration application order:** apply Supabase migration before deploying API route, otherwise inserts fail.
 - **Custom domain:** deferred. Document setup steps in implementation plan for future.
 
 ---
@@ -479,4 +480,4 @@ All sections are independent: no cross-component state shared except theme (CSS 
 - Palette: cyan `#22d3ee` → violet `#8b5cf6` on near-black `#0a0a0f` (matched from app logo).
 - Waitlist: Supabase table on existing project, server-side service-role insert, in-memory rate-limit.
 - Domain: Vercel default subdomain initially.
-- Repo location: `landing/` at repo root.
+- Repo location: **separate sibling repository** at `E:\FYP\FYP_V2\Bubbles-AI-landing` w/ its own `.git` history. NOT a subfolder of the Bubbles-AI Flutter repo. GitHub remote created later.
