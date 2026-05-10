@@ -845,13 +845,22 @@ class ApiService {
       return {'answer': 'Server is offline. Connect to get AI insights.', 'session_id': null};
     }
     try {
+      final hasEntities = graphEntities != null && graphEntities.isNotEmpty;
       final body = <String, dynamic>{
         'user_id': userId,
         'question': query,
         'session_id': sessionId,
         'context': 'knowledge_graph',
-        if (graphEntities != null && graphEntities.isNotEmpty)
-          'graph_entities': graphEntities,
+        if (hasEntities) 'graph_entities': graphEntities,
+        // Tell the server (and any LLM downstream) to ground its answer in the
+        // entities we just extracted — not its prior knowledge.
+        'mode': hasEntities ? 'entity_focused' : 'knowledge_graph',
+        if (hasEntities)
+          'prompt_hint':
+              'Answer ONLY using the provided graph_entities and their relationships. '
+              'If the answer is not supported by these entities, say so clearly and '
+              'suggest the closest related entity from the list. Never invent entities '
+              'or facts that are not in graph_entities. Cite entity labels in your reply.',
       };
       final res = await http
           .post(

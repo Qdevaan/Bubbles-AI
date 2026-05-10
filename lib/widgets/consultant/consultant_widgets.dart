@@ -223,6 +223,7 @@ class AiBubble extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final primary = Theme.of(context).colorScheme.primary;
+    final isEmptyStreaming = streaming && text.trim().isEmpty;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -236,11 +237,23 @@ class AiBubble extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              if (isEmptyStreaming)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: TypingDots(color: primary),
+                )
+              else
               // No background bubble, just plain markdown
               Padding(
                 padding: const EdgeInsets.only(top: 2),
-                child: MarkdownBody(
-                  data: streaming ? '$text ▌' : text,
+                child: streaming
+                    ? _StreamingMarkdown(
+                        text: text,
+                        isDark: isDark,
+                        accent: primary,
+                      )
+                    : MarkdownBody(
+                  data: text,
                   styleSheet: MarkdownStyleSheet(
                     p: GoogleFonts.manrope(
                       fontSize: 15,
@@ -628,6 +641,161 @@ class _TeleprompterBubbleState extends State<TeleprompterBubble> {
           const SizedBox(height: 200), // Padding to allow scrolling past
         ],
       ),
+    );
+  }
+}
+
+/// Three-dot loading indicator for the moment between sending a question and
+/// the first streamed token arriving.
+class TypingDots extends StatefulWidget {
+  final Color color;
+  const TypingDots({super.key, required this.color});
+
+  @override
+  State<TypingDots> createState() => _TypingDotsState();
+}
+
+class _TypingDotsState extends State<TypingDots> with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1100),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 36,
+      height: 12,
+      child: AnimatedBuilder(
+        animation: _controller,
+        builder: (context, _) {
+          return Row(
+            mainAxisSize: MainAxisSize.min,
+            children: List.generate(3, (i) {
+              final phase = (_controller.value * 3 - i).clamp(0.0, 1.0);
+              final scale = 0.6 + 0.4 * (1 - (2 * phase - 1).abs());
+              return Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 3),
+                child: Transform.scale(
+                  scale: scale,
+                  child: Container(
+                    width: 7,
+                    height: 7,
+                    decoration: BoxDecoration(
+                      color: widget.color.withAlpha((scale * 255).round()),
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                ),
+              );
+            }),
+          );
+        },
+      ),
+    );
+  }
+}
+
+/// Markdown view with a blinking cursor at the end while tokens stream in.
+class _StreamingMarkdown extends StatefulWidget {
+  final String text;
+  final bool isDark;
+  final Color accent;
+
+  const _StreamingMarkdown({
+    required this.text,
+    required this.isDark,
+    required this.accent,
+  });
+
+  @override
+  State<_StreamingMarkdown> createState() => _StreamingMarkdownState();
+}
+
+class _StreamingMarkdownState extends State<_StreamingMarkdown>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _blink;
+
+  @override
+  void initState() {
+    super.initState();
+    _blink = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    )..repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _blink.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = widget.isDark;
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        MarkdownBody(
+          data: widget.text.isEmpty ? '​' : widget.text,
+          styleSheet: MarkdownStyleSheet(
+            p: GoogleFonts.manrope(
+              fontSize: 15,
+              color: isDark ? AppColors.slate200 : AppColors.slate800,
+              height: 1.6,
+            ),
+            strong: GoogleFonts.manrope(
+              fontWeight: FontWeight.w700,
+              color: isDark ? Colors.white : AppColors.slate900,
+            ),
+            em: GoogleFonts.manrope(
+              fontStyle: FontStyle.italic,
+              color: isDark ? AppColors.slate300 : Colors.grey.shade700,
+            ),
+            code: GoogleFonts.firaCode(
+              fontSize: 13,
+              color: isDark ? AppColors.slate200 : AppColors.slate800,
+              backgroundColor: isDark ? AppColors.slate800 : AppColors.slate200,
+            ),
+            codeblockPadding: const EdgeInsets.all(12),
+            codeblockDecoration: BoxDecoration(
+              color: isDark ? AppColors.slate900 : AppColors.slate100,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: isDark ? AppColors.glassBorder : Colors.grey.shade300,
+              ),
+            ),
+          ),
+        ),
+        Positioned(
+          right: -2,
+          bottom: 4,
+          child: FadeTransition(
+            opacity: _blink,
+            child: Container(
+              width: 8,
+              height: 16,
+              decoration: BoxDecoration(
+                color: widget.accent,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

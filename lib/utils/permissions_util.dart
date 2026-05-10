@@ -6,38 +6,35 @@ import '../theme/design_tokens.dart';
 import '../widgets/glass_morphism.dart';
 
 class PermissionsUtil {
+  /// Deprecated: previously asked the user to grant every device permission at
+  /// startup. Now a no-op so we only prompt at the moment a feature actually
+  /// needs the permission. Kept for backwards-compat call sites.
   static Future<void> requestStartupPermissions(BuildContext context) async {
-    final permissionsToRequest = <Permission>[
-      Permission.microphone,
-      Permission.camera,
-      Permission.notification, // Added notification
-      Permission.location,
-      Permission.bluetooth,
-      Permission.bluetoothScan,
-      Permission.bluetoothConnect,
-      Permission.bluetoothAdvertise,
-    ];
+    return;
+  }
 
-    final deniedPermissions = <Permission>[];
+  /// Ensure a single permission is granted, prompting the user only if needed.
+  /// Returns true when the permission is currently granted (or limited).
+  static Future<bool> ensure(Permission permission, {BuildContext? context, String? rationale}) async {
+    PermissionStatus status = permission == Permission.storage
+        ? await checkPermission(Permission.storage)
+        : await permission.status;
 
-    // Check standard permissions
-    for (final permission in permissionsToRequest) {
-      final status = await permission.status;
-      if (status.isDenied || status.isRestricted || status.isLimited) {
-        deniedPermissions.add(permission);
+    if (status.isGranted || status.isLimited) return true;
+
+    if (status.isPermanentlyDenied) {
+      if (context != null && context.mounted) {
+        await _showSettingsDialog(
+          context: context,
+          title: 'Permission needed',
+          message: rationale ?? 'Open settings to enable this permission for the feature you just tapped.',
+        );
       }
+      return false;
     }
 
-    // Request them
-    if (deniedPermissions.isNotEmpty) {
-      await deniedPermissions.request();
-    }
-
-    // Handle storage specially
-    await requestStoragePermission();
-
-    // Check for permanent denials and show dialog if needed
-    // (Omitted the dialog for brevity in startup, but can be added back if critical)
+    final result = await requestPermission(permission);
+    return result.isGranted || result.isLimited;
   }
 
   /// Special helper for storage permissions across Android versions

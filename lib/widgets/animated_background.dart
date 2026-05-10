@@ -115,15 +115,19 @@ class _AnimatedAmbientBackgroundState extends State<AnimatedAmbientBackground>
   @override
   Widget build(BuildContext context) {
     final colors = _paletteForHour(DateTime.now().hour, widget.isDark);
-    return AnimatedBuilder(
-      animation: _ctrl,
-      builder: (_, __) => CustomPaint(
-        painter: _OrbPainter(
-          progress: _ctrl.value,
-          colors: colors,
-          scrollOffset: _scrollOffset,
+    // RepaintBoundary isolates the orb animation onto its own layer so the
+    // 60Hz repaint never invalidates the rest of the screen tree.
+    return RepaintBoundary(
+      child: AnimatedBuilder(
+        animation: _ctrl,
+        builder: (_, __) => CustomPaint(
+          painter: _OrbPainter(
+            progress: _ctrl.value,
+            colors: colors,
+            scrollOffset: _scrollOffset,
+          ),
+          size: Size.infinite,
         ),
-        size: Size.infinite,
       ),
     );
   }

@@ -8,7 +8,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../providers/theme_provider.dart';
 import '../theme/design_tokens.dart';
 import '../services/auth_service.dart';
-import '../utils/permissions_util.dart';
 import '../widgets/app_button.dart';
 import '../widgets/app_input.dart';
 import '../widgets/social_button.dart';
@@ -170,10 +169,7 @@ class _LoginScreenState extends State<LoginScreen> {
     final profile = await _authService.getProfile();
     final isComplete = profile != null && (profile['full_name']?.toString().isNotEmpty ?? false);
 
-    if (mounted) {
-      await PermissionsUtil.requestStartupPermissions(context);
-    }
-    
+    // Permissions are now requested on-demand when each feature is used.
     if (mounted) {
       await _checkAndShowThemeDialog();
     }

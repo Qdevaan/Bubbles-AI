@@ -25,6 +25,7 @@ import '../providers/mistake_provider.dart';
 import '../services/mistake_service.dart';
 import '../widgets/mistake_badge.dart';
 import '../providers/persona_provider.dart';
+import '../services/voice_assistant_service.dart';
 import 'session/session_context_dialog.dart';
 
 // ============================================================================
@@ -311,6 +312,10 @@ class _NewSessionScreenState extends State<NewSessionScreen>
 
       final completedSessionId = _session.sessionId;
       _teardownSuggestionEngine();
+      // Roleplay haptics off when the session ends.
+      try {
+        context.read<VoiceAssistantService>().setRoleplayMode(false);
+      } catch (_) {}
       final success = await _session.endSession(api, deepgram);
 
       if (mounted) {
@@ -386,6 +391,16 @@ class _NewSessionScreenState extends State<NewSessionScreen>
         serverUrl: serverUrl,
         jwt: jwt,
       );
+
+      // Roleplay voice feedback: light haptic ticks when the AI speaks/stops
+      // so the user can stay engaged in the conversation eyes-up.
+      if (mounted) {
+        try {
+          context
+              .read<VoiceAssistantService>()
+              .setRoleplayMode(targetEntityId != null);
+        } catch (_) {}
+      }
 
       // Attach persona-aware context if user provided it.
       final newSid = _session.sessionId;

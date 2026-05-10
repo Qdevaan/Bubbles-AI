@@ -243,32 +243,116 @@ class _GraphExplorerScreenState extends State<GraphExplorerScreen> {
     );
   }
 
-  /// Extract graph entities relevant to [query], sorted by keyword match score.
-  /// Returns up to 20 entities as lightweight maps for LLM context.
+  /// Stop-words filtered from queries before matching.
+  static const _stopWords = {
+    'the','a','an','is','are','was','were','be','been','being','of','in','on',
+    'at','to','for','with','by','from','as','that','this','these','those','it',
+    'its','his','her','their','my','our','your','and','or','but','not','no','do',
+    'does','did','have','has','had','can','could','should','would','will','what',
+    'when','where','why','how','who','whom','which','about','tell','me','show',
+    'find','list','give','say','says','said','please',
+  };
+
+  /// Tokenize a query into normalised, deduplicated content words.
+  Set<String> _tokenize(String query) => query
+      .toLowerCase()
+      .split(RegExp(r"[^a-z0-9']+"))
+      .where((w) => w.length > 2 && !_stopWords.contains(w))
+      .toSet();
+
+  /// Scaled Levenshtein-lite similarity for short tokens. Returns 0..1 where
+  /// 1 == exact match. Avoids full DP cost: prefix + length-difference heuristic.
+  double _tokenSimilarity(String a, String b) {
+    if (a == b) return 1.0;
+    if (a.contains(b) || b.contains(a)) return 0.85;
+    final maxLen = a.length > b.length ? a.length : b.length;
+    final minLen = a.length > b.length ? b.length : a.length;
+    if (maxLen - minLen > 3) return 0.0;
+    int common = 0;
+    for (int i = 0; i < minLen; i++) {
+      if (a.codeUnitAt(i) == b.codeUnitAt(i)) common++ ; else break;
+    }
+    if (common >= 3) return common / maxLen;
+    return 0.0;
+  }
+
+  /// Extract graph entities relevant to [query], plus their immediate neighbours
+  /// so the LLM can answer relationship questions ("who works with X?").
+  /// Returns up to 25 entities scored on label match, type match, and adjacency.
   List<Map<String, dynamic>> _extractGraphEntities(String query) {
     if (_rawNodes.isEmpty) return [];
-    final words = query
-        .toLowerCase()
-        .split(RegExp(r'\W+'))
-        .where((w) => w.length > 2)
-        .toSet();
+    final tokens = _tokenize(query);
+    if (tokens.isEmpty) {
+      // Fall back to top-mentioned nodes when the question has no content words.
+      final fallback = [..._rawNodes]
+        ..sort((a, b) {
+          int mc(Map m) => (m['mention_count'] is int)
+              ? m['mention_count'] as int
+              : int.tryParse('${m['mention_count']}') ?? 0;
+          return mc(b).compareTo(mc(a));
+        });
+      return fallback.take(15).map(_nodeSummary).toList();
+    }
 
-    final scored = _rawNodes.map((n) {
+    // Score every node on label/type fuzzy match.
+    final Map<String, double> scoreById = {};
+    for (final n in _rawNodes) {
+      final id = n['id']?.toString() ?? '';
+      if (id.isEmpty) continue;
       final label = (n['label']?.toString() ?? '').toLowerCase();
-      final score = words.fold<int>(0, (s, w) => s + (label.contains(w) ? 1 : 0));
-      return {'node': n, 'score': score};
-    }).toList()
-      ..sort((a, b) => (b['score'] as int).compareTo(a['score'] as int));
+      final type = ((n['type'] ?? n['entity_type'])?.toString() ?? '').toLowerCase();
+      double score = 0;
+      for (final t in tokens) {
+        // Type-keyword bonus ("event", "person") boosts every node of that type.
+        if (t == type) score += 0.6;
+        // Direct label hits weighted higher than fuzzy ones.
+        for (final lw in label.split(RegExp(r"\s+"))) {
+          if (lw.isEmpty) continue;
+          final sim = _tokenSimilarity(t, lw);
+          if (sim > 0) score += sim;
+        }
+        // Whole-label substring catches multi-word entities ("john doe").
+        if (label.contains(t)) score += 0.5;
+      }
+      if (score > 0) scoreById[id] = score;
+    }
 
-    return scored.take(20).map((r) {
-      final n = r['node'] as Map<String, dynamic>;
-      return <String, dynamic>{
+    if (scoreById.isEmpty) return [];
+
+    // Promote neighbours of top hits so the model can answer relationship Qs.
+    final topIds = (scoreById.entries.toList()
+          ..sort((a, b) => b.value.compareTo(a.value)))
+        .take(5)
+        .map((e) => e.key)
+        .toSet();
+    for (final link in _rawLinks) {
+      final src = link['source']?.toString() ?? '';
+      final tgt = link['target']?.toString() ?? '';
+      if (topIds.contains(src) && !scoreById.containsKey(tgt)) {
+        scoreById[tgt] = 0.25;
+      } else if (topIds.contains(tgt) && !scoreById.containsKey(src)) {
+        scoreById[src] = 0.25;
+      }
+    }
+
+    final ranked = scoreById.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+
+    final byId = {for (final n in _rawNodes) (n['id']?.toString() ?? ''): n};
+    return ranked.take(25).map((entry) {
+      final n = byId[entry.key]!;
+      final summary = _nodeSummary(n);
+      summary['relevance'] = double.parse(entry.value.toStringAsFixed(3));
+      return summary;
+    }).toList();
+  }
+
+  Map<String, dynamic> _nodeSummary(Map<String, dynamic> n) => {
         'id': n['id']?.toString() ?? '',
         'label': n['label']?.toString() ?? '',
         'type': (n['type'] ?? n['entity_type'])?.toString() ?? '',
+        if (n['mention_count'] != null) 'mention_count': n['mention_count'],
       };
-    }).toList();
-  }
 
   Future<void> _submitGraphQuery() async {
     final query = _graphQueryController.text.trim();
@@ -536,7 +620,7 @@ class _EntityTypeLegend extends StatelessWidget {
 
 // ── Graph Query Bar ────────────────────────────────────────────────────────────
 
-class _GraphQueryBar extends StatelessWidget {
+class _GraphQueryBar extends StatefulWidget {
   final TextEditingController controller;
   final bool isLoading;
   final VoidCallback onSubmit;
@@ -550,73 +634,182 @@ class _GraphQueryBar extends StatelessWidget {
   });
 
   @override
+  State<_GraphQueryBar> createState() => _GraphQueryBarState();
+}
+
+class _GraphQueryBarState extends State<_GraphQueryBar> {
+  final FocusNode _focusNode = FocusNode();
+  bool _hasFocus = false;
+  bool _hasText = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _focusNode.addListener(() {
+      if (mounted) setState(() => _hasFocus = _focusNode.hasFocus);
+    });
+    widget.controller.addListener(_onTextChanged);
+  }
+
+  void _onTextChanged() {
+    final hasText = widget.controller.text.trim().isNotEmpty;
+    if (hasText != _hasText && mounted) {
+      setState(() => _hasText = hasText);
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.controller.removeListener(_onTextChanged);
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    return Container(
-      height: 54,
-      child: TextField(
-        controller: controller,
-        style: GoogleFonts.manrope(
-          fontSize: 14,
-          fontWeight: FontWeight.w600,
-          color: isDark ? Colors.white : AppColors.slate900,
-        ),
-        decoration: InputDecoration(
-          hintText: 'Ask anything about your graph...',
-          hintStyle: GoogleFonts.manrope(
-            fontSize: 14,
-            color: isDark ? AppColors.slate400 : AppColors.slate500,
-          ),
-          prefixIcon: Icon(Icons.psychology_rounded, size: 22, color: cs.primary),
-          suffixIcon: isLoading
-              ? Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: cs.primary,
+    final isDark = widget.isDark;
+    final accent = cs.primary;
+    final canSubmit = _hasText && !widget.isLoading;
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
+      curve: Curves.easeOutCubic,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: [
+          if (_hasFocus)
+            BoxShadow(
+              color: accent.withAlpha(50),
+              blurRadius: 20,
+              spreadRadius: -4,
+              offset: const Offset(0, 4),
+            )
+          else
+            BoxShadow(
+              color: Colors.black.withAlpha(isDark ? 50 : 16),
+              blurRadius: 12,
+              offset: const Offset(0, 3),
+            ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(18),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            padding: const EdgeInsets.fromLTRB(14, 4, 4, 4),
+            decoration: BoxDecoration(
+              color: isDark
+                  ? Colors.white.withAlpha(_hasFocus ? 20 : 12)
+                  : Colors.white.withAlpha(_hasFocus ? 245 : 225),
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(
+                color: _hasFocus
+                    ? accent.withAlpha(180)
+                    : (isDark
+                        ? Colors.white.withAlpha(28)
+                        : AppColors.slate200.withAlpha(180)),
+                width: _hasFocus ? 1.4 : 1,
+              ),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.search_rounded,
+                  size: 20,
+                  color: _hasFocus
+                      ? accent
+                      : (isDark ? AppColors.slate400 : AppColors.slate500),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: TextField(
+                    controller: widget.controller,
+                    focusNode: _focusNode,
+                    style: GoogleFonts.manrope(
+                      fontSize: 14.5,
+                      fontWeight: FontWeight.w500,
+                      color: isDark ? Colors.white : AppColors.slate900,
+                    ),
+                    cursorColor: accent,
+                    cursorRadius: const Radius.circular(2),
+                    decoration: InputDecoration(
+                      isCollapsed: true,
+                      contentPadding: const EdgeInsets.symmetric(vertical: 14),
+                      border: InputBorder.none,
+                      hintText: 'Search or ask your graph…',
+                      hintStyle: GoogleFonts.manrope(
+                        fontSize: 14.5,
+                        fontWeight: FontWeight.w400,
+                        color: isDark ? AppColors.slate500 : AppColors.slate400,
+                      ),
+                    ),
+                    onSubmitted: (_) => widget.onSubmit(),
+                    textInputAction: TextInputAction.search,
+                  ),
+                ),
+                if (_hasText && !widget.isLoading)
+                  IconButton(
+                    visualDensity: VisualDensity.compact,
+                    splashRadius: 20,
+                    onPressed: () => widget.controller.clear(),
+                    icon: Icon(
+                      Icons.close_rounded,
+                      size: 18,
+                      color: isDark ? AppColors.slate400 : AppColors.slate500,
                     ),
                   ),
-                )
-              : Padding(
-                  padding: const EdgeInsets.only(right: 6),
-                  child: IconButton.filled(
-                    onPressed: onSubmit,
-                    icon: const Icon(Icons.arrow_upward_rounded, size: 20),
-                    style: IconButton.styleFrom(
-                      backgroundColor: cs.primary,
-                      foregroundColor: Colors.white,
-                      minimumSize: const Size(38, 38),
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  margin: const EdgeInsets.only(left: 6),
+                  width: 38,
+                  height: 38,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12),
+                    gradient: LinearGradient(
+                      colors: canSubmit
+                          ? [accent, accent.withAlpha(190)]
+                          : [
+                              (isDark ? AppColors.slate700 : AppColors.slate200),
+                              (isDark ? AppColors.slate800 : AppColors.slate200),
+                            ],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                  ),
+                  child: Material(
+                    color: Colors.transparent,
+                    borderRadius: BorderRadius.circular(12),
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(12),
+                      onTap: canSubmit ? widget.onSubmit : null,
+                      child: Center(
+                        child: widget.isLoading
+                            ? const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  valueColor: AlwaysStoppedAnimation(Colors.white),
+                                ),
+                              )
+                            : Icon(
+                                Icons.arrow_upward_rounded,
+                                size: 18,
+                                color: canSubmit
+                                    ? Colors.white
+                                    : (isDark ? AppColors.slate500 : AppColors.slate400),
+                              ),
+                      ),
                     ),
                   ),
                 ),
-          filled: true,
-          fillColor: isDark ? AppColors.glassInput : Colors.grey.shade100,
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(AppRadius.lg),
-            borderSide: isDark
-                ? const BorderSide(color: AppColors.glassBorder)
-                : BorderSide.none,
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(AppRadius.lg),
-            borderSide: isDark
-                ? const BorderSide(color: AppColors.glassBorder)
-                : BorderSide.none,
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(AppRadius.lg),
-            borderSide: BorderSide(
-              color: cs.primary,
-              width: 2,
+              ],
             ),
           ),
-          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         ),
-        onSubmitted: (_) => onSubmit(),
-        textInputAction: TextInputAction.search,
       ),
     );
   }

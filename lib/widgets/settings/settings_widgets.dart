@@ -234,6 +234,8 @@ class SettingsTile extends StatelessWidget {
             Expanded(
               child: Text(
                 title,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
                 style: GoogleFonts.manrope(
                   fontSize: 15,
                   fontWeight: FontWeight.w500,
@@ -292,6 +294,8 @@ class ToggleTile extends StatelessWidget {
           Expanded(
             child: Text(
               title,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
               style: GoogleFonts.manrope(
                 fontSize: 15,
                 fontWeight: FontWeight.w500,
@@ -834,29 +838,35 @@ class ContactRow extends StatelessWidget {
             child: Icon(icon, color: iconColor, size: 20),
           ),
           const SizedBox(width: 14),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                label,
-                style: GoogleFonts.manrope(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: isDark
-                      ? AppColors.slate500
-                      : AppColors.slate400,
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.manrope(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: isDark
+                        ? AppColors.slate500
+                        : AppColors.slate400,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                value,
-                style: GoogleFonts.manrope(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: isDark ? Colors.white : AppColors.slate900,
+                const SizedBox(height: 2),
+                Text(
+                  value,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.manrope(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: isDark ? Colors.white : AppColors.slate900,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ],
       ),

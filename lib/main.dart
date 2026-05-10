@@ -42,6 +42,7 @@ import 'screens/settings_screen.dart';
 import 'screens/settings_preferences_screen.dart';
 import 'screens/settings_assistant_screen.dart';
 import 'screens/settings_voice_assistant_screen.dart';
+import 'screens/settings_performa_screen.dart';
 import 'screens/voice_enrollment_screen.dart';
 import 'screens/entity_screen.dart';
 import 'screens/session_analytics_screen.dart';
@@ -471,6 +472,10 @@ class BubblesApp extends StatelessWidget {
                   const AuthGuard(child: AuthGate()),
               AppRoutes.performaWizard: (context) =>
                   const AuthGuard(child: PerformaWizardScreen()),
+              AppRoutes.performa: (context) =>
+                  const AuthGuard(child: SettingsPerformaScreen()),
+              AppRoutes.performa: (context) =>
+                  const AuthGuard(child: SettingsPerformaScreen()),
             },
           );
         },

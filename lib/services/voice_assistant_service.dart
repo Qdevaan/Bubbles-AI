@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show HapticFeedback;
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:speech_to_text/speech_to_text.dart';
@@ -61,6 +62,38 @@ class VoiceAssistantService extends ChangeNotifier {
 
   bool _isOverlayVisible = false;
   bool get isOverlayVisible => _isOverlayVisible;
+
+  /// True while a roleplay session is active — used to emit richer haptic
+  /// feedback ("voice feedback") at TTS start/end and on user-input capture.
+  bool _roleplayMode = false;
+  bool get roleplayMode => _roleplayMode;
+
+  /// Master haptic toggle, mirrored from SettingsProvider via setHapticEnabled.
+  bool _hapticsEnabled = true;
+  bool get hapticsEnabled => _hapticsEnabled;
+
+  /// Switch to roleplay session mode. The caller (roleplay session screen)
+  /// should set this to true on enter and false on exit.
+  void setRoleplayMode(bool enabled) {
+    if (_roleplayMode == enabled) return;
+    _roleplayMode = enabled;
+    notifyListeners();
+  }
+
+  /// Mirrors the user-facing setting so we don't read SharedPreferences each
+  /// frame. Settings page calls this after toggling haptics.
+  void setHapticsEnabled(bool enabled) {
+    _hapticsEnabled = enabled;
+  }
+
+  void _hapticTick({required bool strong}) {
+    if (!_hapticsEnabled) return;
+    if (strong) {
+      HapticFeedback.mediumImpact();
+    } else {
+      HapticFeedback.selectionClick();
+    }
+  }
 
   /// Whether the service is active (user is authenticated and on a main screen).
   bool _isActive = false;
@@ -159,6 +192,9 @@ class VoiceAssistantService extends ChangeNotifier {
     // When audio finishes playing, return to idle and restart wake word
     _audioPlayer.onPlayerComplete.listen((_) {
       _setState(VoiceAssistantState.idle);
+      // Roleplay voice feedback: short tick when the AI partner stops talking
+      // so the user knows it is their turn — without needing to look at screen.
+      if (_roleplayMode) _hapticTick(strong: false);
       Future.delayed(const Duration(milliseconds: 500), () {
         if (_isActive && _isWakeWordEnabled) {
           _wakeWordService.startListening();
@@ -427,6 +463,9 @@ class VoiceAssistantService extends ChangeNotifier {
         await audioFile.writeAsBytes(response.bodyBytes);
 
         await _audioPlayer.play(DeviceFileSource(audioFile.path));
+        // Roleplay voice feedback: stronger tick when the AI partner starts
+        // talking, mirroring how a real conversation feels (cue you can feel).
+        if (_roleplayMode) _hapticTick(strong: true);
         debugPrint(
           '🔊 Deepgram TTS: Playing audio (${response.bodyBytes.length} bytes)',
         );

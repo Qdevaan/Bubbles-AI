@@ -10,7 +10,6 @@ import 'package:provider/provider.dart';
 import '../providers/settings_provider.dart';
 import '../providers/gamification_provider.dart';
 import '../services/auth_service.dart';
-import '../utils/permissions_util.dart';
 import '../widgets/glass_morphism.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -121,7 +120,8 @@ class _SplashScreenState extends State<SplashScreen> {
       final isComplete = profile != null && (profile['full_name']?.toString().isNotEmpty ?? false);
 
       if (mounted) {
-        await PermissionsUtil.requestStartupPermissions(context);
+        // Permissions are no longer requested at startup. Each feature now asks
+        // for the permission it needs, when the user first uses it.
         try {
           if (mounted) {
             await Provider.of<SettingsProvider>(context, listen: false).loadSettings();

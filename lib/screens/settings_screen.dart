@@ -10,6 +10,7 @@ import '../services/auth_service.dart';
 import '../routes/app_routes.dart';
 import '../widgets/settings/settings_widgets.dart';
 import '../widgets/animated_background.dart';
+import '../widgets/app_snack_bar.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -32,12 +33,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Logout failed: $e'),
-            backgroundColor: AppColors.error,
-          ),
-        );
+        AppSnackBar.error(context, 'Logout failed: $e');
       }
     } finally {
       if (mounted) setState(() => _isLoggingOut = false);
@@ -60,8 +56,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
 
             SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 0),
+              child: SingleChildScrollView(
+                physics: const BouncingScrollPhysics(
+                  parent: AlwaysScrollableScrollPhysics(),
+                ),
                 child: Column(
                   children: [
                     // ── Header ────────────────────────────────────────────
@@ -79,14 +77,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             ),
                           ),
                           const SizedBox(width: 4),
-                          Text(
-                            'Settings',
-                            style: GoogleFonts.manrope(
-                              fontSize: 24,
-                              fontWeight: FontWeight.w800,
-                              color: isDark
-                                  ? Colors.white
-                                  : AppColors.slate900,
+                          Flexible(
+                            child: Text(
+                              'Settings',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: GoogleFonts.manrope(
+                                fontSize: 24,
+                                fontWeight: FontWeight.w800,
+                                color: isDark
+                                    ? Colors.white
+                                    : AppColors.slate900,
+                              ),
                             ),
                           ),
                           const Spacer(),
@@ -122,6 +124,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       child: GroupedContainer(
                         isDark: isDark,
                         children: [
+                          SettingsNavigationTile(
+                            isDark: isDark,
+                            iconBg: const Color(0xFF8B5CF6).withAlpha(51),
+                            iconColor: const Color(0xFF8B5CF6),
+                            icon: Icons.badge_outlined,
+                            title: 'Performa',
+                            subtitle: 'View and edit your persona',
+                            onTap: () => Navigator.pushNamed(context, AppRoutes.performa),
+                          ),
+                          TileDivider(isDark: isDark),
                           SettingsNavigationTile(
                             isDark: isDark,
                             iconBg: const Color(0xFF38BDF8).withAlpha(51),
@@ -189,7 +201,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       ),
                     ),
 
-                    const Spacer(),
+                    const SizedBox(height: 32),
 
                     // LOGOUT BUTTON
                     Padding(
@@ -288,6 +300,8 @@ class SettingsNavigationTile extends StatelessWidget {
                   children: [
                     Text(
                       title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: GoogleFonts.manrope(
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
@@ -296,6 +310,8 @@ class SettingsNavigationTile extends StatelessWidget {
                     ),
                     Text(
                       subtitle,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                       style: GoogleFonts.manrope(
                         fontSize: 12,
                         color: AppColors.textMuted,
@@ -454,6 +470,8 @@ class _ProfileHeroCard extends StatelessWidget {
                   children: [
                     Text(
                       name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: GoogleFonts.manrope(
                         fontSize: 18,
                         fontWeight: FontWeight.w800,
@@ -463,6 +481,8 @@ class _ProfileHeroCard extends StatelessWidget {
                     const SizedBox(height: 2),
                     Text(
                       email,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: GoogleFonts.manrope(
                         fontSize: 13,
                         color: AppColors.textMuted,
@@ -471,6 +491,7 @@ class _ProfileHeroCard extends StatelessWidget {
                   ],
                 ),
               ),
+              const SizedBox(width: 8),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
@@ -540,6 +561,8 @@ class _OptionTile extends StatelessWidget {
                   children: [
                     Text(
                       title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: GoogleFonts.manrope(
                         fontSize: 15,
                         fontWeight: FontWeight.w700,
@@ -548,6 +571,8 @@ class _OptionTile extends StatelessWidget {
                     ),
                     Text(
                       subtitle,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                       style: GoogleFonts.manrope(
                         fontSize: 12,
                         color: AppColors.textMuted,

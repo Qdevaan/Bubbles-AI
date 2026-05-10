@@ -29,4 +29,5 @@ class AppRoutes {
   static const updatePassword = '/update-password';
   static const authGate = '/auth-gate';
   static const performaWizard = '/performa-wizard';
+  static const performa = '/settings/performa';
 }
