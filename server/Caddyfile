@@ -1,0 +1,42 @@
+# Caddy 2 — TLS termination, HTTP/3, compression, reverse proxy.
+# Set DOMAIN + ACME_EMAIL via the environment (see docker-compose.prod.yml).
+
+{
+	email {$ACME_EMAIL}
+	# Use the staging CA while iterating; comment out for real certs.
+	# acme_ca https://acme-staging-v02.api.letsencrypt.org/directory
+	servers {
+		protocols h1 h2 h3
+	}
+}
+
+{$DOMAIN} {
+	encode zstd gzip
+
+	header {
+		Strict-Transport-Security "max-age=63072000; includeSubDomains; preload"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "no-referrer"
+		-Server
+	}
+
+	# SSE + WebSocket endpoints must not be buffered.
+	@stream path /v1/ask_consultant /v1/ask_entity /v1/tts
+	reverse_proxy @stream server:8000 {
+		flush_interval -1
+	}
+
+	@ws path /v1/stt/stream
+	reverse_proxy @ws server:8000
+
+	reverse_proxy server:8000 {
+		health_uri /health/ready
+		health_interval 15s
+		health_timeout 5s
+	}
+
+	log {
+		output stdout
+		format json
+	}
+}

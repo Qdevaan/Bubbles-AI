@@ -1,0 +1,22 @@
+Extract structured knowledge from the transcript below.
+
+Return JSON of the form:
+{
+  "entities": [
+    {"canonical_name": "...", "entity_type": "person|place|org|topic|task|other",
+     "aliases": [], "description": ""}
+  ],
+  "relations": [
+    {"source": "...", "target": "...", "relation": "..."}
+  ]
+}
+
+Rules:
+- ``canonical_name`` is lowercase, singular, no honorifics.
+- Drop entities that aren't named or specific.
+- Output strictly valid JSON, nothing else.
+
+Transcript:
+"""
+{{ transcript }}
+"""

@@ -1,0 +1,97 @@
+{
+  "title": "Bubbles Brain API",
+  "uid": "bubbles-api",
+  "timezone": "browser",
+  "schemaVersion": 38,
+  "version": 1,
+  "refresh": "30s",
+  "time": { "from": "now-6h", "to": "now" },
+  "panels": [
+    {
+      "type": "timeseries",
+      "title": "RPS by route",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "targets": [
+        {
+          "expr": "sum by (route) (rate(bubbles_http_requests_total[1m]))",
+          "legendFormat": "{{route}}"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "p95 latency by route",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum by (route, le) (rate(bubbles_http_request_duration_seconds_bucket[5m])))",
+          "legendFormat": "{{route}}"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Error rate %",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "targets": [
+        {
+          "expr": "100 * sum(rate(bubbles_http_requests_total{status=~\"5..\"}[5m])) / sum(rate(bubbles_http_requests_total[5m]))",
+          "legendFormat": "5xx %"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "LLM fallback depth (mean)",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "targets": [
+        {
+          "expr": "sum by (task) (rate(bubbles_llm_fallback_depth_sum[5m])) / sum by (task) (rate(bubbles_llm_fallback_depth_count[5m]))",
+          "legendFormat": "{{task}}"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "LLM calls by provider/outcome",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
+      "targets": [
+        {
+          "expr": "sum by (provider, outcome) (rate(bubbles_llm_calls_total[1m]))",
+          "legendFormat": "{{provider}} / {{outcome}}"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Cache hit rate %",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 },
+      "targets": [
+        {
+          "expr": "100 * sum(rate(bubbles_cache_hits_total{outcome=\"hit\"}[5m])) / sum(rate(bubbles_cache_hits_total[5m]))",
+          "legendFormat": "hit %"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "DB pool utilisation",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 24 },
+      "targets": [
+        { "expr": "bubbles_db_pool_in_use", "legendFormat": "in_use" },
+        { "expr": "bubbles_db_pool_size", "legendFormat": "size" }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "ARQ queue depth",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 24 },
+      "targets": [
+        {
+          "expr": "bubbles_arq_queue_depth",
+          "legendFormat": "{{queue}}"
+        }
+      ]
+    }
+  ]
+}

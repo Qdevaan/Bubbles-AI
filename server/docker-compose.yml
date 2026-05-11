@@ -1,0 +1,47 @@
+# Local dev stack: Redis + API with reload + Caddy off.
+#
+#   docker compose up --build
+#
+# Reads ./.env (copy from .env.example). Source is bind-mounted for reload.
+
+services:
+  redis:
+    image: redis:7-alpine
+    ports: ["6379:6379"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  server:
+    build:
+      context: .
+      target: runtime
+    depends_on:
+      redis:
+        condition: service_healthy
+    env_file: [.env]
+    environment:
+      APP_ENV: development
+      REDIS_URL: redis://redis:6379/0
+    ports: ["8000:8000"]
+    volumes:
+      - ./src:/app/src:ro
+    command: >
+      uvicorn --factory bubbles.app:create_app
+      --host 0.0.0.0 --port 8000 --reload
+
+  worker:
+    build:
+      context: .
+      target: worker
+    depends_on:
+      redis:
+        condition: service_healthy
+    env_file: [.env]
+    environment:
+      APP_ENV: development
+      REDIS_URL: redis://redis:6379/0
+    volumes:
+      - ./src:/app/src:ro

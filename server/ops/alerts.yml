@@ -1,0 +1,77 @@
+# Prometheus alert rules for Bubbles Brain API.
+# Load via prometheus.yml: rule_files: ["alerts.yml"]
+
+groups:
+  - name: bubbles-availability
+    interval: 30s
+    rules:
+      - alert: BubblesHighErrorRate
+        expr: |
+          sum(rate(bubbles_http_requests_total{status=~"5.."}[5m]))
+            /
+          sum(rate(bubbles_http_requests_total[5m]))
+            > 0.02
+        for: 5m
+        labels:
+          severity: page
+        annotations:
+          summary: "Bubbles error rate > 2% for 5m"
+          description: "5xx ratio sustained above 2%. Check upstream providers and recent deploys."
+
+      - alert: BubblesP95LatencySLOBreach
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum by (route, le) (rate(bubbles_http_request_duration_seconds_bucket[5m]))
+          ) > 1.5
+        for: 10m
+        labels:
+          severity: page
+        annotations:
+          summary: "p95 latency > 1.5s for {{ $labels.route }} for 10m"
+          description: "Route {{ $labels.route }} sustained p95 above SLO."
+
+      - alert: BubblesProviderCircuitOpen
+        expr: |
+          sum by (provider) (rate(bubbles_llm_calls_total{outcome="breaker"}[2m])) > 0
+        for: 2m
+        labels:
+          severity: warn
+        annotations:
+          summary: "LLM provider {{ $labels.provider }} circuit open > 2m"
+          description: "Fallbacks engaged. Check provider status pages and key validity."
+
+  - name: bubbles-resources
+    interval: 30s
+    rules:
+      - alert: BubblesDBPoolSaturation
+        expr: |
+          (bubbles_db_pool_in_use / bubbles_db_pool_size) > 0.8
+        for: 5m
+        labels:
+          severity: warn
+        annotations:
+          summary: "DB pool > 80% utilised for 5m"
+          description: "Increase pool size or investigate slow queries."
+
+      - alert: BubblesARQBacklog
+        expr: |
+          max(bubbles_arq_queue_depth) > 500
+        for: 5m
+        labels:
+          severity: warn
+        annotations:
+          summary: "ARQ backlog > 500 for 5m"
+          description: "Workers can't keep up. Scale workers or check failing job."
+
+      - alert: BubblesCacheHitRateLow
+        expr: |
+          sum(rate(bubbles_cache_hits_total{outcome="hit"}[10m]))
+            /
+          sum(rate(bubbles_cache_hits_total[10m])) < 0.4
+        for: 15m
+        labels:
+          severity: info
+        annotations:
+          summary: "Cache hit rate < 40% for 15m"
+          description: "Prompt cache underperforming. Investigate key churn or TTLs."

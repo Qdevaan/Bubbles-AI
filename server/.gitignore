@@ -1,0 +1,43 @@
+# venv / uv
+.venv/
+.uv-cache/
+
+# python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+.hypothesis/
+
+# build
+dist/
+build/
+*.whl
+
+# editor
+.idea/
+.vscode/
+*.swp
+
+# env / secrets
+.env
+.env.*
+!.env.example
+*.age
+
+# logs / data
+*.log
+logs/
+tmp/
+local_data/
+
+# OS
+.DS_Store
+Thumbs.db

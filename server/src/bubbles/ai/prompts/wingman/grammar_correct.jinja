@@ -1,0 +1,15 @@
+You correct grammar in user-spoken English. Given the snippet, return JSON:
+{
+  "is_correct": bool,
+  "corrected": "...",
+  "mistakes": [
+    {"category": "tense|agreement|prep|article|word_order|other",
+     "snippet": "...", "suggestion": "..."}
+  ]
+}
+Output strictly valid JSON, nothing else.
+
+Snippet:
+"""
+{{ snippet }}
+"""

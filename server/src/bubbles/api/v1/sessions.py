@@ -1,0 +1,135 @@
+"""Session lifecycle routes."""
+
+from __future__ import annotations
+
+from uuid import UUID
+
+from fastapi import APIRouter, status
+
+from bubbles.api.v1._schemas import (
+    EndSessionRequest,
+    SaveSessionRequest,
+    SessionContextRequest,
+    SessionOut,
+    StartSessionRequest,
+    SuggestReplyRequest,
+    SuggestReplyResponse,
+)
+from bubbles.auth.current_user import CurrentUserDep, require_ownership
+from bubbles.core.errors import NotFound
+from bubbles.db.repo import sessions as sessions_repo
+from bubbles.db.uow import UnitOfWork, transaction
+from bubbles.deps import PoolDep, RouterDep
+
+router = APIRouter(tags=["sessions"])
+
+
+def _to_out(s: object) -> SessionOut:
+    # Narrow type to the repo's Session dataclass without coupling the schema
+    # module to the DB layer.
+    return SessionOut.model_validate(s, from_attributes=True)
+
+
+@router.post("/start_session", response_model=SessionOut, status_code=status.HTTP_201_CREATED)
+async def start_session(
+    body: StartSessionRequest,
+    user: CurrentUserDep,
+    pool: PoolDep,
+) -> SessionOut:
+    async with UnitOfWork(pool) as uow:
+        sess = await sessions_repo.start(
+            uow.conn,
+            user_id=UUID(user.id),
+            title=body.title,
+            session_type=body.session_type,
+            mode=body.mode,
+            persona=body.persona,
+            is_ephemeral=body.is_ephemeral,
+            idempotency_key=body.idempotency_key,
+            session_context=body.session_context,
+        )
+    return _to_out(sess)
+
+
+@router.post("/save_session", response_model=SessionOut)
+async def save_session(
+    body: SaveSessionRequest,
+    user: CurrentUserDep,
+    pool: PoolDep,
+) -> SessionOut:
+    async with transaction(pool) as conn:
+        sess = await sessions_repo.get(conn, body.session_id)
+    if sess is None:
+        raise NotFound("session not found")
+    require_ownership(user, str(sess.user_id))
+    return _to_out(sess)
+
+
+@router.post("/end_session", response_model=SessionOut)
+async def end_session(
+    body: EndSessionRequest,
+    user: CurrentUserDep,
+    pool: PoolDep,
+) -> SessionOut:
+    async with transaction(pool) as conn:
+        existing = await sessions_repo.get(conn, body.session_id)
+    if existing is None:
+        raise NotFound("session not found")
+    require_ownership(user, str(existing.user_id))
+    async with UnitOfWork(pool) as uow:
+        ended = await sessions_repo.end(uow.conn, session_id=body.session_id, summary=body.summary)
+    if ended is None:
+        raise NotFound("session not found")
+    return _to_out(ended)
+
+
+@router.post("/sessions/{session_id}/context", response_model=SessionOut)
+async def post_session_context(
+    session_id: UUID,
+    body: SessionContextRequest,
+    user: CurrentUserDep,
+    pool: PoolDep,
+) -> SessionOut:
+    async with transaction(pool) as conn:
+        sess = await sessions_repo.get(conn, session_id)
+    if sess is None:
+        raise NotFound("session not found")
+    require_ownership(user, str(sess.user_id))
+    async with UnitOfWork(pool) as uow:
+        await uow.conn.execute(
+            "UPDATE sessions SET session_context = $2 WHERE id = $1",
+            session_id,
+            body.context,
+        )
+        updated = await sessions_repo.get(uow.conn, session_id)
+    assert updated is not None
+    return _to_out(updated)
+
+
+@router.post("/suggest_reply", response_model=SuggestReplyResponse)
+async def suggest_reply(
+    body: SuggestReplyRequest,
+    user: CurrentUserDep,
+    pool: PoolDep,
+    llm_router: RouterDep,
+) -> SuggestReplyResponse:
+    async with transaction(pool) as conn:
+        sess = await sessions_repo.get(conn, body.session_id)
+    if sess is None:
+        raise NotFound("session not found")
+    require_ownership(user, str(sess.user_id))
+
+    from bubbles.ai.providers.base import ChatMessage, Role
+
+    completion = await llm_router.complete(
+        "wingman.short",
+        [
+            ChatMessage(
+                role=Role.system,
+                content="Suggest one short empathetic reply (one sentence).",
+            ),
+            ChatMessage(role=Role.user, content=body.last_user_text),
+        ],
+    )
+    provider = completion.raw.get("model", "") if isinstance(completion.raw, dict) else ""
+    return SuggestReplyResponse(suggestion=completion.text.strip(), provider=str(provider))
