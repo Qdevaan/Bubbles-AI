@@ -93,6 +93,12 @@ async def list_for_user(
     return [_row(r) for r in rows]
 
 
+async def get(conn: asyncpg.Connection, memory_id: UUID) -> Memory | None:
+    """Fetch a memory by id regardless of its ``is_archived`` flag."""
+    row = await conn.fetchrow(f"SELECT {_COLS} FROM memory WHERE id = $1", memory_id)
+    return _row(row) if row is not None else None
+
+
 async def similar(
     conn: asyncpg.Connection,
     *,
