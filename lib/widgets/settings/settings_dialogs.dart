@@ -1,4 +1,3 @@
-import 'dart:ui';
 import '../../providers/settings_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -360,7 +359,6 @@ void showColorPicker(BuildContext context, ThemeProvider themeProvider) {
 
 /// Shows a voice mode picker bottom sheet (Male / Female / Jarvis).
 void showVoiceModePicker(BuildContext context, VoiceAssistantService voice) {
-  final isDarkOuter = Theme.of(context).brightness == Brightness.dark;
   showModalBottomSheet(
     context: context,
     backgroundColor: Colors.transparent,

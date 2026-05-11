@@ -1,4 +1,3 @@
-import 'dart:ui';
 import 'dart:io';
 import 'dart:convert';
 import 'package:flutter/material.dart';
@@ -8,7 +7,6 @@ import 'package:share_plus/share_plus.dart';
 
 import '../theme/design_tokens.dart';
 import '../services/auth_service.dart';
-import '../services/api_service.dart';
 import '../repositories/sessions_repository.dart';
 import 'package:provider/provider.dart';
 

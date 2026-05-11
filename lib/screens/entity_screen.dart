@@ -1,5 +1,4 @@
 
-import '../services/app_cache_service.dart';
 import 'package:flutter/material.dart';
 import 'dart:async';
 import 'package:google_fonts/google_fonts.dart';
@@ -27,7 +26,6 @@ class EntityScreen extends StatefulWidget {
 
 class _EntityScreenState extends State<EntityScreen> {
   Timer? _debounceTimer;
-  final _supabase = Supabase.instance.client;
 
   List<Map<String, dynamic>> _entities = [];
   bool _loading = true;

@@ -16,7 +16,6 @@ import '../providers/tags_provider.dart';
 import '../services/api_service.dart';
 import '../routes/app_routes.dart';
 import '../services/auth_service.dart';
-import '../services/sessions_service.dart';
 import '../repositories/sessions_repository.dart';
 
 enum _SortOrder { newestFirst, oldestFirst }
@@ -524,143 +523,6 @@ class _LiveSessionsListState extends State<LiveSessionsList> {
     );
   }
 
-  void _showSessionOptions(BuildContext context, Map<String, dynamic> session, String title, bool isDark) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (_) => GlassBottomSheet(
-        padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(
-              child: Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: isDark ? AppColors.glassBorder : Colors.grey.shade300,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'Session Options',
-              style: GoogleFonts.manrope(
-                fontSize: 16,
-                fontWeight: FontWeight.w800,
-                color: isDark ? Colors.white : AppColors.slate900,
-              ),
-            ),
-            const SizedBox(height: 12),
-            _buildOptionTile(
-              context,
-              Icons.school_outlined,
-              'Coaching',
-              'View AI-generated coaching and feedback',
-              () {
-                Navigator.pop(context);
-                Navigator.pushNamed(context, AppRoutes.sessionAnalytics, arguments: {
-                  'sessionId': session['id'],
-                  'sessionTitle': title,
-                  'initialTab': 1,
-                });
-              },
-              isDark,
-            ),
-            _buildOptionTile(
-              context,
-              Icons.analytics_outlined,
-              'Analytics',
-              'Check sentiment and engagement stats',
-              () {
-                Navigator.pop(context);
-                Navigator.pushNamed(context, AppRoutes.sessionAnalytics, arguments: {
-                  'sessionId': session['id'],
-                  'sessionTitle': title,
-                  'initialTab': 0,
-                });
-              },
-              isDark,
-            ),
-            _buildOptionTile(
-              context,
-              Icons.description_outlined,
-              'History & Transcript',
-              'Review the full conversation log',
-              () {
-                Navigator.pop(context);
-                Navigator.pushNamed(context, AppRoutes.sessionAnalytics, arguments: {
-                  'sessionId': session['id'],
-                  'sessionTitle': title,
-                  'initialTab': 2,
-                });
-              },
-              isDark,
-            ),
-            _buildOptionTile(
-              context,
-              Icons.details_outlined,
-              'Full Details',
-              'Manage tags and feedback for this session',
-              () {
-                Navigator.pop(context);
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => GenericSessionDetail(
-                      isConsultant: false,
-                      sessionId: session['id'],
-                      title: title,
-                    ),
-                  ),
-                );
-              },
-              isDark,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildOptionTile(
-    BuildContext context,
-    IconData icon,
-    String title,
-    String subtitle,
-    VoidCallback onTap,
-    bool isDark,
-  ) {
-    return ListTile(
-      contentPadding: EdgeInsets.zero,
-      leading: Container(
-        padding: const EdgeInsets.all(8),
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.primary.withAlpha(30),
-          borderRadius: BorderRadius.circular(10),
-        ),
-        child: Icon(icon, color: Theme.of(context).colorScheme.primary, size: 20),
-      ),
-      title: Text(
-        title,
-        style: GoogleFonts.manrope(
-          fontSize: 14,
-          fontWeight: FontWeight.w700,
-          color: isDark ? Colors.white : AppColors.slate900,
-        ),
-      ),
-      subtitle: Text(
-        subtitle,
-        style: GoogleFonts.manrope(
-          fontSize: 12,
-          color: isDark ? AppColors.slate400 : AppColors.slate500,
-        ),
-      ),
-      onTap: onTap,
-    );
-  }
 }
 
 // --- TAB 2: CONSULTANT HISTORY LIST ---
@@ -912,7 +774,6 @@ class _GenericSessionDetailState extends State<GenericSessionDetail> {
   final Map<String, int> _feedbackMap = {};
   List<Map<String, dynamic>> _sessionTags = [];
   Map<String, dynamic>? _report;
-  Map<String, dynamic>? _analytics;
   String? _audioPath;
   String? _timingPath;
 
@@ -964,8 +825,7 @@ class _GenericSessionDetailState extends State<GenericSessionDetail> {
 
     try {
       final repo = context.read<SessionsRepository>();
-      final result = await repo.getSessionAnalytics(widget.sessionId, userId, forceRefresh: !swr);
-      if (mounted) setState(() => _analytics = result.data);
+      await repo.getSessionAnalytics(widget.sessionId, userId, forceRefresh: !swr);
     } catch (_) {}
   }
 

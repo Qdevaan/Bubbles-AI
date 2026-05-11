@@ -6,7 +6,6 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../theme/design_tokens.dart';
 import '../services/connection_service.dart';
-import '../services/auth_service.dart';
 
 class AppDrawer extends StatelessWidget {
   final User? currentUser;

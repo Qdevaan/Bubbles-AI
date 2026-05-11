@@ -80,6 +80,26 @@ class VoiceAssistantService extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Whether the user has opted in to spoken voice feedback during roleplay.
+  bool _roleplayVoiceEnabled = true;
+  bool get roleplayVoiceEnabled => _roleplayVoiceEnabled;
+
+  void setRoleplayVoiceEnabled(bool enabled) {
+    if (_roleplayVoiceEnabled == enabled) return;
+    _roleplayVoiceEnabled = enabled;
+    notifyListeners();
+  }
+
+  /// Public entry point used by the session screen to speak a roleplay
+  /// partner's reply through the existing Deepgram TTS pipeline. No-op when
+  /// not in roleplay mode or when voice feedback has been disabled.
+  Future<void> speakRoleplayLine(String text) async {
+    if (!_roleplayMode || !_roleplayVoiceEnabled) return;
+    final clean = text.trim();
+    if (clean.isEmpty) return;
+    await _speak(clean);
+  }
+
   /// Mirrors the user-facing setting so we don't read SharedPreferences each
   /// frame. Settings page calls this after toggling haptics.
   void setHapticsEnabled(bool enabled) {
@@ -306,8 +326,6 @@ class VoiceAssistantService extends ChangeNotifier {
     _setState(VoiceAssistantState.processing);
     _partialText = command;
     notifyListeners();
-
-    final lowerCommand = command.toLowerCase();
 
     // Check server connection
     if (!_connectionService.isConnected ||

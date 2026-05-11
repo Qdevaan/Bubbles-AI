@@ -1,6 +1,7 @@
 ﻿import 'dart:async';
 import 'package:flutter/material.dart';
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 
@@ -341,7 +342,6 @@ class _ProfileHeroCard extends StatelessWidget {
   const _ProfileHeroCard({required this.isDark, required this.cs});
 
   void _showProfileOptions(BuildContext context, bool isDark) {
-    final cs = Theme.of(context).colorScheme;
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -446,7 +446,7 @@ class _ProfileHeroCard extends StatelessWidget {
                   shape: BoxShape.circle,
                   image: avatarUrl != null
                       ? DecorationImage(
-                          image: NetworkImage(avatarUrl),
+                          image: CachedNetworkImageProvider(avatarUrl),
                           fit: BoxFit.cover,
                         )
                       : null,
@@ -594,41 +594,6 @@ class _OptionTile extends StatelessWidget {
   }
 }
 
-// ── Section Header ─────────────────────────────────────────────────────────────
-class _SectionHeader extends StatelessWidget {
-  final String label;
-  final IconData icon;
-  final Color color;
-
-  const _SectionHeader({
-    required this.label,
-    required this.icon,
-    required this.color,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Padding(
-      padding: const EdgeInsets.only(left: 4, bottom: 8),
-      child: Row(
-        children: [
-          Icon(icon, size: 16, color: color),
-          const SizedBox(width: 8),
-          Text(
-            label.toUpperCase(),
-            style: GoogleFonts.manrope(
-              fontSize: 12,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 1.2,
-              color: isDark ? AppColors.slate400 : AppColors.slate500,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
 // ── Logout Button ──────────────────────────────────────────────────────────────
 class _LogoutButton extends StatelessWidget {
   final VoidCallback onTap;

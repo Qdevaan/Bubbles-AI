@@ -3,12 +3,27 @@ EntityService — entity CRUD, fuzzy matching, event/conflict/task/highlight per
 Uses db_final schema: entities, entity_attributes, entity_relations, highlights, events, tasks.
 """
 
+import re
 import unicodedata
 from datetime import datetime
 from difflib import SequenceMatcher
 from typing import Dict, List, Optional
 
 from app.database import db
+
+# Trim absurd payloads from a flaky LLM extraction without losing real names.
+_MAX_NAME_LEN = 200
+_MAX_DESC_LEN = 2000
+_MAX_ATTR_VAL_LEN = 1000
+_CONTROL_CHARS_RE = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
+_VALID_ENTITY_TYPES = {
+    "person",
+    "place",
+    "organization",
+    "event",
+    "object",
+    "concept",
+}
 
 _TITLE_PREFIXES = frozenset([
     "mr", "mrs", "ms", "miss", "dr", "prof", "rev", "sir",
@@ -50,6 +65,15 @@ class EntityService:
     # ── Name / Relation Normalisation ────────────────────────────────────────
 
     @staticmethod
+    def _clean_text(text: Optional[str], cap: int) -> str:
+        """Strip control chars, collapse whitespace, cap length."""
+        if not text:
+            return ""
+        cleaned = _CONTROL_CHARS_RE.sub("", str(text))
+        cleaned = re.sub(r"\s+", " ", cleaned).strip()
+        return cleaned[:cap]
+
+    @staticmethod
     def _normalize_name(name: str) -> str:
         """Strip accents, honorifics, and lowercase for dedup comparison.
 
@@ -74,17 +98,10 @@ class EntityService:
 
     # ── Fuzzy Matching ────────────────────────────────────────────────────────
 
-    def _find_fuzzy_match(self, user_id: str, canonical: str) -> Optional[str]:
-        """Return entity_id if a similar entity exists.
-
-        Compares unicode-normalised, honorific-stripped forms of both sides so
-        'Dr. Ahmad' matches 'Ahmad', 'José' matches 'Jose', and common name
-        spelling variants ('Ahmad'/'Ahmed') are caught. Threshold is adaptive:
-        shorter names use a slightly lower bar without sacrificing precision on
-        longer strings.
-        """
+    def _load_candidates(self, user_id: str) -> List[Dict]:
+        """Fetch user's entities once for batch fuzzy-match comparisons."""
         if not db:
-            return None
+            return []
         try:
             res = (
                 db.table("entities")
@@ -92,24 +109,40 @@ class EntityService:
                 .eq("user_id", user_id)
                 .execute()
             )
-            norm_input = self._normalize_name(canonical)
-            threshold = 0.78 if len(norm_input) < 6 else 0.82
-            best_id, best_ratio = None, 0.0
-            for ent in res.data or []:
-                norm_existing = self._normalize_name(ent["canonical_name"])
-                ratio = SequenceMatcher(None, norm_input, norm_existing).ratio()
-                if ratio > best_ratio:
-                    best_ratio = ratio
-                    best_id = ent["id"]
-            if best_ratio >= threshold:
-                print(
-                    f"🔁 Entity dedup: '{canonical}' matched existing "
-                    f"(ratio={best_ratio:.2f})"
-                )
-                return best_id
+            return list(res.data or [])
         except Exception as e:
-            print(f"❌ Entity Service Error in fuzzy match: {e}")
+            print(f"❌ Entity Service: candidate load failed: {e}")
+            return []
+
+    def _match_in_candidates(
+        self, canonical: str, candidates: List[Dict]
+    ) -> Optional[str]:
+        """Stateless fuzzy match against a precomputed candidate list."""
+        if not candidates:
+            return None
+        norm_input = self._normalize_name(canonical)
+        threshold = 0.78 if len(norm_input) < 6 else 0.82
+        best_id, best_ratio = None, 0.0
+        for ent in candidates:
+            norm_existing = self._normalize_name(ent["canonical_name"])
+            ratio = SequenceMatcher(None, norm_input, norm_existing).ratio()
+            if ratio > best_ratio:
+                best_ratio = ratio
+                best_id = ent["id"]
+        if best_ratio >= threshold:
+            print(
+                f"🔁 Entity dedup: '{canonical}' matched existing "
+                f"(ratio={best_ratio:.2f})"
+            )
+            return best_id
         return None
+
+    def _find_fuzzy_match(self, user_id: str, canonical: str) -> Optional[str]:
+        """Single-shot fuzzy match (re-fetches candidates). Prefer
+        [_load_candidates] + [_match_in_candidates] when running a batch."""
+        return self._match_in_candidates(
+            canonical, self._load_candidates(user_id)
+        )
 
     # ── Entity Upsert ─────────────────────────────────────────────────────────
 
@@ -119,12 +152,20 @@ class EntityService:
         name: str,
         entity_type: str,
         description: str = None,
+        candidates: Optional[List[Dict]] = None,
     ) -> Optional[str]:
-        """Upsert an entity by canonical name. Returns entity UUID."""
-        if not db or not name.strip():
+        """Upsert an entity by canonical name. Returns entity UUID.
+
+        When ``candidates`` is provided, fuzzy match runs against the in-memory
+        list instead of issuing another DB scan. Newly-created entities are
+        appended to ``candidates`` so subsequent calls in the same batch see
+        them.
+        """
+        cleaned = self._clean_text(name, _MAX_NAME_LEN)
+        if not db or not cleaned:
             return None
-        canonical = name.strip().lower()
-        display = name.strip()
+        canonical = cleaned.lower()
+        display = cleaned
         try:
             existing = (
                 db.table("entities")
@@ -144,32 +185,38 @@ class EntityService:
                 ).eq("id", entity_id).execute()
                 return entity_id
             else:
-                # Check for near-duplicate before inserting
-                fuzzy_id = self._find_fuzzy_match(user_id, canonical)
+                # Check for near-duplicate before inserting.
+                fuzzy_id = (
+                    self._match_in_candidates(canonical, candidates)
+                    if candidates is not None
+                    else self._find_fuzzy_match(user_id, canonical)
+                )
                 if fuzzy_id:
                     db.table("entities").update(
                         {"last_seen_at": datetime.now().isoformat()}
                     ).eq("id", fuzzy_id).execute()
                     return fuzzy_id
 
-                valid_types = (
-                    "person",
-                    "place",
-                    "organization",
-                    "event",
-                    "object",
-                    "concept",
-                )
                 row = {
                     "user_id": user_id,
                     "canonical_name": canonical,
                     "display_name": display,
-                    "entity_type": entity_type if entity_type in valid_types else "person",
+                    "entity_type": entity_type
+                    if entity_type in _VALID_ENTITY_TYPES
+                    else "person",
                 }
-                if description:
-                    row["description"] = description
+                desc_clean = self._clean_text(description, _MAX_DESC_LEN)
+                if desc_clean:
+                    row["description"] = desc_clean
                 result = db.table("entities").insert(row).execute()
-                return result.data[0]["id"] if result.data else None
+                if result.data:
+                    new_id = result.data[0]["id"]
+                    if candidates is not None:
+                        candidates.append(
+                            {"id": new_id, "canonical_name": canonical}
+                        )
+                    return new_id
+                return None
         except Exception as e:
             print(f"❌ Entity Service Error upserting entity '{name}': {e}")
             return None
@@ -177,17 +224,21 @@ class EntityService:
     def _upsert_attributes(
         self, entity_id: str, attributes: dict, source_session: str = None
     ):
-        """Upsert key-value attributes for an entity."""
-        if not db or not attributes:
+        """Upsert key-value attributes for an entity. Empty/junk values skipped."""
+        if not db or not attributes or not isinstance(attributes, dict):
             return
         for key, value in attributes.items():
-            if not key or value is None:
+            key_clean = self._clean_text(key, _MAX_NAME_LEN)
+            value_clean = self._clean_text(
+                value if value is not None else "", _MAX_ATTR_VAL_LEN
+            )
+            if not key_clean or not value_clean:
                 continue
             try:
                 row = {
                     "entity_id": entity_id,
-                    "attribute_key": str(key),
-                    "attribute_value": str(value),
+                    "attribute_key": key_clean,
+                    "attribute_value": value_clean,
                     "updated_at": datetime.now().isoformat(),
                 }
                 if source_session:
@@ -197,7 +248,9 @@ class EntityService:
                     row, on_conflict="entity_id,attribute_key"
                 ).execute()
             except Exception as e:
-                print(f"❌ Entity Service Error upserting attribute '{key}': {e}")
+                print(
+                    f"❌ Entity Service Error upserting attribute '{key_clean}': {e}"
+                )
 
     def _upsert_relation(
         self,
@@ -298,20 +351,32 @@ class EntityService:
     def persist_extraction(
         self, user_id: str, extraction: dict, source_session: str = None
     ):
-        """Persist a full extraction payload with rollback on failure."""
-        if not db:
+        """Persist a full extraction payload with rollback on failure.
+
+        The user's existing entities are loaded once up front so every fuzzy
+        dedup check inside this batch reuses the same in-memory candidate list
+        instead of re-scanning the table per name.
+        """
+        if not db or not isinstance(extraction, dict):
             return
         entity_name_to_id: Dict[str, str] = {}
         created_entity_ids: List[str] = []
+        candidates = self._load_candidates(user_id)
 
         try:
             # Upsert all entities
-            for ent in extraction.get("entities", []):
-                name = ent.get("name", "").strip()
+            for ent in extraction.get("entities") or []:
+                if not isinstance(ent, dict):
+                    continue
+                name = self._clean_text(ent.get("name"), _MAX_NAME_LEN)
                 if not name:
                     continue
                 entity_id = self._upsert_entity(
-                    user_id, name, ent.get("type", "person"), ent.get("description")
+                    user_id,
+                    name,
+                    ent.get("type", "person"),
+                    ent.get("description"),
+                    candidates=candidates,
                 )
                 if entity_id:
                     entity_name_to_id[name.lower()] = entity_id
@@ -321,20 +386,28 @@ class EntityService:
                     )
 
             # Upsert all relations
-            for rel in extraction.get("relations", []):
-                src_name = rel.get("source", "").strip().lower()
-                tgt_name = rel.get("target", "").strip().lower()
-                relation = rel.get("relation", "").strip()
-                if not src_name or not tgt_name or not relation:
+            for rel in extraction.get("relations") or []:
+                if not isinstance(rel, dict):
                     continue
+                src_raw = self._clean_text(rel.get("source"), _MAX_NAME_LEN)
+                tgt_raw = self._clean_text(rel.get("target"), _MAX_NAME_LEN)
+                relation = self._clean_text(rel.get("relation"), _MAX_NAME_LEN)
+                if not src_raw or not tgt_raw or not relation:
+                    continue
+                src_name = src_raw.lower()
+                tgt_name = tgt_raw.lower()
 
                 if src_name not in entity_name_to_id:
-                    eid = self._upsert_entity(user_id, rel["source"], "concept")
+                    eid = self._upsert_entity(
+                        user_id, src_raw, "concept", candidates=candidates
+                    )
                     if eid:
                         entity_name_to_id[src_name] = eid
                         created_entity_ids.append(eid)
                 if tgt_name not in entity_name_to_id:
-                    eid = self._upsert_entity(user_id, rel["target"], "concept")
+                    eid = self._upsert_entity(
+                        user_id, tgt_raw, "concept", candidates=candidates
+                    )
                     if eid:
                         entity_name_to_id[tgt_name] = eid
                         created_entity_ids.append(eid)

@@ -306,7 +306,7 @@ class ToggleTile extends StatelessWidget {
           Switch(
             value: value,
             onChanged: onChanged,
-            activeColor: Theme.of(context).colorScheme.primary,
+            activeThumbColor: Theme.of(context).colorScheme.primary,
           ),
         ],
       ),
@@ -711,7 +711,6 @@ class VoiceEnrollmentSectionState extends State<VoiceEnrollmentSection> {
         );
 
       case EnrollState.idle:
-      default:
         final isEnrolled = _enrolledAt != null;
         return GestureDetector(
           onTap: _startEnrollment,

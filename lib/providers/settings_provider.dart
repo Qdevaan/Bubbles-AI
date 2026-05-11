@@ -204,37 +204,6 @@ class SettingsProvider with ChangeNotifier {
     if (settings['push_announcements'] != null) _pushAnnouncements = settings['push_announcements'];
   }
 
-  Future<void> _loadFromSupabase() async {
-    try {
-      final user = AuthService.instance.currentUser;
-      if (user == null) return;
-      final row = await Supabase.instance.client
-          .from('user_settings')
-          .select()
-          .eq('user_id', user.id)
-          .maybeSingle();
-      if (row == null) return;
-
-      final Map<String, dynamic> updates = {};
-      if (row['assistant_persona'] != null) updates['assistant_persona'] = row['assistant_persona'];
-      if (row['font_size'] != null) updates['font_size'] = row['font_size'];
-      if (row['voice_assistant_name'] != null) updates['voice_assistant_name'] = row['voice_assistant_name'];
-      if (row['assistant_voice_id'] != null) updates['assistant_voice_id'] = row['assistant_voice_id'];
-      if (row['speech_rate'] != null) updates['speech_rate'] = row['speech_rate'];
-      if (row['pitch'] != null) updates['pitch'] = row['pitch'];
-      if (row['haptic_feedback'] != null) updates['haptic_feedback'] = row['haptic_feedback'];
-      if (row['auto_play_audio'] != null) updates['auto_play_audio'] = row['auto_play_audio'];
-      if (row['transcription_language'] != null) updates['transcription_language'] = row['transcription_language'];
-      if (row['enable_nsfw_filter'] != null) updates['enable_nsfw_filter'] = row['enable_nsfw_filter'];
-      if (row['data_sharing_opt_in'] != null) updates['data_sharing_opt_in'] = row['data_sharing_opt_in'];
-
-      _applySettingsMap(updates);
-      notifyListeners();
-    } catch (e) {
-      debugPrint('SettingsProvider._loadFromSupabase: $e');
-    }
-  }
-
   // ── Write helper ──────────────────────────────────────────────────────────
   Future<void> _updateSetting(String key, dynamic value, {Map<String, dynamic>? remoteUpdates}) async {
     final user = AuthService.instance.currentUser;

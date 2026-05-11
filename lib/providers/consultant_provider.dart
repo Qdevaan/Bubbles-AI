@@ -3,13 +3,11 @@ import 'package:flutter/foundation.dart';
 import '../services/api_service.dart';
 import '../services/auth_service.dart';
 import '../repositories/sessions_repository.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// Dedicated state manager for the Consultant chat screen.
 /// Extracts streaming, chat messages, drawer state, and session management
 /// out of the screen widget into a proper ChangeNotifier provider.
 class ConsultantProvider extends ChangeNotifier {
-  final SupabaseClient _supabase = Supabase.instance.client;
   SessionsRepository? _repository;
 
   void setRepository(SessionsRepository repo) => _repository = repo;

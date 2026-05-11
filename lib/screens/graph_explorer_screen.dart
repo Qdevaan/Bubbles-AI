@@ -1,4 +1,3 @@
-import 'dart:math';
 import 'dart:ui';
 import 'dart:convert';
 import 'package:flutter/material.dart';
@@ -24,11 +23,6 @@ Color _colorForType(String? type) {
     case 'object': return const Color(0xFF06B6D4);
     default: return const Color(0xFF64748B);
   }
-}
-
-String _colorHexForType(String? type) {
-  final c = _colorForType(type);
-  return '#' + c.value.toRadixString(16).substring(2).padLeft(6, '0');
 }
 
 IconData _iconForType(String? type) {

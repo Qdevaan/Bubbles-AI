@@ -51,7 +51,6 @@ import 'screens/game_center_screen.dart';
 import 'providers/gamification_provider.dart';
 import 'screens/graph_explorer_screen.dart';
 import 'screens/tasks_screen.dart';
-import 'screens/subscription_screen.dart';
 import 'screens/insights_screen.dart';
 import 'screens/language_screen.dart';
 import 'screens/permissions_screen.dart';
@@ -472,8 +471,6 @@ class BubblesApp extends StatelessWidget {
                   const AuthGuard(child: AuthGate()),
               AppRoutes.performaWizard: (context) =>
                   const AuthGuard(child: PerformaWizardScreen()),
-              AppRoutes.performa: (context) =>
-                  const AuthGuard(child: SettingsPerformaScreen()),
               AppRoutes.performa: (context) =>
                   const AuthGuard(child: SettingsPerformaScreen()),
             },

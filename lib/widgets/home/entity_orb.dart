@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import '../../theme/design_tokens.dart';
 import 'pulse_dot.dart';
 
 // ── Entity Orb ─────────────────────────────────────────────────────────────

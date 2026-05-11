@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../theme/design_tokens.dart';
 
 class AppLogo extends StatelessWidget {
   final double size;

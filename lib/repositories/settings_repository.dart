@@ -2,7 +2,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../cache/base_repository.dart';
 import '../cache/cache_constants.dart';
-import '../cache/cache_result.dart';
 import '../cache/fetch_policy.dart';
 import '../cache/cache_entry.dart';
 
@@ -13,8 +12,6 @@ class SettingsRepository extends BaseRepository {
 
   /// Loads settings with L0 (SharedPreferences) -> L2 (SQLite) -> L3 (Supabase) waterfall.
   Future<Map<String, dynamic>> loadSettings(String userId) async {
-    final prefs = await SharedPreferences.getInstance();
-    
     // 1. Start with L3 (remote sync)
     final remoteResult = await fetch<Map<String, dynamic>>(
       key: CacheKeys.userSettings(userId),

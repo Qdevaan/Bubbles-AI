@@ -4,7 +4,6 @@ import '../cache/cache_result.dart';
 import '../cache/fetch_policy.dart';
 import '../services/sessions_service.dart';
 import '../services/api_service.dart';
-import '../services/connection_service.dart';
 
 class SessionsRepository extends BaseRepository {
   final SessionsService _service = SessionsService.instance;

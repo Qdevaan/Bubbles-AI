@@ -39,6 +39,7 @@ class SessionProvider extends ChangeNotifier {
   String? _lastTranscriptForRetry;
   bool _wingmanInFlight = false;      // guard: only one wingman call at a time
   String? _lastAdviceText;            // dedup: skip Realtime if HTTP already delivered it
+  String? get lastAdviceText => _lastAdviceText;
 
   final List<Map<String, dynamic>> _sessionLogs = [];
   List<Map<String, dynamic>> get sessionLogs => List.unmodifiable(_sessionLogs);

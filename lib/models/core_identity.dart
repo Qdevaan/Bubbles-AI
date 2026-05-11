@@ -55,7 +55,7 @@ class Profile {
       'id': id,
       'full_name': fullName,
       'avatar_url': avatarUrl,
-      'dob': dob?.toIso8601String()?.split('T').first,
+      'dob': dob?.toIso8601String().split('T').first,
       'gender': gender,
       'country': country,
       'locale': locale,

@@ -62,11 +62,16 @@ class _NewSessionScreenState extends State<NewSessionScreen>
   SessionProvider get _session =>
       Provider.of<SessionProvider>(context, listen: false);
 
+  String? _lastSpokenAdvice;
+
   @override
   void initState() {
     super.initState();
     final deepgram = Provider.of<DeepgramService>(context, listen: false);
     deepgram.addListener(_onDeepgramUpdate);
+
+    Provider.of<SessionProvider>(context, listen: false)
+        .addListener(_onSessionUpdate);
 
     _pulseController = AnimationController(
       vsync: this,
@@ -76,6 +81,21 @@ class _NewSessionScreenState extends State<NewSessionScreen>
       vsync: this,
       duration: const Duration(seconds: 8),
     )..repeat();
+  }
+
+  /// Speaks the latest roleplay partner reply through the voice assistant
+  /// service. Guarded against repeats by [_lastSpokenAdvice]; the service
+  /// itself silently returns when not in roleplay mode.
+  void _onSessionUpdate() {
+    if (!mounted) return;
+    final session = Provider.of<SessionProvider>(context, listen: false);
+    final voice = Provider.of<VoiceAssistantService>(context, listen: false);
+    if (!voice.roleplayMode) return;
+    final advice = session.lastAdviceText;
+    if (advice == null || advice.isEmpty) return;
+    if (advice == _lastSpokenAdvice) return;
+    _lastSpokenAdvice = advice;
+    voice.speakRoleplayLine(advice);
   }
 
   @override
@@ -117,6 +137,8 @@ class _NewSessionScreenState extends State<NewSessionScreen>
     final deepgram = Provider.of<DeepgramService>(context, listen: false);
     deepgram.removeListener(_onDeepgramUpdate);
     deepgram.disconnect();
+    Provider.of<SessionProvider>(context, listen: false)
+        .removeListener(_onSessionUpdate);
     _interimSub?.cancel();
     _suggestionCtrl?.dispose();
     _scrollController.dispose();

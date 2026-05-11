@@ -164,7 +164,7 @@ abstract class BaseRepository {
 
     // 2. If we have cached data, return it immediately as stale (if expired) or fresh
     final bool hasCachedData = cachedEntry != null;
-    final T? cachedData = hasCachedData ? fromJson(cachedEntry!.payload) : null;
+    final T? cachedData = hasCachedData ? fromJson(cachedEntry.payload) : null;
 
     // Trigger background refresh
     unawaited(_refreshNetwork(
@@ -184,7 +184,7 @@ abstract class BaseRepository {
       return CacheResult(
         data: cachedData,
         source: source,
-        isStale: cachedEntry!.isExpired,
+        isStale: cachedEntry.isExpired,
         ageMs: cachedEntry.ageMs,
       );
     }

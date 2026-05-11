@@ -18,6 +18,7 @@ from datetime import datetime, timedelta
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
@@ -199,6 +200,10 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Compress responses ≥ 1 KB. Cuts JSON-heavy graph/insights payloads roughly
+# 5–10× over the wire with negligible CPU cost.
+app.add_middleware(GZipMiddleware, minimum_size=1024)
 
 
 # ── Global Exception Handlers ─────────────────────────────────────────────────
