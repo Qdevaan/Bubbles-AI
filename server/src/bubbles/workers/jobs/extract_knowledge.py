@@ -34,15 +34,17 @@ async def run(
         payload = await extract_entities(bub.ai.router, transcript)
     except UpstreamUnavailable as exc:
         log.warning("extract_knowledge_upstream", error=str(exc))
-        return {"entities": 0, "relations": 0}
+        return {"entities": 0, "relations": 0, "links": 0}
 
     raw_entities = payload.get("entities") or []
     raw_relations = payload.get("relations") or []
     user_uuid = UUID(user_id)
+    session_uuid = UUID(session_id)
 
     entity_ids: dict[str, UUID] = {}
     saved_entities = 0
     saved_relations = 0
+    saved_links = 0
 
     async with UnitOfWork(bub.pool) as uow:
         for item in raw_entities:
@@ -61,6 +63,10 @@ async def run(
             )
             entity_ids[name] = entity.id
             saved_entities += 1
+            await entities_repo.link_session_entity(
+                uow.conn, session_id=session_uuid, entity_id=entity.id, user_id=user_uuid
+            )
+            saved_links += 1
 
         for rel in raw_relations:
             src_name = (rel.get("source") or "").strip().lower()
@@ -85,5 +91,6 @@ async def run(
         session=session_id,
         entities=saved_entities,
         relations=saved_relations,
+        links=saved_links,
     )
-    return {"entities": saved_entities, "relations": saved_relations}
+    return {"entities": saved_entities, "relations": saved_relations, "links": saved_links}
