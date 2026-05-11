@@ -90,18 +90,23 @@ async def get_entity(conn: asyncpg.Connection, entity_id: UUID) -> Entity | None
 
 
 async def list_for_user(
-    conn: asyncpg.Connection, *, user_id: UUID, limit: int = 200
+    conn: asyncpg.Connection,
+    *,
+    user_id: UUID,
+    limit: int = 200,
+    include_archived: bool = False,
 ) -> list[Entity]:
     rows = await conn.fetch(
         f"""
         SELECT {_ENTITY_COLS}
         FROM entities
-        WHERE user_id = $1 AND is_archived = false
+        WHERE user_id = $1 AND ($3 OR is_archived = false)
         ORDER BY last_seen_at DESC NULLS LAST, mention_count DESC
         LIMIT $2
         """,
         user_id,
         limit,
+        include_archived,
     )
     return [_row_to_entity(r) for r in rows]
 
@@ -183,6 +188,23 @@ async def list_relations(
     return [_row_to_relation(r) for r in rows]
 
 
+async def link_session_entity(
+    conn: asyncpg.Connection, *, session_id: UUID, entity_id: UUID, user_id: UUID
+) -> None:
+    await conn.execute(
+        """
+        INSERT INTO session_entities (session_id, entity_id, user_id)
+        VALUES ($1, $2, $3)
+        ON CONFLICT (session_id, entity_id) DO UPDATE SET
+            mention_count = session_entities.mention_count + 1,
+            last_seen_at = now()
+        """,
+        session_id,
+        entity_id,
+        user_id,
+    )
+
+
 async def timeline(
     conn: asyncpg.Connection,
     *,
@@ -191,21 +213,77 @@ async def timeline(
     since: datetime | None = None,
     limit: int = 50,
 ) -> list[asyncpg.Record]:
-    """Return raw rows joining entity mentions with sessions."""
+    """Sessions where this entity was mentioned, newest first."""
+    return list(
+        await conn.fetch(
+            """
+            SELECT s.id AS session_id, s.title, s.created_at
+            FROM session_entities se
+            JOIN sessions s ON s.id = se.session_id AND s.deleted_at IS NULL
+            WHERE se.entity_id = $1
+              AND se.user_id = $2
+              AND ($3::timestamptz IS NULL OR se.last_seen_at >= $3)
+            ORDER BY se.last_seen_at DESC
+            LIMIT $4
+            """,
+            entity_id,
+            user_id,
+            since,
+            limit,
+        )
+    )
+
+
+async def events_mentioning(
+    conn: asyncpg.Connection, *, user_id: UUID, name: str, limit: int = 10
+) -> list[asyncpg.Record]:
+    return list(
+        await conn.fetch(
+            """
+            SELECT id, title, due_text, description, created_at
+            FROM events
+            WHERE user_id = $1 AND title ILIKE '%' || $2 || '%'
+            ORDER BY created_at DESC
+            LIMIT $3
+            """,
+            user_id,
+            name,
+            limit,
+        )
+    )
+
+
+async def tasks_mentioning(
+    conn: asyncpg.Connection, *, user_id: UUID, name: str, limit: int = 10
+) -> list[asyncpg.Record]:
+    return list(
+        await conn.fetch(
+            """
+            SELECT id, title, status, priority, created_at
+            FROM tasks
+            WHERE user_id = $1 AND title ILIKE '%' || $2 || '%'
+            ORDER BY created_at DESC
+            LIMIT $3
+            """,
+            user_id,
+            name,
+            limit,
+        )
+    )
+
+
+async def list_all_relations(
+    conn: asyncpg.Connection, *, user_id: UUID, limit: int = 2000
+) -> list[EntityRelation]:
     rows = await conn.fetch(
-        """
-        SELECT s.id AS session_id, s.title, s.created_at
-        FROM entities e
-        JOIN sessions s ON s.user_id = e.user_id
-        WHERE e.id = $1
-          AND e.user_id = $2
-          AND ($3::timestamptz IS NULL OR s.created_at >= $3)
-        ORDER BY s.created_at DESC
-        LIMIT $4
+        f"""
+        SELECT {_REL_COLS}
+        FROM entity_relations
+        WHERE user_id = $1
+        ORDER BY strength DESC
+        LIMIT $2
         """,
-        entity_id,
         user_id,
-        since,
         limit,
     )
-    return list(rows)
+    return [_row_to_relation(r) for r in rows]
