@@ -116,6 +116,24 @@ async def test_timeline_excludes_deleted_sessions(pool: asyncpg.Pool, user_id: U
     assert rows == []
 
 
+async def test_timeline_respects_since_filter(pool: asyncpg.Pool, user_id: UUID) -> None:
+    from datetime import UTC, datetime, timedelta
+
+    async with UnitOfWork(pool) as uow:
+        ent = await repo.upsert_entity(
+            uow.conn, user_id=user_id, canonical_name="d", entity_type="x"
+        )
+    sid = await _make_session(pool, user_id)
+    async with UnitOfWork(pool) as uow:
+        await repo.link_session_entity(uow.conn, session_id=sid, entity_id=ent.id, user_id=user_id)
+    async with pool.acquire() as con:
+        future = datetime.now(UTC) + timedelta(days=1)
+        past = datetime.now(UTC) - timedelta(days=1)
+        assert await repo.timeline(con, entity_id=ent.id, user_id=user_id, since=future) == []
+        rows = await repo.timeline(con, entity_id=ent.id, user_id=user_id, since=past)
+    assert [r["session_id"] for r in rows] == [sid]
+
+
 async def test_events_and_tasks_mentioning(pool: asyncpg.Pool, user_id: UUID) -> None:
     async with pool.acquire() as con:
         await con.execute(

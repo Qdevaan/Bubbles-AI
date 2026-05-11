@@ -100,13 +100,13 @@ async def list_for_user(
         f"""
         SELECT {_ENTITY_COLS}
         FROM entities
-        WHERE user_id = $1 AND ($3 OR is_archived = false)
+        WHERE user_id = $1 AND ($2 OR is_archived = false)
         ORDER BY last_seen_at DESC NULLS LAST, mention_count DESC
-        LIMIT $2
+        LIMIT $3
         """,
         user_id,
-        limit,
         include_archived,
+        limit,
     )
     return [_row_to_entity(r) for r in rows]
 
@@ -237,6 +237,7 @@ async def timeline(
 async def events_mentioning(
     conn: asyncpg.Connection, *, user_id: UUID, name: str, limit: int = 10
 ) -> list[asyncpg.Record]:
+    """Events whose title contains ``name`` (case-insensitive heuristic; events have no entity FK)."""
     return list(
         await conn.fetch(
             """
@@ -256,6 +257,7 @@ async def events_mentioning(
 async def tasks_mentioning(
     conn: asyncpg.Connection, *, user_id: UUID, name: str, limit: int = 10
 ) -> list[asyncpg.Record]:
+    """Tasks whose title contains ``name`` (case-insensitive heuristic)."""
     return list(
         await conn.fetch(
             """
