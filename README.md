@@ -83,14 +83,18 @@ Client (Flutter):
 - LiveKit client
 - Speech and audio packages (speech_to_text, flutter_tts, record, porcupine_flutter)
 
-Server (Python):
+Server (Python) — `server/` (Bubbles Brain API v5, async-only):
 
-- FastAPI + Uvicorn
-- Supabase Python client
-- Groq SDK
-- sentence-transformers + torch
-- networkx
-- slowapi (rate limiting)
+- FastAPI + Uvicorn (async top to bottom)
+- `asyncpg` over PgBouncer; Alembic migrations; repository + Unit-of-Work layer
+- LLM router with per-provider circuit breaker: Gemini → Cerebras → Groq (per task)
+- ARQ workers over Redis for background jobs + cron
+- Gemini `text-embedding-004` embeddings (bge-small ONNX offline fallback)
+- Groq Whisper STT + Edge-TTS; LiveKit tokens
+- structlog JSON logs, Prometheus `/metrics`, Sentry, OpenTelemetry; atomic Lua token-bucket rate limiting
+- `uv` (deps), `ruff`, `mypy --strict`, `pytest`
+
+> The previous backend (`server_v2/`, sync `supabase-py` + `networkx` + APScheduler) is retired — see `Documentation/server-vs-server_v2-review.md`. It now lives at `legacy/server_v2/` for reference only.
 
 Infrastructure:
 
@@ -103,11 +107,15 @@ Infrastructure:
 fyp_app/
 |- lib/                     # Flutter app code (screens, providers, services, models)
 |- assets/                  # App assets (logos, text, wake-word model)
-|- server/
-|  |- app/                  # FastAPI application (routes, services, models, utils)
-|  |- requirements.txt      # Python dependencies
-|  |- Dockerfile            # Backend image definition
-|  |- docker-compose.yml    # Local container run configuration
+|- server/                  # Bubbles Brain API v5 (active backend) — see server/README.md
+|  |- src/bubbles/          # application code (api, ai, db, jobs, voice, core)
+|  |- alembic/              # database migrations (versioned, reversible)
+|  |- tests/                # unit / integration / e2e
+|  |- ops/                  # Grafana dashboard JSON, alert rules
+|  |- pyproject.toml        # deps + tooling (uv, ruff, mypy, pytest)
+|  |- Dockerfile            # multi-stage, distroless (runtime + worker targets)
+|  |- docker-compose.yml    # dev: app + redis + caddy
+|- legacy/server_v2/        # retired previous backend, kept for reference only
 |- Documentation/
 |  |- db_schema_final_v2.sql # Unified database schema reference
 |- env/                     # Local environment files (ignored by git)
@@ -180,32 +188,15 @@ Backend will be available at:
 
 ### Option B: Run Backend Locally (without Docker)
 
-From the `server` directory:
+From the `server` directory (needs [`uv`](https://docs.astral.sh/uv/)):
 
 ```bash
-python -m venv .venv
+uv sync                # create venv + install deps from pyproject/uv.lock
+cp .env.example .env   # fill in secrets
+make dev               # uvicorn --reload on :8000
 ```
 
-Activate environment:
-
-Windows PowerShell:
-
-```powershell
-.\.venv\Scripts\Activate.ps1
-```
-
-macOS/Linux:
-
-```bash
-source .venv/bin/activate
-```
-
-Install dependencies and run:
-
-```bash
-pip install -r requirements.txt
-uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
-```
+`make test` runs `ruff` + `mypy --strict` + `pytest`; `make migrate` applies Alembic migrations. Full DX in `server/README.md`. Background jobs (ARQ worker) run via the `worker` service in `docker-compose.yml`.
 
 ## Running the App
 
@@ -282,11 +273,11 @@ flutter analyze
 flutter test
 ```
 
-Python server:
+Python server (from `server/`):
 
 ```bash
-python -m pip install -r server/requirements.txt
-python -m uvicorn server.app.main:app --host 0.0.0.0 --port 8000 --reload
+uv sync
+make dev
 ```
 
 Docker backend:

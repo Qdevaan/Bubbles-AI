@@ -1,6 +1,6 @@
 # `server` (Bubbles Brain API v5) vs `server_v2` — Comparison Review
 
-**Date:** 2026-05-11 • **Reviewer:** backend • **Verdict:** `server/` supersedes `server_v2/`; cut over per blueprint §18, then delete `server_v2/`.
+**Date:** 2026-05-11 (retirement applied same day) • **Reviewer:** backend • **Verdict:** `server/` (Bubbles Brain API v5) is the primary backend. `server_v2/` is retired — moved to `legacy/server_v2/` for reference only, no longer deployed or maintained.
 
 ---
 
@@ -36,7 +36,7 @@ Same `/v1/*` paths and response shapes as `server_v2/`, so the Flutter client on
 
 `/health/*`, `start_session`, `save_session`, `end_session`, `sessions/{id}/context`, `suggest_reply`, `ask_consultant`(+`/batch`), `ask`, `ask_entity`, `graph_export/{user_id}`, `entity_timeline/{entity_id}`, `DELETE entities|sessions|memories`, `check_user_turn`, `user_mistakes`, `me/persona` (GET/PUT), `getToken`, `process_audio`, `voice_command`, `tts`, `WS /v1/stt/stream`.
 
-Persona Jinja fragments (`casual`/`default`/`educator`/`learner`/`professional` + `_scenario_header`) ported verbatim from `server_v2/app/prompts/personas/`.
+Persona Jinja fragments (`casual`/`default`/`educator`/`learner`/`professional` + `_scenario_header`) ported verbatim from the old `server_v2/app/prompts/personas/` (now `legacy/server_v2/app/prompts/personas/`).
 
 ---
 
@@ -74,8 +74,8 @@ No data migration: `server/` writes to the same Supabase DB as `server_v2/`. The
 
 ---
 
-## 6. Recommendation
+## 6. Status — retired
 
-Ship `server/` to `api2.bubbles.app` side-by-side with `server_v2/`, flip the Flutter `kUseApiV5` flag on staging, soak 48 h against the Grafana dashboard + alert rules, then repoint `api.bubbles.app` and keep `server_v2/` running 7 days as instant rollback. After 7 clean days: `git rm -r server_v2/`, drop its CI workflows, update docs. Full runbook: `Documentation/server-blueprint.md` §18.
+`server_v2/` has been **moved to `legacy/server_v2/`** and is no longer deployed, maintained, or referenced by any active config, CI, or the Flutter client. `server/` (Bubbles Brain API v5) is the sole backend. The `legacy/` copy is kept on disk only as a reference for the §2 contract and the §4 behaviour deltas; once the §5 follow-ups land and nothing points at it, `git rm -r legacy/server_v2/` for good.
 
-Until cutover, **`server_v2/` remains the production server** — do not delete it.
+The live-deployment cutover (stand up v5 on a subdomain, flip the Flutter `kUseApiV5` flag, 48 h soak, repoint DNS) is still documented step-by-step in `Documentation/server-blueprint.md` §18 — that's the ops rollout; the repo-side retirement is done.
