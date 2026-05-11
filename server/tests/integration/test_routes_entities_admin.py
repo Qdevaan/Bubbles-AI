@@ -121,3 +121,72 @@ async def test_graph_export_forbidden_for_other_user(
         resp = await ac.get(f"/v1/graph_export/{uuid4()}")
     assert resp.status_code == 403
     assert resp.json()["error"]["code"] == "forbidden"
+
+
+async def _make_session(pool: asyncpg.Pool, user_id: UUID, title: str = "s") -> UUID:
+    async with pool.acquire() as con:
+        row = await con.fetchrow(
+            "INSERT INTO sessions (user_id, title, status) VALUES ($1, $2, 'active') RETURNING id",
+            user_id,
+            title,
+        )
+    assert row is not None
+    sid: UUID = row["id"]
+    return sid
+
+
+async def test_entity_timeline_happy_path(app: FastAPI, pool: asyncpg.Pool, user_id: UUID) -> None:
+    _override(app, pool, user_id)
+    async with UnitOfWork(pool) as uow:
+        ent = await entities_repo.upsert_entity(
+            uow.conn, user_id=user_id, canonical_name="acme", entity_type="org", display_name="Acme"
+        )
+    sid = await _make_session(pool, user_id, "kickoff")
+    async with UnitOfWork(pool) as uow:
+        await entities_repo.link_session_entity(
+            uow.conn, session_id=sid, entity_id=ent.id, user_id=user_id
+        )
+    async with pool.acquire() as con:
+        await con.execute(
+            "INSERT INTO events (user_id, title) VALUES ($1, 'Demo for Acme')", user_id
+        )
+        await con.execute(
+            "INSERT INTO tasks (user_id, title) VALUES ($1, 'Send Acme invoice')", user_id
+        )
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://t") as ac:
+        resp = await ac.get(f"/v1/entity_timeline/{ent.id}")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["entity_id"] == str(ent.id)
+    assert body["entity_name"] == "Acme"
+    assert [s["session_id"] for s in body["sessions"]] == [str(sid)]
+    assert body["sessions"][0]["match"] == "link"
+    assert [e["title"] for e in body["events"]] == ["Demo for Acme"]
+    assert body["events"][0]["match"] == "name"
+    assert [t["title"] for t in body["tasks"]] == ["Send Acme invoice"]
+
+
+async def test_entity_timeline_unknown_entity_404(
+    app: FastAPI, pool: asyncpg.Pool, user_id: UUID
+) -> None:
+    _override(app, pool, user_id)
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://t") as ac:
+        resp = await ac.get(f"/v1/entity_timeline/{uuid4()}")
+    assert resp.status_code == 404
+    assert resp.json()["error"]["code"] == "not_found"
+
+
+async def test_entity_timeline_other_users_entity_403(
+    app: FastAPI, pool: asyncpg.Pool, user_id: UUID
+) -> None:
+    other = uuid4()
+    async with pool.acquire() as con:
+        await con.execute("INSERT INTO auth.users (id) VALUES ($1)", other)
+    async with UnitOfWork(pool) as uow:
+        ent = await entities_repo.upsert_entity(
+            uow.conn, user_id=other, canonical_name="secret", entity_type="x"
+        )
+    _override(app, pool, user_id)
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://t") as ac:
+        resp = await ac.get(f"/v1/entity_timeline/{ent.id}")
+    assert resp.status_code == 403

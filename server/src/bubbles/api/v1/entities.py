@@ -7,6 +7,7 @@ with the entity context injected via the ``entity_aware`` template.
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Any
 from uuid import UUID
 
@@ -19,9 +20,13 @@ from bubbles.api.v1._schemas import (
     EntityAnswer,
     EntityQueryRequest,
     EntitySummary,
+    EntityTimelineResponse,
     GraphExportResponse,
     GraphLink,
     GraphNode,
+    TimelineEvent,
+    TimelineSession,
+    TimelineTask,
 )
 from bubbles.auth.current_user import CurrentUserDep, require_ownership
 from bubbles.core.errors import NotFound
@@ -132,6 +137,57 @@ async def graph_export(
         if r.source_id in node_ids and r.target_id in node_ids
     ]
     return GraphExportResponse(user_id=user_id, nodes=nodes, links=links)
+
+
+@router.get("/entity_timeline/{entity_id}", response_model=EntityTimelineResponse)
+async def entity_timeline(
+    entity_id: UUID,
+    user: CurrentUserDep,
+    pool: PoolDep,
+    limit: int = Query(50, ge=1, le=200),
+    since: datetime | None = Query(None),
+) -> EntityTimelineResponse:
+    async with transaction(pool) as conn:
+        ent = await entities_repo.get_entity(conn, entity_id)
+        if ent is None:
+            raise NotFound("entity not found")
+        require_ownership(user, str(ent.user_id))
+        name = ent.display_name or ent.canonical_name
+        sess_rows = await entities_repo.timeline(
+            conn, entity_id=entity_id, user_id=ent.user_id, since=since, limit=limit
+        )
+        event_rows = await entities_repo.events_mentioning(conn, user_id=ent.user_id, name=name)
+        task_rows = await entities_repo.tasks_mentioning(conn, user_id=ent.user_id, name=name)
+    return EntityTimelineResponse(
+        entity_id=entity_id,
+        entity_name=name,
+        sessions=[
+            TimelineSession(
+                session_id=r["session_id"], title=r["title"], created_at=r["created_at"]
+            )
+            for r in sess_rows
+        ],
+        events=[
+            TimelineEvent(
+                id=r["id"],
+                title=r["title"],
+                due_text=r["due_text"],
+                description=r["description"],
+                created_at=r["created_at"],
+            )
+            for r in event_rows
+        ],
+        tasks=[
+            TimelineTask(
+                id=r["id"],
+                title=r["title"],
+                status=r["status"],
+                priority=r["priority"],
+                created_at=r["created_at"],
+            )
+            for r in task_rows
+        ],
+    )
 
 
 @router.delete("/entities/{entity_id}", status_code=204, response_class=Response)
