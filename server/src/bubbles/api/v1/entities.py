@@ -10,7 +10,7 @@ from __future__ import annotations
 from typing import Any
 from uuid import UUID
 
-from fastapi import APIRouter, Response
+from fastapi import APIRouter, Query, Response
 
 from bubbles.ai.extraction import extract_entities
 from bubbles.ai.prompts.loader import render
@@ -19,6 +19,9 @@ from bubbles.api.v1._schemas import (
     EntityAnswer,
     EntityQueryRequest,
     EntitySummary,
+    GraphExportResponse,
+    GraphLink,
+    GraphNode,
 )
 from bubbles.auth.current_user import CurrentUserDep, require_ownership
 from bubbles.core.errors import NotFound
@@ -91,6 +94,44 @@ async def ask_entity(
         ],
         provider=str((completion.raw or {}).get("model", "")),
     )
+
+
+@router.get("/graph_export/{user_id}", response_model=GraphExportResponse)
+async def graph_export(
+    user_id: UUID,
+    user: CurrentUserDep,
+    pool: PoolDep,
+    limit: int = Query(300, ge=1, le=1000),
+    entity_type: str | None = Query(None, max_length=64),
+    include_archived: bool = Query(False),
+) -> GraphExportResponse:
+    require_ownership(user, str(user_id))
+    async with transaction(pool) as conn:
+        ents = await entities_repo.list_for_user(
+            conn, user_id=user_id, limit=limit, include_archived=include_archived
+        )
+        rels = await entities_repo.list_all_relations(conn, user_id=user_id)
+    if entity_type is not None:
+        wanted = entity_type.strip().lower()
+        ents = [e for e in ents if (e.entity_type or "").lower() == wanted]
+    node_ids = {e.id for e in ents}
+    nodes = [
+        GraphNode(
+            id=e.id,
+            label=e.display_name or e.canonical_name,
+            type=e.entity_type,
+            description=e.description,
+            mention_count=e.mention_count,
+            last_seen_at=e.last_seen_at,
+        )
+        for e in ents
+    ]
+    links = [
+        GraphLink(source=r.source_id, target=r.target_id, relation=r.relation, strength=r.strength)
+        for r in rels
+        if r.source_id in node_ids and r.target_id in node_ids
+    ]
+    return GraphExportResponse(user_id=user_id, nodes=nodes, links=links)
 
 
 @router.delete("/entities/{entity_id}", status_code=204, response_class=Response)
