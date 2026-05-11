@@ -6,7 +6,8 @@ of being silently dropped.
 
 from __future__ import annotations
 
-from typing import Any
+from datetime import datetime
+from typing import Any, Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -105,6 +106,64 @@ class EntityAnswer(_Base):
     answer: str
     entities: list[EntitySummary]
     provider: str
+
+
+# --- entity graph + timeline ----------------------------------------------
+
+
+class GraphNode(_Base):
+    id: UUID
+    label: str
+    type: str
+    description: str | None = None
+    mention_count: int = 0
+    last_seen_at: datetime | None = None
+
+
+class GraphLink(_Base):
+    source: UUID
+    target: UUID
+    relation: str
+    strength: float
+
+
+class GraphExportResponse(_Base):
+    user_id: UUID
+    nodes: list[GraphNode]
+    links: list[GraphLink]
+
+
+class TimelineSession(_Base):
+    session_id: UUID
+    title: str | None = None
+    created_at: datetime
+    match: Literal["link"] = "link"
+
+
+class TimelineEvent(_Base):
+    id: UUID
+    title: str
+    due_text: str | None = None
+    description: str | None = None
+    created_at: datetime
+    match: Literal["name"] = "name"
+
+
+class TimelineTask(_Base):
+    id: UUID
+    title: str
+    status: str | None = None
+    priority: str | None = None
+    created_at: datetime
+    match: Literal["name"] = "name"
+
+
+class EntityTimelineResponse(_Base):
+    entity_id: UUID
+    entity_name: str
+    sessions: list[TimelineSession]
+    events: list[TimelineEvent]
+    tasks: list[TimelineTask]
 
 
 # --- persona ---------------------------------------------------------------
