@@ -196,3 +196,50 @@ DO $$ BEGIN
 EXCEPTION WHEN OTHERS THEN
     ALTER TABLE memory ADD COLUMN IF NOT EXISTS embedding text;
 END $$;
+
+-- events (mentioned-by-name in entity timeline; no entity FK in prod schema)
+CREATE TABLE events (
+    id uuid NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
+    user_id uuid REFERENCES auth.users(id) ON DELETE CASCADE,
+    session_id uuid,
+    title text NOT NULL,
+    description text,
+    due_text text,
+    start_time timestamptz,
+    end_time timestamptz,
+    location text,
+    is_all_day boolean DEFAULT false,
+    is_completed boolean DEFAULT false,
+    external_event_id text,
+    sync_provider text,
+    created_at timestamptz DEFAULT now(),
+    updated_at timestamptz DEFAULT now()
+);
+
+-- tasks (mentioned-by-name in entity timeline)
+CREATE TABLE tasks (
+    id uuid NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
+    user_id uuid REFERENCES auth.users(id) ON DELETE CASCADE,
+    title text NOT NULL,
+    description text,
+    due_date timestamptz,
+    priority text DEFAULT 'medium',
+    status text DEFAULT 'pending',
+    category text,
+    source_session_id uuid,
+    completed_at timestamptz,
+    created_at timestamptz DEFAULT now()
+);
+
+-- session_entities (mirrors migration 0002)
+CREATE TABLE session_entities (
+    session_id uuid NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+    entity_id uuid NOT NULL REFERENCES entities(id) ON DELETE CASCADE,
+    user_id uuid NOT NULL,
+    mention_count integer NOT NULL DEFAULT 1,
+    first_seen_at timestamptz NOT NULL DEFAULT now(),
+    last_seen_at timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY (session_id, entity_id)
+);
+CREATE INDEX session_entities_entity_idx ON session_entities (entity_id, last_seen_at DESC);
+CREATE INDEX session_entities_user_idx ON session_entities (user_id, last_seen_at DESC);
