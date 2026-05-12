@@ -81,3 +81,18 @@ def test_extra_whitespace_around_speaker_and_content() -> None:
     s = parse_transcript("  User  :   spaced   out   words  ")
     assert s.user_turns == 1
     assert s.user_words == 3
+
+
+def test_url_lines_are_not_parsed_as_speakers() -> None:
+    # "https://..." must not be read as speaker "https" (H14 nit).
+    s = parse_transcript("User: see this\nhttps://example.com/path?x=1\nMore notes here.")
+    assert s.user_turns == 1
+    # The URL line and the trailing note are continuations of the user turn.
+    assert s.others_turns == 0
+    assert s.total_turns == 1
+
+
+def test_real_speaker_with_colon_in_content_still_works() -> None:
+    s = parse_transcript("AI: note: bring the report tomorrow")
+    assert s.llm_turns == 1
+    assert s.assistant_words == 5  # "note: bring the report tomorrow"

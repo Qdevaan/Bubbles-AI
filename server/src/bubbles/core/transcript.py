@@ -11,6 +11,11 @@ import re
 from dataclasses import dataclass
 
 _SPEAKER_RE = re.compile(r"^\s*([^:]{1,40}?)\s*:\s*(.*)$")
+# Lines that *look* like ``prefix: rest`` but are URLs / scheme strings, e.g.
+# ``https://example.com`` — without this guard the speaker would be parsed as
+# "https". A real speaker prefix is plain text with no slashes; the URL form is
+# ``scheme://…`` with no space after the colon.
+_URL_LIKE_RE = re.compile(r"^\s*[A-Za-z][A-Za-z0-9+.\-]*://")
 _USER_NAMES = frozenset({"user", "me", "you"})
 _LLM_NAMES = frozenset({"ai", "assistant", "bubbles"})
 
@@ -37,7 +42,7 @@ def parse_transcript(transcript: str) -> TranscriptStats:
         line = raw_line.rstrip()
         if not line.strip():
             continue
-        m = _SPEAKER_RE.match(line)
+        m = None if _URL_LIKE_RE.match(line) else _SPEAKER_RE.match(line)
         if m is not None:
             speaker = m.group(1).strip().lower()
             content = m.group(2)

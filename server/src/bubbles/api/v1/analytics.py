@@ -153,7 +153,11 @@ async def get_coaching_report(
     if row is None:
         raise NotFound("coaching report not found")
     require_ownership(user, str(row.user_id))
-    tone_scores = {k: int(v) for k, v in row.report_content.items() if isinstance(v, int | float)}
+    tone_scores = {
+        k: int(v)
+        for k, v in row.report_content.items()
+        if isinstance(v, int | float) and not isinstance(v, bool)
+    }
     return CoachingReportOut(
         session_id=row.session_id,
         model_used=row.model_used,

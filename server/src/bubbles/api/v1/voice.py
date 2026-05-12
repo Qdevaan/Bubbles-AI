@@ -16,7 +16,7 @@ from bubbles.deps import RouterDep
 from bubbles.settings import Settings, get_settings
 from bubbles.voice import livekit as livekit_helper
 from bubbles.voice.stt import GroqWhisper
-from bubbles.voice.tts import resolve_preset, stream_mp3
+from bubbles.voice.tts import resolve_preset, synthesize_mp3
 
 router = APIRouter(tags=["voice"])
 
@@ -109,9 +109,9 @@ async def process_audio(
 @router.post("/tts")
 async def tts(body: TTSRequest, user: CurrentUserDep) -> StreamingResponse:
     preset = resolve_preset(body.voice)
-    log.info("tts_request", user=user.id, voice=preset.voice, chars=len(body.text))
+    log.info("tts_request", user=user.id, voice=preset.name, chars=len(body.text))
     return StreamingResponse(
-        stream_mp3(body.text, preset=preset),
+        synthesize_mp3(body.text, voice=body.voice, settings=get_settings()),
         media_type="audio/mpeg",
         headers={"Cache-Control": "no-cache"},
     )

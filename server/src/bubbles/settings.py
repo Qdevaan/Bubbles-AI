@@ -79,6 +79,10 @@ class Settings(BaseSettings):
     livekit_url: str | None = None
     livekit_api_key: SecretStr | None = None
     livekit_api_secret: SecretStr | None = None
+    # Optional premium TTS — when set, "premium" voice presets use ElevenLabs;
+    # everything else (and any ElevenLabs failure) falls back to free Edge-TTS.
+    elevenlabs_api_key: SecretStr | None = None
+    elevenlabs_model: str = "eleven_multilingual_v2"
 
     # Push
     firebase_credentials_json: SecretStr | None = None

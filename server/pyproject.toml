@@ -250,6 +250,10 @@ markers = [
 filterwarnings = [
     "error",
     "ignore::DeprecationWarning:pkg_resources.*",
+    # testcontainers imports a deprecated decorator at module load; the warning
+    # fires while collecting the integration conftest, before any test runs.
+    # Harmless — we don't use that decorator.
+    "ignore:The @wait_container_is_ready decorator is deprecated:DeprecationWarning",
 ]
 
 # ---------------------------------------------------------------------------

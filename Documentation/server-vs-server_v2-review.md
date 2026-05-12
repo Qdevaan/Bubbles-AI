@@ -148,31 +148,31 @@ Done:
 
 **Fixed.** `workers/jobs/backfill_session_entities.py` — finds sessions that have `session_logs` rows but no `session_entities` rows, assembles each transcript, and runs `extract_knowledge` inline for it (bounded by a `limit`, default 200). Sessions with no stored transcript (pre-H2, no `session_logs`) are skipped — there's nothing to extract from. Registered in the worker; `enqueue_backfill_session_entities` helper (`_job_id` fixed so only one runs at a time) — an operator enqueues it and re-runs until `sessions_processed` is 0. Test: `test_backfill_session_entities` in `tests/integration/test_performance_h7_h8.py`.
 
-### H9 (P3) — ElevenLabs premium-TTS fallback not wired
+### H9 (P3) — ~~ElevenLabs premium-TTS fallback not wired~~ **DONE (2026-05-12)**
 
-Blueprint asks for ElevenLabs behind the same interface as a premium-voice option; only Edge-TTS is wired today.
+**Fixed.** `voice/tts.py` now has `synthesize_mp3(text, *, voice, settings)`: voice presets carrying an `elevenlabs_voice_id` (the `premium` / `premium-male` presets) are synthesised via the ElevenLabs API when `ELEVENLABS_API_KEY` is set; **any** failure (no key, bad voice, quota, network) transparently falls back to free Edge-TTS — same `AsyncIterator[bytes]` interface, callers don't know which engine ran. New settings: `elevenlabs_api_key`, `elevenlabs_model`. The `/v1/tts` route now calls `synthesize_mp3`. (`stream_mp3` kept as the Edge-only primitive.) Tests: `tests/unit/test_tts.py`.
 
 ### H10 (P3) — No ARQ dead-letter queue
 
-Jobs are idempotent and retried, but there's no explicit DLQ and no alert on repeated failure. Add a DLQ + a Prometheus alert on `arq_jobs_failed`.
+Jobs are idempotent and retried, but there's no explicit DLQ and no alert on repeated failure. Add a DLQ + a Prometheus alert on `arq_jobs_failed`. **(Open — needs ops/monitoring wiring, not just code.)**
 
 ### H11 (P3) — k6 nightly load test not in CI
 
-`scripts/load_test.js` exists; wiring it into a scheduled GH Action needs a live staging URL.
+`scripts/load_test.js` exists; wiring it into a scheduled GH Action needs a live staging URL — **and there is currently no `.github/workflows/` at all** (see H12). Open until CI exists.
 
-### H12 (P3) — Integration suites are opt-in
+### H12 (P3) — Integration suites are opt-in — **partially addressed (2026-05-12)**
 
-The 5 testcontainers suites are gated behind `RUN_INTEGRATION=1` + the docker SDK; they auto-skip locally. Confirm CI actually sets `RUN_INTEGRATION=1` — if it doesn't, those suites never run anywhere.
+The testcontainers suites are gated behind `RUN_INTEGRATION=1` + the docker SDK; they auto-skip locally. **Fixed:** the integration `conftest` import used to *crash* under the strict `filterwarnings = ["error"]` config because testcontensers ≥ 4.x emits a `DeprecationWarning` (`@wait_container_is_ready`) at module load — added a targeted `ignore` so `pytest tests/integration` at least collects (109 tests). **Still open:** there is **no CI workflow** in the repo (`.github/workflows/` doesn't exist), so nothing runs the integration suites anywhere yet. Creating the CI workflow (with `RUN_INTEGRATION=1` + a Postgres service or testcontainers) is the real fix — covers H11/H13 too.
 
 ### H13 (P3) — No schema-drift guard; Alembic baseline is a no-op
 
-`0001` is a no-op against the live Supabase schema, so the migration chain has never been exercised against a from-scratch DB, and divergence between the code's row models and the prod schema is caught only by code review (the recent `entities.is_archived` vs `deleted_at` near-miss is the cautionary tale). Add a CI job: build the schema from Alembic head into a throwaway Postgres, diff it against `Documentation/db_schema_final_v2.sql`, fail on drift.
+`0001` is a no-op against the live Supabase schema, so the migration chain has never been exercised against a from-scratch DB (note: `0005`'s `vector(192)` column needs the `vector` extension installed first), and divergence between the code's row models and the prod schema is caught only by code review (the `entities.is_archived` vs `deleted_at` near-miss is the cautionary tale). Add a CI job: install `vector`/`pgcrypto`, build the schema from Alembic head into a throwaway Postgres, diff it against `Documentation/db_schema.sql`, fail on drift. **(Open — needs the CI workflow from H12.)**
 
-### H14 (P3) — Minor nits
+### H14 (P3) — ~~Minor nits~~ **DONE (2026-05-12)**
 
-- `SaveFeedbackRequest.idempotency_key` is `max_length=200`; other idempotency keys use `128` — pick one.
-- `coaching_report.tone_scores` filter is `isinstance(v, int | float)`, which also accepts `bool` — tighten to exclude `bool`.
-- `core/transcript._SPEAKER_RE` treats any `prefix: rest` line as a speaker turn, so a bare line containing `https://...` is mis-parsed as speaker `"https"`. Add a guard (e.g. reject prefixes containing `/` or whitespace runs, or require a known/short speaker token).
+- `SaveFeedbackRequest.idempotency_key` is now `max_length=128` (aligned with the other idempotency keys).
+- `coaching_report.tone_scores` now excludes `bool` (`isinstance(v, int | float) and not isinstance(v, bool)`).
+- `core/transcript` now skips URL/scheme lines (`^\s*[A-Za-z][A-Za-z0-9+.\-]*://`) before the speaker-prefix regex, so `https://example.com` is no longer parsed as speaker `"https"`. Test: `test_url_lines_are_not_parsed_as_speakers`.
 
 ---
 
@@ -184,7 +184,7 @@ The 5 testcontainers suites are gated behind `RUN_INTEGRATION=1` + the docker SD
 4. ~~**H5 — stop truncating the coaching transcript.**~~ **Done 2026-05-12.** `prepare_transcript` (map-reduce condense for long transcripts) replaces the 4 KB tail-slice.
 5. ~~**H6 — XP-award worker + gamification completeness.**~~ **Mostly done 2026-05-12** — daily XP cap, streak increments + milestone bonuses (wired into `start_session`), achievement-detection worker (enqueued from `end_session`). **H6b remaining:** profile `stats{}` block, quest-mission endpoints (`answer` / `attach_session`), XP wiring into the live loops.
 6. ~~**H7 — `performance_summary/{user_id}`**; **H8 — `backfill_session_entities` job**.~~ **Done 2026-05-12.**
-7. **H9–H14 — ops/hygiene:** ElevenLabs fallback, ARQ DLQ + alert, k6 nightly, confirm CI runs integration suites, schema-drift CI job, the H14 nits.  ← next
+7. **H9–H14 — ops/hygiene:** ~~H9 ElevenLabs fallback~~ (done), ~~H14 nits~~ (done), H12 testcontainers-import fix (done — but no CI workflow exists yet). **Remaining: H10** (ARQ DLQ + alert), **H11** (k6 nightly), **H13** (schema-drift CI) — all need a CI workflow to be created first.  ← next
 8. **H6b** — profile `stats{}`, quest-mission endpoints, live-loop XP wiring.
 9. When the above land and nothing references `legacy/server_v2/`: `git rm -r legacy/server_v2/`.
 
@@ -196,7 +196,7 @@ Each item gets the usual spec → plan → subagent-driven execution cycle; spec
 
 `server_v2/` is at `legacy/server_v2/` — not deployed, not in CI, not referenced by active config or the Flutter client. `server/` (Bubbles Brain API v5) is the primary backend. The `legacy/` copy stays on disk **only** as the reference for §2 (contract) and §4 (deltas) until §6 is complete; then it is deleted.
 
-The live-deployment cutover (stand up v5 on a subdomain, flip the Flutter `kUseApiV5` flag, 48 h soak, repoint DNS) is documented step-by-step in `Documentation/server-blueprint.md` §18 — that's the ops rollout. The repo-side retirement (move + de-reference) is already done; the *functional* retirement waits on §6 — **H1–H8 landed 2026-05-12** (H6 partial; plus the worker-dispatch fix), remaining: **H9–H14** (ops/hygiene) and **H6b** (profile `stats{}`, quest missions, live-loop XP wiring).
+The live-deployment cutover (stand up v5 on a subdomain, flip the Flutter `kUseApiV5` flag, 48 h soak, repoint DNS) is documented step-by-step in `Documentation/server-blueprint.md` §18 — that's the ops rollout. The repo-side retirement (move + de-reference) is already done; the *functional* retirement waits on §6 — **H1–H9, H12, H14 landed 2026-05-12** (H6 partial; plus the worker-dispatch fix), remaining: **H10/H11/H13** (need a CI workflow to be created first) and **H6b** (profile `stats{}`, quest missions, live-loop XP wiring).
 
 ### Done so far (v5 port batches)
 
