@@ -6,7 +6,7 @@ of being silently dropped.
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any, Literal
 from uuid import UUID
 
@@ -220,3 +220,112 @@ class CheckUserTurnResponse(_Base):
 class UserMistakesResponse(_Base):
     items: list[MistakeOut]
     counts: dict[str, int]
+
+
+# --- gamification ----------------------------------------------------------
+
+
+class AchievementOut(_Base):
+    id: UUID
+    code: str | None
+    title: str
+    description: str | None
+    icon: str
+    category: str
+    tier: str | None
+    awarded_at: datetime
+
+
+class XpEntryOut(_Base):
+    amount: int
+    source_type: str
+    description: str | None
+    created_at: datetime
+
+
+class GamificationProfile(_Base):
+    user_id: UUID
+    xp: int
+    level: int
+    xp_into_level: int
+    xp_to_next_level: int
+    xp_progress_pct: float
+    current_streak: int
+    longest_streak: int
+    streak_freezes: int
+    last_active_date: date | None
+    badges: list[AchievementOut]
+    recent_xp: list[XpEntryOut]
+
+
+class UserQuestOut(_Base):
+    id: UUID
+    quest_id: UUID
+    progress: int
+    target: int
+    is_completed: bool
+    assigned_date: date
+    completed_at: datetime | None
+
+
+class DailyQuestsResponse(_Base):
+    quests: list[UserQuestOut]
+    daily_reset_at: datetime
+    total_completed_today: int
+    total_quests_today: int
+
+
+class RewardOut(_Base):
+    id: UUID
+    title: str
+    description: str | None
+    icon: str
+    category: str
+    cost_xp: int
+    sort_order: int
+    affordable: bool
+    owned: bool
+
+
+class RewardCatalogResponse(_Base):
+    balance_xp: int
+    rewards: list[RewardOut]
+
+
+class RewardRedeemRequest(_Base):
+    reward_id: UUID
+
+
+class RewardRedeemResponse(_Base):
+    reward_id: UUID
+    cost_xp: int
+    unlocked_at: datetime
+    balance_xp: int
+
+
+class LeaderboardEntry(_Base):
+    user_id: UUID
+    xp: int
+    level: int
+    current_streak: int
+    rank: int
+
+
+class LeaderboardMe(_Base):
+    rank: int | None
+    xp: int
+
+
+class LeaderboardResponse(_Base):
+    period: Literal["all", "daily", "weekly", "monthly"]
+    entries: list[LeaderboardEntry]
+    me: LeaderboardMe
+
+
+class OptInRequest(_Base):
+    opt_in: bool
+
+
+class OptInResponse(_Base):
+    user_id: UUID
+    leaderboard_opt_in: bool
