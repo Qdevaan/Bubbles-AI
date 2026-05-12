@@ -73,14 +73,28 @@ async def recent(
     return [_row(r) for r in rows]
 
 
-async def sum_since(conn: asyncpg.Connection, *, user_id: UUID, since: datetime) -> int:
+async def sum_since(
+    conn: asyncpg.Connection,
+    *,
+    user_id: UUID,
+    since: datetime,
+    exclude_source_types: frozenset[str] = frozenset(),
+) -> int:
+    """Sum positive XP awarded to ``user_id`` since ``since``.
+
+    ``exclude_source_types`` lets the daily-cap check ignore exempt sources
+    (quests, achievements, streak milestones) so they neither consume the cap
+    nor are limited by it.
+    """
     val: int | None = await conn.fetchval(
         """
         SELECT COALESCE(SUM(amount), 0)::int
         FROM xp_transactions
         WHERE user_id = $1 AND amount > 0 AND created_at >= $2
+          AND ($3::text[] = '{}' OR source_type <> ALL($3::text[]))
         """,
         user_id,
         since,
+        list(exclude_source_types),
     )
     return val or 0

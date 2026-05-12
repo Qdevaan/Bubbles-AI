@@ -69,6 +69,15 @@ async def enqueue_compute_embeddings(arq: ArqRedis, *, user_id: str) -> Any:
     )
 
 
+async def enqueue_detect_achievements(arq: ArqRedis, *, user_id: str) -> Any:
+    return await arq.enqueue_job(
+        "run",
+        _job_name="detect_achievements",
+        user_id=user_id,
+        _job_id=f"achievements:{user_id}",
+    )
+
+
 async def enqueue_speaker_enroll(arq: ArqRedis, *, user_id: str, audio_b64: str) -> Any:
     # One enrolment in flight per user; a re-enrol while one is queued is a no-op.
     return await arq.enqueue_job(

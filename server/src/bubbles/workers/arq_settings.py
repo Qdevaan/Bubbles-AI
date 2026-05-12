@@ -24,6 +24,7 @@ from bubbles.settings import Settings, get_settings
 from bubbles.workers.jobs import (
     compute_embeddings,
     compute_session_analytics,
+    detect_achievements,
     extract_knowledge,
     grammar_scan,
     seed_quests,
@@ -87,6 +88,7 @@ _JOB_REGISTRY: dict[str, Any] = {
     "grammar_scan": grammar_scan.run,
     "speaker_enroll": speaker_enroll.run,
     "speaker_identify": speaker_identify.run,
+    "detect_achievements": detect_achievements.run,
 }
 
 

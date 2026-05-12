@@ -125,15 +125,18 @@ Still cron-only on the *worker* side beyond these: `seed_quests`, `send_reminder
 
 **Fixed.** `ai/extraction._truncate` (last-4 KB hard slice) is gone. New `prepare_transcript(router, transcript)`: passes through anything ≤ 32 KB verbatim; longer transcripts are split on line boundaries (~16 KB chunks), each chunk condensed by the LLM (`wingman/condense_segment.jinja` → `[Segment N] …`), the join re-condensed up to 3 passes if still over budget, and only hard-clipped as a last resort (single un-splittable segment / pass cap). A failed segment falls back to its clipped raw text. The `compute_session_analytics` and `extract_knowledge` workers call `prepare_transcript` **once** and feed the result to all the extraction prompts; turn/word-count metrics still use the **raw** transcript. Tests: `prepare_transcript` / `_split_on_line_boundaries` cases in `tests/unit/test_extraction.py`.
 
-### H6 (P2) — Gamification parity gaps
+### H6 (P2) — Gamification parity gaps — **mostly DONE (2026-05-12)**
 
-- `add_xp` is idempotent on `source_id` but does **not** apply v2's automated daily XP cap (500), streak-milestone bursts, or first-action-today bonus.
-- Streak counters (`current_streak`, `longest_streak`, `streak_freezes`) are read by the profile endpoint but **nothing increments them**.
-- No achievement-detection worker → `user_achievements` stays empty → `badges[]` always `[]`.
-- The profile omits v2's `stats{}` block.
-- Quest **mission** endpoints (`POST /quests/{uid}/{uqid}/answer` for question-set missions, `POST /quests/{uid}/{uqid}/attach_session` for conversation missions) are not ported — daily quests are auto-assigned but most can't be completed.
+Done:
+- **Daily XP cap (500)** — `add_xp` now clamps an award so the user's combined automated XP for the current UTC day stays ≤ `DAILY_AUTOMATED_XP_CAP`. Exempt sources (`quest`, `achievement`, `streak_milestone`) pass `capped=False` and are never limited; `xp_repo.sum_since` gained an `exclude_source_types` arg so the cap budget ignores them. (First-action-today bonus is now just a convention: award with a `source_id=first_today_<uid>_<date>` — `add_xp`'s ledger dedup makes it once-per-day. Not given a dedicated helper.)
+- **Streak increments + milestone bonuses** — `gamification_repo.update_streak(conn, *, user_id, today=None)`: consecutive day → +1; one-day gap with a freeze → +1 and consume a freeze; otherwise reset to 1; bumps `longest_streak`; on hitting {7,14,30,60,100,365} days awards a one-off `streak_milestone` bonus (cap-exempt, idempotent per milestone). Wired into `start_session` (separate transaction, best-effort) — call it before any XP since `add_xp` stamps `last_active_date`.
+- **Achievement-detection worker** — `workers/jobs/detect_achievements.py`: computes the user's stats (xp, level, streaks, sessions/memories/entities/quests-completed/mistakes counts), evaluates each un-earned `achievements` row's `criteria_type`/`criteria_value`, inserts `user_achievements` (unique-constrained) and awards `xp_reward` (cap-exempt, deduped on the achievement id). Registered in the worker; `enqueue_detect_achievements` helper; enqueued from `end_session`. `achievements_repo` gained `list_unearned` / `award`.
+- Tests: `tests/integration/test_gamification_h6.py` (cap clamping, streak rules incl. freeze + milestone, achievement worker idempotency).
 
-**Patch:** one "XP-award worker + gamification completeness" batch covering all of the above.
+**Still open (H6b):**
+- Profile **`stats{}` block** — the `GET /v1/gamification/{user_id}` response still omits v2's aggregate `stats{}` (total sessions / memories / entities / mistakes / etc.). Cheap to add — a few count queries (the worker's `_compute_stats` already has them).
+- Quest **mission** endpoints — `POST /quests/{uid}/{uqid}/answer` (question-set missions) and `POST /quests/{uid}/{uqid}/attach_session` (conversation missions) still not ported, so most daily quests can be auto-assigned but not completed. `quest_definitions.mission_type` + `brief` already exist; `increment_quest_progress` exists; needs the two routes + the answer-checking logic.
+- XP awards aren't yet wired into the live loops (entity-extraction XP, "use wingman turns" / "save memory" quest progress) — `process_transcript_wingman` could call `add_xp` / `increment_quest_progress` but doesn't.
 
 ### H7 (P2) — `performance_summary/{user_id}` not ported
 
@@ -177,8 +180,8 @@ The 5 testcontainers suites are gated behind `RUN_INTEGRATION=1` + the docker SD
 2. ~~**H2 + H3 — per-turn store + `process_transcript_wingman`.**~~ **Done 2026-05-12.** `session_logs` (Alembic `0004`), `db/repo/session_logs.py`, `POST /v1/log_turn`, `GET /v1/session_replay/{id}`, `POST /v1/process_transcript_wingman`, `end_session` assembles from rows. Spec: `docs/superpowers/specs/2026-05-12-v5-port-h2-h3-turn-store-wingman-design.md`. Follow-ups: analytics worker to read `session_logs` for the per-turn columns; turn-level sentiment scan; rolling-summary; multiplayer turns.
 3. ~~**H4 — speaker `enroll` / `identify_speaker` routes**~~ **Done 2026-05-12.** Also fixed the worker dispatch (colliding `run` registrations → single `_job_name` dispatcher) — the prerequisite for any enqueued job actually running.
 4. ~~**H5 — stop truncating the coaching transcript.**~~ **Done 2026-05-12.** `prepare_transcript` (map-reduce condense for long transcripts) replaces the 4 KB tail-slice.
-5. **H6 — XP-award worker + gamification completeness** (caps, streaks, achievements, `stats{}`, quest mission endpoints).  ← next
-6. **H7 — `performance_summary/{user_id}`**; **H8 — `backfill_session_entities` job** (after H1).
+5. ~~**H6 — XP-award worker + gamification completeness.**~~ **Mostly done 2026-05-12** — daily XP cap, streak increments + milestone bonuses (wired into `start_session`), achievement-detection worker (enqueued from `end_session`). **H6b remaining:** profile `stats{}` block, quest-mission endpoints (`answer` / `attach_session`), XP wiring into the live loops.
+6. **H7 — `performance_summary/{user_id}`**; **H8 — `backfill_session_entities` job** (after H1).  ← next
 7. **H9–H14 — ops/hygiene:** ElevenLabs fallback, ARQ DLQ + alert, k6 nightly, confirm CI runs integration suites, schema-drift CI job, the H14 nits.
 8. When the above land and nothing references `legacy/server_v2/`: `git rm -r legacy/server_v2/`.
 
@@ -190,7 +193,7 @@ Each item gets the usual spec → plan → subagent-driven execution cycle; spec
 
 `server_v2/` is at `legacy/server_v2/` — not deployed, not in CI, not referenced by active config or the Flutter client. `server/` (Bubbles Brain API v5) is the primary backend. The `legacy/` copy stays on disk **only** as the reference for §2 (contract) and §4 (deltas) until §6 is complete; then it is deleted.
 
-The live-deployment cutover (stand up v5 on a subdomain, flip the Flutter `kUseApiV5` flag, 48 h soak, repoint DNS) is documented step-by-step in `Documentation/server-blueprint.md` §18 — that's the ops rollout. The repo-side retirement (move + de-reference) is already done; the *functional* retirement waits on §6 — **H1–H5 landed 2026-05-12** (plus the worker-dispatch fix), next is **H6** (gamification completeness: XP cap, streaks, achievement worker, `stats{}`, quest missions).
+The live-deployment cutover (stand up v5 on a subdomain, flip the Flutter `kUseApiV5` flag, 48 h soak, repoint DNS) is documented step-by-step in `Documentation/server-blueprint.md` §18 — that's the ops rollout. The repo-side retirement (move + de-reference) is already done; the *functional* retirement waits on §6 — **H1–H5 + most of H6 landed 2026-05-12** (plus the worker-dispatch fix), next is **H7/H8** (`performance_summary` route + `backfill_session_entities` job), then **H6b** (profile `stats{}`, quest missions) and **H9–H14**.
 
 ### Done so far (v5 port batches)
 

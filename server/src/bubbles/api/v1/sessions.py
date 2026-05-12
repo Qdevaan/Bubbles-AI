@@ -22,12 +22,14 @@ from bubbles.api.v1._schemas import (
 from bubbles.auth.current_user import CurrentUserDep, require_ownership
 from bubbles.core.errors import NotFound
 from bubbles.core.logging import get_logger
+from bubbles.db.repo import gamification as gamification_repo
 from bubbles.db.repo import session_logs as session_logs_repo
 from bubbles.db.repo import sessions as sessions_repo
 from bubbles.db.uow import UnitOfWork, transaction
 from bubbles.deps import ArqDep, PoolDep, RouterDep
 from bubbles.workers.enqueue import (
     enqueue_compute_embeddings,
+    enqueue_detect_achievements,
     enqueue_extract_knowledge,
     enqueue_session_analytics,
 )
@@ -48,6 +50,7 @@ async def _enqueue_post_session_jobs(
             arq, user_id=user_id, session_id=session_id, transcript=transcript
         )
         await enqueue_compute_embeddings(arq, user_id=user_id)
+        await enqueue_detect_achievements(arq, user_id=user_id)
     except Exception as exc:
         log.warning("post_session_enqueue_failed", error=str(exc), session_id=session_id)
 
@@ -76,6 +79,13 @@ async def start_session(
             idempotency_key=body.idempotency_key,
             session_context=body.session_context,
         )
+    # Daily streak ticks on first activity of the day. Separate transaction so a
+    # streak hiccup can't roll back (or block) the session create.
+    try:
+        async with UnitOfWork(pool) as uow2:
+            await gamification_repo.update_streak(uow2.conn, user_id=UUID(user.id))
+    except Exception as exc:
+        log.warning("update_streak_failed", error=str(exc), user_id=user.id)
     return _to_out(sess)
 
 

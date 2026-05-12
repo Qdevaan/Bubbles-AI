@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import UTC, date, datetime, time, timedelta
 from uuid import UUID
 
 import asyncpg
@@ -15,6 +15,20 @@ from bubbles.db.models import (
     UserReward,
 )
 from bubbles.db.repo import xp as xp_repo
+
+# Automated XP sources (sessions, extraction, …) can earn at most this much per
+# UTC day combined. Quests, achievements and streak milestones are exempt.
+DAILY_AUTOMATED_XP_CAP = 500
+_CAP_EXEMPT_SOURCES = frozenset({"quest", "achievement", "streak_milestone"})
+
+# Streak length → one-off bonus XP (exempt from the daily cap; idempotent per
+# user per milestone via the ledger source_id).
+_STREAK_MILESTONE_BONUS: dict[int, int] = {7: 50, 14: 100, 30: 250, 60: 500, 100: 1000, 365: 5000}
+
+
+def _utc_day_start(today: date) -> datetime:
+    return datetime.combine(today, time.min, tzinfo=UTC)
+
 
 _GAMIF_COLS = """
     user_id, total_xp, level, current_streak, longest_streak, streak_freezes,
@@ -138,13 +152,29 @@ async def add_xp(
     source_type: str = "manual",
     source_id: str | None = None,
     description: str | None = None,
+    capped: bool = True,
 ) -> UserGamification:
     """Award XP. Writes an ``xp_transactions`` ledger row first; if that row was
     deduped (same ``source_id`` already awarded) the ``user_gamification`` total
     is left unchanged — making repeated awards with the same ``source_id`` a no-op.
+
+    When ``capped`` (the default for automated sources), the awarded amount is
+    clamped so the user's combined automated XP for the current UTC day does not
+    exceed ``DAILY_AUTOMATED_XP_CAP``. Exempt sources (quests, achievements,
+    streak milestones) pass ``capped=False`` and are never limited.
     """
     if amount < 0:
         raise ValueError("amount must be non-negative")
+    if capped and amount > 0:
+        earned_today = await xp_repo.sum_since(
+            conn,
+            user_id=user_id,
+            since=_utc_day_start(datetime.now(tz=UTC).date()),
+            exclude_source_types=_CAP_EXEMPT_SOURCES,
+        )
+        amount = max(0, min(amount, DAILY_AUTOMATED_XP_CAP - earned_today))
+    if amount == 0:
+        return await get_or_init_gamification(conn, user_id)
     ledger_row = await xp_repo.record(
         conn,
         user_id=user_id,
@@ -171,6 +201,63 @@ async def add_xp(
     )
     assert row is not None
     return _gamif(row)
+
+
+async def update_streak(
+    conn: asyncpg.Connection, *, user_id: UUID, today: date | None = None
+) -> UserGamification:
+    """Advance the user's daily streak; award a milestone bonus when one is hit.
+
+    Call this once per day at the start of activity (e.g. ``start_session``),
+    *before* any XP is awarded — ``add_xp`` stamps ``last_active_date`` to
+    today, which this function reads to decide whether today already counted.
+    Rules: consecutive day → +1; one-day gap with a freeze available → +1 and
+    consume a freeze; otherwise → reset to 1.
+    """
+    g = await get_or_init_gamification(conn, user_id)
+    day = today or datetime.now(tz=UTC).date()
+    last = g.last_active_date
+    if last == day:
+        return g
+    freezes = g.streak_freezes
+    if last == day - timedelta(days=1):
+        new_streak = g.current_streak + 1
+    elif last is not None and last == day - timedelta(days=2) and freezes > 0:
+        new_streak = g.current_streak + 1
+        freezes -= 1
+    else:
+        new_streak = 1
+    longest = max(g.longest_streak, new_streak)
+    row = await conn.fetchrow(
+        f"""
+        UPDATE user_gamification
+        SET current_streak = $2, longest_streak = $3, streak_freezes = $4,
+            last_active_date = $5, updated_at = NOW()
+        WHERE user_id = $1
+        RETURNING {_GAMIF_COLS}
+        """,
+        user_id,
+        new_streak,
+        longest,
+        freezes,
+        day,
+    )
+    assert row is not None
+    updated = _gamif(row)
+    bonus = _STREAK_MILESTONE_BONUS.get(new_streak)
+    if bonus:
+        updated = await add_xp(
+            conn,
+            user_id=user_id,
+            amount=bonus,
+            source_type="streak_milestone",
+            source_id=f"streak_{user_id}_{new_streak}",
+            description=f"{new_streak}-day streak",
+            capped=False,
+        )
+        # Re-fetch streak fields since add_xp returns its own gamification row
+        # (which has the streak we just wrote — add_xp doesn't touch streaks).
+    return updated
 
 
 async def set_leaderboard_opt_in(

@@ -1,4 +1,4 @@
-"""achievements / user_achievements repo (read-only for now)."""
+"""achievements / user_achievements repo."""
 
 from __future__ import annotations
 
@@ -42,3 +42,34 @@ async def list_for_user(conn: asyncpg.Connection, *, user_id: UUID) -> list[User
         user_id,
     )
     return [UserBadge(achievement=_achievement(r), awarded_at=r["awarded_at"]) for r in rows]
+
+
+async def list_unearned(conn: asyncpg.Connection, *, user_id: UUID) -> list[Achievement]:
+    """Achievement definitions the user has not been awarded yet."""
+    rows = await conn.fetch(
+        f"""
+        SELECT {_A_COLS}, NULL::timestamptz AS awarded_at
+        FROM achievements a
+        WHERE NOT EXISTS (
+            SELECT 1 FROM user_achievements ua
+            WHERE ua.achievement_id = a.id AND ua.user_id = $1
+        )
+        """,
+        user_id,
+    )
+    return [_achievement(r) for r in rows]
+
+
+async def award(conn: asyncpg.Connection, *, user_id: UUID, achievement_id: UUID) -> bool:
+    """Insert a ``user_achievements`` row. Returns ``False`` if already present."""
+    row = await conn.fetchrow(
+        """
+        INSERT INTO user_achievements (user_id, achievement_id)
+        VALUES ($1, $2)
+        ON CONFLICT (user_id, achievement_id) DO NOTHING
+        RETURNING id
+        """,
+        user_id,
+        achievement_id,
+    )
+    return row is not None
