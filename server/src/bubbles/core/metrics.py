@@ -92,6 +92,12 @@ arq_queue_depth = Gauge(
     registry=REGISTRY,
 )
 
+arq_dead_letter_queue_size = Gauge(
+    "bubbles_arq_dead_letter_queue_size",
+    "Jobs that exhausted all retries (length of the Redis dead-letter list).",
+    registry=REGISTRY,
+)
+
 
 def render() -> tuple[bytes, str]:
     """Return the (body, content_type) tuple for ``/metrics``."""

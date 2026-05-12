@@ -22,6 +22,9 @@ router = APIRouter(tags=["ops"])
 log = get_logger(__name__)
 
 _security = HTTPBasic(auto_error=False)
+# Mirrors workers.arq_settings.DEAD_LETTER_KEY (kept here to avoid importing the
+# worker module — and its AI stack — into the API process).
+_ARQ_DEAD_LETTER_KEY = "arq:dead_letter"
 
 
 def _check_metrics_auth(creds: HTTPBasicCredentials | None, settings: Settings) -> None:
@@ -62,6 +65,13 @@ async def metrics_endpoint(request: Request) -> Response:
             m.db_pool_size.set(pool.get_max_size())
         except Exception as exc:
             log.warning("metrics_pool_probe_failed", error=str(exc))
+
+    redis = getattr(request.app.state, "redis", None)
+    if redis is not None:
+        try:
+            m.arq_dead_letter_queue_size.set(int(await redis.llen(_ARQ_DEAD_LETTER_KEY)))
+        except Exception as exc:
+            log.warning("metrics_dlq_probe_failed", error=str(exc))
 
     body, content_type = m.render()
     return Response(content=body, media_type=content_type)

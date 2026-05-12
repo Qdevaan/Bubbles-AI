@@ -64,6 +64,19 @@ groups:
           summary: "ARQ backlog > 500 for 5m"
           description: "Workers can't keep up. Scale workers or check failing job."
 
+      - alert: BubblesARQDeadLetterGrowing
+        expr: |
+          bubbles_arq_dead_letter_queue_size > 0
+        for: 5m
+        labels:
+          severity: warn
+        annotations:
+          summary: "{{ $value }} job(s) in the ARQ dead-letter queue"
+          description: >
+            Jobs have exhausted all retries (Redis list `arq:dead_letter`).
+            Inspect with `redis-cli LRANGE arq:dead_letter 0 -1`, fix the cause,
+            and clear the list once handled.
+
       - alert: BubblesCacheHitRateLow
         expr: |
           sum(rate(bubbles_cache_hits_total{outcome="hit"}[10m]))

@@ -155,21 +155,21 @@ Done:
 
 **Fixed.** `voice/tts.py` now has `synthesize_mp3(text, *, voice, settings)`: voice presets carrying an `elevenlabs_voice_id` (the `premium` / `premium-male` presets) are synthesised via the ElevenLabs API when `ELEVENLABS_API_KEY` is set; **any** failure (no key, bad voice, quota, network) transparently falls back to free Edge-TTS — same `AsyncIterator[bytes]` interface, callers don't know which engine ran. New settings: `elevenlabs_api_key`, `elevenlabs_model`. The `/v1/tts` route now calls `synthesize_mp3`. (`stream_mp3` kept as the Edge-only primitive.) Tests: `tests/unit/test_tts.py`.
 
-### H10 (P3) — No ARQ dead-letter queue
+### H10 (P3) — ~~No ARQ dead-letter queue~~ **DONE (2026-05-12)**
 
-Jobs are idempotent and retried, but there's no explicit DLQ and no alert on repeated failure. Add a DLQ + a Prometheus alert on `arq_jobs_failed`. **(Open — needs ops/monitoring wiring, not just code.)**
+**Fixed.** The job dispatcher (`arq_settings.run`) now catches handler exceptions; on the **final** retry (`job_try >= MAX_TRIES`, `MAX_TRIES=5`, set on `WorkerSettings`) it logs `job_dead_lettered` and pushes a JSON record `{job_name, kwargs, error, failed_at}` to the Redis list `arq:dead_letter` (capped at 1000), then re-raises so arq still records the failure. The API's `/metrics` exposes `bubbles_arq_dead_letter_queue_size` (LLEN probe on scrape), and `ops/alerts.yml` has a `BubblesARQDeadLetterGrowing` alert (`> 0` for 5m). Inspect with `redis-cli LRANGE arq:dead_letter 0 -1`; clear once handled. Tests: dead-letter cases in `tests/unit/test_worker_dispatch.py`.
 
-### H11 (P3) — k6 nightly load test not in CI
+### H11 (P3) — ~~k6 nightly load test not in CI~~ **DONE (2026-05-12)**
 
-`scripts/load_test.js` exists; wiring it into a scheduled GH Action needs a live staging URL — **and there is currently no `.github/workflows/` at all** (see H12). Open until CI exists.
+**Fixed.** `.github/workflows/load-test.yml` — nightly (03:00 UTC) + `workflow_dispatch`; runs the Locust scenario in `server/scripts/load_test.py` (`uv run --with locust locust … --headless -u 20 -r 5 -t 2m`) against `secrets.STAGING_URL` (and `secrets.STAGING_BUBBLES_TOKEN` for authed routes). **Skips cleanly** if `STAGING_URL` isn't configured. *(Note: the load scenario is Locust, not k6 as the original blueprint wording said — `scripts/load_test.py`, not a `.js` file.)*
 
-### H12 (P3) — Integration suites are opt-in — **partially addressed (2026-05-12)**
+### H12 (P3) — ~~Integration suites are opt-in / not in CI~~ **DONE (2026-05-12)**
 
-The testcontainers suites are gated behind `RUN_INTEGRATION=1` + the docker SDK; they auto-skip locally. **Fixed:** the integration `conftest` import used to *crash* under the strict `filterwarnings = ["error"]` config because testcontensers ≥ 4.x emits a `DeprecationWarning` (`@wait_container_is_ready`) at module load — added a targeted `ignore` so `pytest tests/integration` at least collects (109 tests). **Still open:** there is **no CI workflow** in the repo (`.github/workflows/` doesn't exist), so nothing runs the integration suites anywhere yet. Creating the CI workflow (with `RUN_INTEGRATION=1` + a Postgres service or testcontainers) is the real fix — covers H11/H13 too.
+The testcontainers suites are gated behind `RUN_INTEGRATION=1` + Docker; they auto-skip locally. Fixed earlier: the `conftest` import no longer crashes under `filterwarnings = ["error"]` (targeted ignore for testcontainers' `@wait_container_is_ready` DeprecationWarning). **Now also fixed:** `.github/workflows/ci.yml` has an `integration` job that runs `RUN_INTEGRATION=1 uv run pytest tests/integration` on `ubuntu-latest` (which ships Docker → testcontainers works), so the suites actually run on every push/PR.
 
-### H13 (P3) — No schema-drift guard; Alembic baseline is a no-op
+### H13 (P3) — Schema-drift guard / Alembic baseline is a no-op — **partially addressed (2026-05-12)**
 
-`0001` is a no-op against the live Supabase schema, so the migration chain has never been exercised against a from-scratch DB (note: `0005`'s `vector(192)` column needs the `vector` extension installed first), and divergence between the code's row models and the prod schema is caught only by code review (the `entities.is_archived` vs `deleted_at` near-miss is the cautionary tale). Add a CI job: install `vector`/`pgcrypto`, build the schema from Alembic head into a throwaway Postgres, diff it against `Documentation/db_schema.sql`, fail on drift. **(Open — needs the CI workflow from H12.)**
+`0001` is a no-op against the live Supabase schema, so the chain can't run against a *truly* empty DB (it references `auth.users`, `sessions`, `entities`, … that `0001` doesn't create). **What landed:** `ci.yml`'s `migrations` job installs `pgcrypto`/`vector`, applies the test baseline (`tests/integration/fixtures/baseline.sql` — the Supabase-equivalent base schema), then `alembic upgrade head` (verifies `0002…0005` apply on top), then `alembic downgrade base` → `alembic upgrade head` again (verifies every migration's `downgrade()` works — exactly the "new revisions must ship a working `downgrade()`" invariant). **Still open:** a *normalized diff against the live `Documentation/db_schema.sql`* — a literal `pg_dump` diff never matches prod (RLS, `auth` schema, `uuid_generate_v4` vs `gen_random_uuid`, extension placement), so this needs a tolerant column-inventory comparator. Lower priority now that migrations are exercised + round-tripped in CI.
 
 ### H14 (P3) — ~~Minor nits~~ **DONE (2026-05-12)**
 
@@ -187,8 +187,8 @@ The testcontainers suites are gated behind `RUN_INTEGRATION=1` + the docker SDK;
 4. ~~**H5 — stop truncating the coaching transcript.**~~ **Done 2026-05-12.** `prepare_transcript` (map-reduce condense for long transcripts) replaces the 4 KB tail-slice.
 5. ~~**H6 — XP-award worker + gamification completeness.**~~ **Done 2026-05-12** — daily XP cap, streaks + milestone bonuses (wired into `start_session`), achievement worker (enqueued from `end_session`); + H6b: profile `stats{}`, quest-mission endpoints (`answer` / `attach_session`), per-turn XP + quest progress in `process_transcript_wingman`.
 6. ~~**H7 — `performance_summary/{user_id}`**; **H8 — `backfill_session_entities` job**.~~ **Done 2026-05-12.**
-7. **H9–H14 — ops/hygiene:** ~~H9 ElevenLabs fallback~~, ~~H14 nits~~, H12 testcontainers-import fix — done. **Remaining: H10** (ARQ DLQ + alert), **H11** (k6 nightly), **H13** (schema-drift CI) — all need a `.github/workflows/` to be created first (none exists).  ← all that's left
-8. When the above land and nothing references `legacy/server_v2/`: `git rm -r legacy/server_v2/`.
+7. ~~**H9–H14 — ops/hygiene**~~ **Done 2026-05-12.** H9 ElevenLabs fallback; H14 nits; H10 ARQ dead-letter queue + `bubbles_arq_dead_letter_queue_size` metric + alert; H11 nightly Locust workflow (secret-gated); H12 testcontainers fix + `ci.yml` integration job; H13 *partial* — `ci.yml` `migrations` job applies + round-trips the chain on the baseline schema (the prod-schema diff is still a follow-up). New: `.github/workflows/ci.yml`, `.github/workflows/load-test.yml`.
+8. **Remaining:** the normalized prod-schema diff (part of H13), and then `git rm -r legacy/server_v2/` once nothing references it. The functional port — every v2 `/v1/*` endpoint — is complete.
 
 Each item gets the usual spec → plan → subagent-driven execution cycle; specs live in `docs/superpowers/specs/`.
 
@@ -198,7 +198,7 @@ Each item gets the usual spec → plan → subagent-driven execution cycle; spec
 
 `server_v2/` is at `legacy/server_v2/` — not deployed, not in CI, not referenced by active config or the Flutter client. `server/` (Bubbles Brain API v5) is the primary backend. The `legacy/` copy stays on disk **only** as the reference for §2 (contract) and §4 (deltas) until §6 is complete; then it is deleted.
 
-The live-deployment cutover (stand up v5 on a subdomain, flip the Flutter `kUseApiV5` flag, 48 h soak, repoint DNS) is documented step-by-step in `Documentation/server-blueprint.md` §18 — that's the ops rollout. The repo-side retirement (move + de-reference) is already done; the *functional* retirement is essentially done — **H1–H9, H6b, H12, H14 landed 2026-05-12** (plus the worker-dispatch fix); the whole v2 `/v1/*` surface is ported. All that's left is **H10/H11/H13** — ops/CI hygiene that needs a `.github/workflows/` to be created first (none exists). Once that's in and nothing references `legacy/server_v2/`, delete it.
+The live-deployment cutover (stand up v5 on a subdomain, flip the Flutter `kUseApiV5` flag, 48 h soak, repoint DNS) is documented step-by-step in `Documentation/server-blueprint.md` §18 — that's the ops rollout. The repo-side retirement (move + de-reference) is already done; the functional retirement is **done — H1–H14 + H6b landed 2026-05-12** (plus the worker-dispatch fix and the `ci.yml` / `load-test.yml` workflows); the whole v2 `/v1/*` surface is ported. The only follow-ups left are the normalized prod-schema diff (part of H13) and then `git rm -r legacy/server_v2/` once nothing references it.
 
 ### Done so far (v5 port batches)
 

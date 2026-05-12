@@ -7,6 +7,7 @@ same ``Settings`` instance so credentials / model choices stay in one place.
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
@@ -94,12 +95,46 @@ _JOB_REGISTRY: dict[str, Any] = {
 }
 
 
+MAX_TRIES = 5
+# Redis list jobs land in after exhausting MAX_TRIES — a dead-letter queue an
+# operator (or the API's /metrics, which exposes its length) can watch.
+DEAD_LETTER_KEY = "arq:dead_letter"
+_DEAD_LETTER_MAX = 1000
+
+
+async def _dead_letter(
+    ctx: dict[str, Any], *, job_name: str, kwargs: dict[str, Any], error: str
+) -> None:
+    redis = ctx.get("redis_aux")
+    if redis is None:
+        return
+    payload = json.dumps(
+        {
+            "job_name": job_name,
+            "kwargs": {k: str(v)[:500] for k, v in kwargs.items()},
+            "error": error[:1000],
+            "failed_at": datetime.now(tz=UTC).isoformat(),
+        }
+    )
+    try:
+        await redis.rpush(DEAD_LETTER_KEY, payload)
+        await redis.ltrim(DEAD_LETTER_KEY, -_DEAD_LETTER_MAX, -1)
+    except Exception as exc:
+        log.warning("dead_letter_write_failed", error=str(exc))
+
+
 async def run(ctx: dict[str, Any], *, _job_name: str, **kwargs: Any) -> Any:
-    """Dispatch an enqueued job to its handler by name."""
+    """Dispatch an enqueued job to its handler by name; dead-letter on final failure."""
     handler = _JOB_REGISTRY.get(_job_name)
     if handler is None:
         raise ValueError(f"unknown job: {_job_name!r}")
-    return await handler(ctx, **kwargs)
+    try:
+        return await handler(ctx, **kwargs)
+    except Exception as exc:
+        if int(ctx.get("job_try", 1) or 1) >= MAX_TRIES:
+            log.error("job_dead_lettered", job_name=_job_name, error=str(exc))
+            await _dead_letter(ctx, job_name=_job_name, kwargs=kwargs, error=str(exc))
+        raise
 
 
 functions = [run]
@@ -129,6 +164,7 @@ class WorkerSettings:
     on_startup = _on_startup
     on_shutdown = _on_shutdown
     max_jobs = 10
+    max_tries = MAX_TRIES
     job_timeout = 60
     keep_result = 600
     health_check_interval = 30
