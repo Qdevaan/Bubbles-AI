@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 
+from bubbles.api.v1.analytics import router as analytics_router
 from bubbles.api.v1.consultant import router as consultant_router
 from bubbles.api.v1.entities import router as entities_router
 from bubbles.api.v1.gamification import router as gamification_router
@@ -17,6 +18,7 @@ from bubbles.api.v1.voice import router as voice_router
 v1_router = APIRouter(prefix="/v1")
 v1_router.include_router(sessions_router)
 v1_router.include_router(consultant_router)
+v1_router.include_router(analytics_router)
 v1_router.include_router(entities_router)
 v1_router.include_router(gamification_router)
 v1_router.include_router(memories_router)
