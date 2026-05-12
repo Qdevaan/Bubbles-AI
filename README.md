@@ -246,6 +246,13 @@ Versioned business endpoints:
   - `DELETE /v1/entities/{entity_id}`
   - `DELETE /v1/sessions/{session_id}`
   - `DELETE /v1/memories/{memory_id}`
+- Gamification
+  - `GET /v1/gamification/{user_id}`
+  - `GET /v1/quests/{user_id}`
+  - `GET /v1/rewards/{user_id}`
+  - `POST /v1/rewards/{user_id}/redeem`
+  - `GET /v1/leaderboard`
+  - `POST /v1/leaderboard/{user_id}/opt_in`
 
 ## Database
 
