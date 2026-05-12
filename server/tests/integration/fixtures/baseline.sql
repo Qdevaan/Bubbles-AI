@@ -187,6 +187,7 @@ CREATE UNIQUE INDEX idx_xp_transactions_dedup
     ON xp_transactions (user_id, source_type, source_id) WHERE source_id IS NOT NULL;
 CREATE INDEX idx_xp_transactions_user_time ON xp_transactions (user_id, created_at DESC);
 CREATE INDEX idx_xp_transactions_period ON xp_transactions (created_at, user_id) WHERE amount > 0;
+CREATE INDEX idx_xp_transactions_user ON xp_transactions (user_id, source_type, created_at);
 
 CREATE TABLE achievements (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),

@@ -37,9 +37,12 @@ async def record(
 
     Returns ``None`` when a row with the same ``(user_id, source_type, source_id)``
     already exists (idempotent re-award). The dedup unique index only covers
-    rows where ``source_id IS NOT NULL``, so a ``None`` ``source_id`` always
-    inserts. ``amount`` must be non-negative — XP *spend* is tracked separately
-    via ``user_gamification.xp_spent``.
+    rows where ``source_id IS NOT NULL`` (partial index
+    ``idx_xp_transactions_dedup``), so a ``None`` ``source_id`` always inserts.
+    The ``WHERE source_id IS NOT NULL`` predicate in the ``ON CONFLICT`` clause
+    must match the partial index's predicate — PostgreSQL requires this to use a
+    partial index as an ``ON CONFLICT`` arbiter. ``amount`` must be non-negative
+    — XP *spend* is tracked separately via ``user_gamification.xp_spent``.
     """
     if amount < 0:
         raise ValueError("amount must be non-negative")
@@ -47,7 +50,7 @@ async def record(
         f"""
         INSERT INTO xp_transactions (user_id, amount, source_type, source_id, description)
         VALUES ($1, $2, $3, $4, $5)
-        ON CONFLICT (user_id, source_type, source_id) DO NOTHING
+        ON CONFLICT (user_id, source_type, source_id) WHERE source_id IS NOT NULL DO NOTHING
         RETURNING {_COLS}
         """,
         user_id,

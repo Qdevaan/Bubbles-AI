@@ -41,6 +41,8 @@ def upgrade() -> None:
             ON xp_transactions (user_id, created_at DESC);
         CREATE INDEX IF NOT EXISTS idx_xp_transactions_period
             ON xp_transactions (created_at, user_id) WHERE amount > 0;
+        CREATE INDEX IF NOT EXISTS idx_xp_transactions_user
+            ON xp_transactions (user_id, source_type, created_at);
 
         CREATE TABLE IF NOT EXISTS achievements (
             id             uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
