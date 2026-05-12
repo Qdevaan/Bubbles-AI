@@ -176,3 +176,45 @@ class UserReward:
     reward_id: UUID
     cost_xp: int
     unlocked_at: datetime
+
+
+@dataclass(frozen=True, slots=True)
+class XpTransaction:
+    id: UUID
+    user_id: UUID
+    amount: int
+    source_type: str
+    source_id: str | None
+    description: str | None
+    created_at: datetime
+
+
+@dataclass(frozen=True, slots=True)
+class Achievement:
+    id: UUID
+    code: str | None
+    title: str
+    description: str | None
+    icon: str
+    category: str
+    criteria_type: str
+    criteria_value: int
+    xp_reward: int
+    tier: str | None
+    created_at: datetime
+
+
+@dataclass(frozen=True, slots=True)
+class UserAchievement:
+    id: UUID
+    user_id: UUID
+    achievement_id: UUID
+    awarded_at: datetime
+
+
+@dataclass(frozen=True, slots=True)
+class UserBadge:
+    """View model: an earned achievement plus when it was awarded."""
+
+    achievement: Achievement
+    awarded_at: datetime
