@@ -21,10 +21,13 @@ from bubbles.api.v1._schemas import (
     UserMistakesResponse,
 )
 from bubbles.auth.current_user import CurrentUserDep
+from bubbles.core.logging import get_logger
 from bubbles.db.repo import grammar as grammar_repo
 from bubbles.db.uow import UnitOfWork, transaction
-from bubbles.deps import PoolDep, RouterDep
+from bubbles.deps import ArqDep, PoolDep, RouterDep
+from bubbles.workers.enqueue import enqueue_grammar_scan
 
+log = get_logger(__name__)
 router = APIRouter(tags=["grammar"])
 
 
@@ -53,9 +56,22 @@ async def check_user_turn(
     user: CurrentUserDep,
     llm_router: RouterDep,
     pool: PoolDep,
+    arq: ArqDep,
 ) -> CheckUserTurnResponse:
     payload = await correct_grammar(llm_router, body.text)
     mistakes = _normalise_mistakes(payload.get("mistakes") or [])
+
+    # Queue the deeper LanguageTool pass (source='lt'); complements the LLM pass.
+    if arq is not None:
+        try:
+            await enqueue_grammar_scan(
+                arq,
+                user_id=user.id,
+                session_id=str(body.session_id) if body.session_id else None,
+                text=body.text,
+            )
+        except Exception as exc:
+            log.warning("grammar_enqueue_failed", error=str(exc))
 
     if mistakes:
         async with UnitOfWork(pool) as uow:

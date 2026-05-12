@@ -31,6 +31,7 @@ from bubbles.core.tracing import configure_tracing
 from bubbles.db.pool import close_pool, create_pool
 from bubbles.db.pool import ping as ping_db
 from bubbles.settings import Settings, get_settings
+from bubbles.workers.client import make_arq_pool
 
 if TYPE_CHECKING:
     from fastapi import FastAPI
@@ -65,6 +66,13 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     db_ok = await ping_db(pool)
     log.info("db_ready", ok=db_ok)
 
+    try:
+        app.state.arq = await make_arq_pool(settings)
+        log.info("arq_ready", ok=True)
+    except Exception as exc:
+        app.state.arq = None
+        log.warning("arq_unavailable", error=str(exc))
+
     jwks = JWKSCache(str(settings.supabase_jwks_url))
     app.state.jwks = jwks
     await warm_jwks(jwks)
@@ -84,6 +92,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         bg: FireAndForget | None = getattr(app.state, "bg", None)
         if bg is not None:
             await bg.drain(timeout_s=10.0)
+        arq_pool = getattr(app.state, "arq", None)
+        if arq_pool is not None:
+            await arq_pool.aclose()
         await ai.http_client.aclose()
         await close_pool(pool)
         await redis_client.aclose()

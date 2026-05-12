@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from uuid import UUID
 
+from arq.connections import ArqRedis
 from fastapi import APIRouter, Response, status
 
 from bubbles.api.v1._schemas import (
@@ -17,11 +18,34 @@ from bubbles.api.v1._schemas import (
 )
 from bubbles.auth.current_user import CurrentUserDep, require_ownership
 from bubbles.core.errors import NotFound
+from bubbles.core.logging import get_logger
 from bubbles.db.repo import sessions as sessions_repo
 from bubbles.db.uow import UnitOfWork, transaction
-from bubbles.deps import PoolDep, RouterDep
+from bubbles.deps import ArqDep, PoolDep, RouterDep
+from bubbles.workers.enqueue import (
+    enqueue_compute_embeddings,
+    enqueue_extract_knowledge,
+    enqueue_session_analytics,
+)
 
+log = get_logger(__name__)
 router = APIRouter(tags=["sessions"])
+
+
+async def _enqueue_post_session_jobs(
+    arq: ArqRedis, *, user_id: str, session_id: str, transcript: str
+) -> None:
+    """Best-effort: a queue hiccup must not fail the ``end_session`` write."""
+    try:
+        await enqueue_session_analytics(
+            arq, user_id=user_id, session_id=session_id, transcript=transcript
+        )
+        await enqueue_extract_knowledge(
+            arq, user_id=user_id, session_id=session_id, transcript=transcript
+        )
+        await enqueue_compute_embeddings(arq, user_id=user_id)
+    except Exception as exc:
+        log.warning("post_session_enqueue_failed", error=str(exc), session_id=session_id)
 
 
 def _to_out(s: object) -> SessionOut:
@@ -70,6 +94,7 @@ async def end_session(
     body: EndSessionRequest,
     user: CurrentUserDep,
     pool: PoolDep,
+    arq: ArqDep,
 ) -> SessionOut:
     async with transaction(pool) as conn:
         existing = await sessions_repo.get(conn, body.session_id)
@@ -80,6 +105,13 @@ async def end_session(
         ended = await sessions_repo.end(uow.conn, session_id=body.session_id, summary=body.summary)
     if ended is None:
         raise NotFound("session not found")
+    if arq is not None and body.transcript:
+        await _enqueue_post_session_jobs(
+            arq,
+            user_id=str(existing.user_id),
+            session_id=str(body.session_id),
+            transcript=body.transcript,
+        )
     return _to_out(ended)
 
 

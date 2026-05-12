@@ -1,7 +1,8 @@
-"""DELETE /v1/sessions/{id} route integration tests."""
+"""DELETE /v1/sessions/{id} + end_session enqueue route integration tests."""
 
 from __future__ import annotations
 
+from typing import Any
 from uuid import UUID, uuid4
 
 import asyncpg
@@ -10,13 +11,23 @@ from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
 from bubbles.auth.current_user import CurrentUser, current_user
-from bubbles.deps import get_pool
+from bubbles.deps import get_arq, get_pool
 
 pytestmark = pytest.mark.integration
 
 
-def _override(app: FastAPI, pool: asyncpg.Pool, uid: UUID) -> None:
+class FakeArq:
+    def __init__(self) -> None:
+        self.calls: list[tuple[tuple[Any, ...], dict[str, Any]]] = []
+
+    async def enqueue_job(self, *args: Any, **kwargs: Any) -> str:
+        self.calls.append((args, kwargs))
+        return str(kwargs.get("_job_id", "job"))
+
+
+def _override(app: FastAPI, pool: asyncpg.Pool, uid: UUID, *, arq: FakeArq | None = None) -> None:
     app.dependency_overrides[get_pool] = lambda: pool
+    app.dependency_overrides[get_arq] = lambda: arq
     app.dependency_overrides[current_user] = lambda: CurrentUser(
         id=str(uid), email=None, role="authenticated"
     )
@@ -64,3 +75,45 @@ async def test_delete_other_users_session_403(
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://t") as ac:
         r = await ac.delete(f"/v1/sessions/{sid}")
     assert r.status_code == 403
+
+
+async def test_end_session_with_transcript_enqueues_jobs(
+    app: FastAPI, pool: asyncpg.Pool, user_id: UUID
+) -> None:
+    arq = FakeArq()
+    _override(app, pool, user_id, arq=arq)
+    sid = await _make_session(pool, user_id)
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://t") as ac:
+        r = await ac.post(
+            "/v1/end_session",
+            json={"session_id": str(sid), "transcript": "User: hi\nAI: hello"},
+        )
+    assert r.status_code == 200
+    names = [kw["_job_name"] for (_, kw) in arq.calls]
+    assert names == ["compute_session_analytics", "extract_knowledge", "compute_embeddings"]
+    assert all(kw.get("user_id") == str(user_id) for (_, kw) in arq.calls)
+
+
+async def test_end_session_without_transcript_enqueues_nothing(
+    app: FastAPI, pool: asyncpg.Pool, user_id: UUID
+) -> None:
+    arq = FakeArq()
+    _override(app, pool, user_id, arq=arq)
+    sid = await _make_session(pool, user_id)
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://t") as ac:
+        r = await ac.post("/v1/end_session", json={"session_id": str(sid)})
+    assert r.status_code == 200
+    assert arq.calls == []
+
+
+async def test_end_session_ok_when_queue_down(
+    app: FastAPI, pool: asyncpg.Pool, user_id: UUID
+) -> None:
+    _override(app, pool, user_id, arq=None)
+    sid = await _make_session(pool, user_id)
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://t") as ac:
+        r = await ac.post(
+            "/v1/end_session",
+            json={"session_id": str(sid), "transcript": "User: hi"},
+        )
+    assert r.status_code == 200

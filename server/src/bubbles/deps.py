@@ -14,6 +14,7 @@ from typing import Annotated, TypeVar
 
 import asyncpg
 import redis.asyncio as redis_async
+from arq.connections import ArqRedis
 from fastapi import Depends, Request
 
 from bubbles.ai.embeddings import EmbeddingService
@@ -56,9 +57,21 @@ def get_embeddings(request: Request) -> EmbeddingService:
     return _require(request, "embeddings", "embedding service", EmbeddingService)
 
 
+def get_arq(request: Request) -> ArqRedis | None:
+    """ARQ job-queue client, or ``None`` if the queue was unreachable at startup.
+
+    Unlike the other resources this never raises: enqueuing a follow-up job is
+    best-effort, so a degraded queue must not turn an otherwise-successful
+    write into a 503.
+    """
+    arq: ArqRedis | None = getattr(request.app.state, "arq", None)
+    return arq
+
+
 PoolDep = Annotated[asyncpg.Pool, Depends(get_pool)]
 RedisDep = Annotated[redis_async.Redis, Depends(get_redis)]
 CacheDep = Annotated[Cache, Depends(get_cache)]
 RateLimiterDep = Annotated[RateLimiter, Depends(get_ratelimiter)]
 RouterDep = Annotated[LLMRouter, Depends(get_router)]
 EmbeddingsDep = Annotated[EmbeddingService, Depends(get_embeddings)]
+ArqDep = Annotated[ArqRedis | None, Depends(get_arq)]

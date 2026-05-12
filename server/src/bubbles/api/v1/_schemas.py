@@ -42,6 +42,10 @@ class SessionOut(_Base):
 class EndSessionRequest(_Base):
     session_id: UUID
     summary: str | None = None
+    # Assembled conversation transcript ("Speaker: text" lines). When present,
+    # post-session jobs (analytics, knowledge extraction, embeddings) are
+    # enqueued. v5 has no per-turn store yet, so the client supplies it here.
+    transcript: str | None = Field(default=None, max_length=200_000)
 
 
 class SaveSessionRequest(_Base):

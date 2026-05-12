@@ -1,91 +1,192 @@
-# `server` (Bubbles Brain API v5) vs `server_v2` — Comparison Review
+# `server` (Bubbles Brain API v5) vs `server_v2` — Comparison & Gap Review
 
-**Date:** 2026-05-11 (retirement applied same day) • **Reviewer:** backend • **Verdict:** `server/` (Bubbles Brain API v5) is the primary backend. `server_v2/` is retired — moved to `legacy/server_v2/` for reference only, no longer deployed or maintained.
+**Date:** 2026-05-12 • **Reviewer:** backend • **Decision:** we are going with **`server/` (Bubbles Brain API v5)** as the sole backend. `server_v2/` is parked at `legacy/server_v2/` and will be **deleted once the v5 implementation is complete** (the work items in §6 land and nothing references it). Until then it stays on disk as the reference for the §2 API contract and the §4 behaviour deltas — it is not deployed, not in CI, not used by the Flutter client.
+
+This document is honest about where v5 is *not yet* a drop-in replacement. Read §5 and §6 before assuming a feature works.
 
 ---
 
-## 1. TL;DR
+## 1. TL;DR — architecture comparison
 
-| | `server_v2/` (current prod) | `server/` (v5, new) |
+| | `server_v2/` (legacy) | `server/` (v5 — chosen) |
 |---|---|---|
 | Framework | FastAPI, mixed sync/async handlers | FastAPI, **async-only** |
-| Python SLOC | ~10,490 (incl. tests) | ~6,214 src + ~1,823 tests = ~8,037 |
-| DB access | `supabase-py` (sync) singleton, called from async handlers | `asyncpg` pool via PgBouncer transaction mode, repo layer + UoW |
-| LLM calls | hand-rolled per-provider retry, no breaker | provider chain w/ circuit breaker + per-task fallback + budgets |
-| Streaming | none for consultant | SSE default (`?stream=false` for legacy JSON) |
-| Vector / embed | `sentence-transformers` MiniLM loaded at import (~400 MB RAM) | Gemini `text-embedding-004` + Redis content-hash cache; bge-small ONNX as offline fallback |
-| Graph | `networkx` per-user in-memory (lost on restart, not shared) | Postgres `entities` + `entity_relations`, rebuilt on demand |
-| STT | Deepgram (free trial only) | Groq Whisper-large-v3-turbo (free) + faster-whisper local fallback |
+| Python SLOC | ~10,490 (incl. tests) | ~6,300 src + ~2,000 tests |
+| DB access | `supabase-py` (sync) singleton called from async handlers | `asyncpg` pool via PgBouncer transaction mode; repository layer + Unit-of-Work |
+| LLM calls | hand-rolled per-provider retry, no breaker | `LLMRouter` provider chain (gemini → cerebras → groq) per task, circuit breaker, `fallback_depth` metric |
+| Streaming | none for consultant | SSE by default (`?stream=false` for legacy JSON) |
+| Vector / embed | `sentence-transformers` MiniLM loaded at import (~400 MB RAM) | Gemini `text-embedding-004` + Redis content-hash cache; bge-small ONNX offline fallback |
+| Graph | `networkx` per-user, in-memory (lost on restart, not shared) | Postgres `entities` + `entity_relations`, rebuilt into a per-request cache |
+| STT | Deepgram (paid after trial) | Groq Whisper-large-v3-turbo (free) + faster-whisper local fallback |
 | TTS | Deepgram REST | Edge-TTS (free, no key) |
-| Speaker ID | SpeechBrain loaded on request path (8–15 s cold start) | SpeechBrain in ARQ worker, lazy-loaded once per worker |
-| Background jobs | APScheduler in-process (dies with worker, no locking) | ARQ over Redis, idempotent (SETNX), separate worker container, cron |
-| Cache / RL | Redis optional + in-memory fallback (hides prod bugs) | Redis required; two-tier cache (TTLCache L1 + Redis L2); atomic Lua token-bucket |
-| Auth | `auth_guard` util, ownership checks repeated per route | single `CurrentUser` dependency + `require_ownership`; JWKS cached w/ cooldown; `DEBUG_SKIP_AUTH` aborts startup outside dev |
-| Errors | mixed; some upstream strings leak to clients | typed exceptions → fixed HTTP codes → stable `{error:{code,message,request_id}}` envelope; never leaks upstream text |
-| Observability | `print` + uvicorn access log | structlog JSON + Prometheus `/metrics` + Sentry + OpenTelemetry/OTLP + Logtail handler |
-| Config | pydantic-settings, `extra` allowed | pydantic-settings frozen, `extra` ignored, model-validator invariants (e.g. Sentry required in prod) |
-| Deploy | `deploy.sh` + compose on a VM, no zero-downtime | multi-stage distroless Dockerfile (runtime + worker targets), Caddy auto-TLS/HTTP3/SSE-safe, GH Actions build→GHCR→SSH deploy w/ Alembic migration gate, rolling restart |
-| Tests | ~20 files, route + service level, no integration container | 85 unit tests + 5 testcontainers integration suites; `ruff` clean; `mypy --strict` clean; coverage gate |
-| Migrations | ad-hoc `*.sql` files run by hand | Alembic (versioned, reversible); baseline `0001` is a no-op against existing Supabase schema |
+| Speaker ID | SpeechBrain loaded on the request path (8–15 s cold start) | SpeechBrain in an ARQ worker, lazy-loaded once per worker |
+| Background jobs | APScheduler in-process (dies with the worker, no locking) | ARQ over Redis, idempotent (`_job_id`), separate worker container, cron |
+| Cache / rate-limit | Redis optional + in-memory fallback (hides prod bugs) | Redis required; two-tier cache (TTLCache L1 + Redis L2); atomic Lua token-bucket |
+| Auth | `auth_guard` util, ownership checks repeated per route | one `CurrentUser` dependency + `require_ownership`; JWKS cached with cooldown; `DEBUG_SKIP_AUTH` aborts startup outside dev |
+| Errors | mixed; some upstream strings leak to clients | typed exceptions → fixed HTTP codes → `{error:{code,message,request_id}}` envelope; never leaks upstream text |
+| Observability | `print` + uvicorn access log | structlog JSON + Prometheus `/metrics` + Sentry + OpenTelemetry/OTLP + Logtail handler; Grafana dashboard + alerts in `ops/` |
+| Config | pydantic-settings, `extra` allowed | pydantic-settings frozen, `extra` ignored, model-validator invariants (Sentry required in prod, etc.) |
+| Deploy | `deploy.sh` + compose on a VM, no zero-downtime | multi-stage distroless Dockerfile (runtime + worker targets), Caddy auto-TLS/HTTP3/SSE-safe, GH Actions build→GHCR→SSH deploy with an Alembic migration gate, rolling restart |
+| Tests | ~20 files, route + service level, no integration container | unit suite + 5 testcontainers integration suites; `ruff` clean; `mypy --strict` clean; coverage gate |
+| Migrations | ad-hoc `*.sql` files run by hand | Alembic (versioned, reversible); baseline `0001` is a no-op against the existing Supabase schema |
+
+The architecture is unambiguously better in v5. The gap is **feature coverage and wiring**, covered below.
 
 ---
 
-## 2. What carried over unchanged (API contract)
+## 2. API contract carried over
 
-Same `/v1/*` paths and response shapes as `server_v2/`, so the Flutter client only needs a base-URL flip plus the handful of behaviour deltas in §4:
+Same `/v1/*` paths and response shapes as `server_v2/`, so the Flutter client mostly needs a base-URL flip plus the §4 deltas. Currently **registered** in v5:
 
-`/health/*`, `start_session`, `save_session`, `end_session`, `sessions/{id}/context`, `suggest_reply`, `ask_consultant`(+`/batch`), `ask`, `ask_entity`, `graph_export/{user_id}`, `entity_timeline/{entity_id}`, `DELETE entities|sessions|memories`, `check_user_turn`, `user_mistakes`, `me/persona` (GET/PUT), `getToken`, `process_audio`, `voice_command`, `tts`, `WS /v1/stt/stream`.
+`GET /health/{live,ready,deep}` · `GET /metrics` · `start_session` · `save_session` · `end_session` · `sessions/{id}/context` · `suggest_reply` · `DELETE sessions/{id}` · `ask_consultant`(+`/batch`) · `ask` · `ask_entity` · `graph_export/{user_id}` · `entity_timeline/{entity_id}` · `DELETE entities/{id}` · `DELETE memories/{id}` · `check_user_turn` · `user_mistakes` · `me/persona` (GET/PUT) · `getToken` · `process_audio` · `tts` · `voice_command` · `WS /v1/stt/stream` · `save_feedback` · `session_analytics/{id}` · `coaching_report/{id}` · `digest/{user_id}` · `communication_trends/{user_id}` · `gamification/{user_id}` · `quests/{user_id}` · `rewards/{user_id}`(+`/redeem`) · `leaderboard`(+`/{user_id}/opt_in`).
 
-Persona Jinja fragments (`casual`/`default`/`educator`/`learner`/`professional` + `_scenario_header`) ported verbatim from the old `server_v2/app/prompts/personas/` (now `legacy/server_v2/app/prompts/personas/`).
+Persona Jinja fragments (`casual`/`default`/`educator`/`learner`/`professional` + `_scenario_header`) and the analytics coaching system prompt are ported verbatim from the old `server_v2/app/prompts/`.
+
+**Not yet registered** (still only in `server_v2/`): `process_transcript_wingman`, `enroll`, `identify_speaker`, `session_replay/{session_id}`, `performance_summary/{user_id}`, the quest mission endpoints (`quests/{uid}/{uqid}/answer`, `.../attach_session`).
 
 ---
 
-## 3. Architectural improvements (why v5)
+## 3. Why v5 (the wins that are real today)
 
-1. **No blocking on the event loop.** `server_v2` calls sync `supabase-py` and loads ML models inside async handlers — those stalls block every other request on the worker. `server/` is async top to bottom; CPU/blocking work (LanguageTool JVM, SpeechBrain, embeddings backfill) runs in ARQ workers, never on the request path.
-2. **Stateless app processes.** `server_v2`'s per-user `networkx` graph and in-memory session store vanish on restart and aren't shared across workers. `server/` keeps all state in Postgres/Redis; graphs are rebuilt from `entities`/`entity_relations` into a per-request cache. Restart = no data loss, scale = trivial.
-3. **Provider failover with a circuit breaker.** `server_v2` retries a single provider and 500s when it's down. `server/`'s `LLMRouter` walks `[gemini → cerebras → groq]` (per task), trips a breaker on sustained errors, and reports `fallback_depth` as a metric. A provider outage degrades to a slightly slower answer, not an error.
-4. **One auth path.** Ownership checks were copy-pasted across `server_v2` routes (easy to miss → IDOR risk). `server/` has a single `CurrentUser` dependency and `require_ownership(user, owner_id)`; missing JWKS fails closed (401), not 500.
-5. **Fail-soft infra.** Missing DB/Redis in `server/` → `503 + Retry-After` (typed `UpstreamUnavailable`), not a 500 that leaks `RuntimeError("pool not initialised")`. Cache reads degrade to misses on Redis hiccups instead of throwing.
-6. **Cost.** Drops Deepgram (paid after trial) for Groq Whisper + Edge-TTS (both free); drops the 400 MB MiniLM blob from the image by defaulting embeddings to Gemini's free tier. Whole stack runs on Oracle Always-Free + Supabase free + Upstash free → $0/mo target (blueprint §3).
-7. **Operability.** `/metrics` (Prometheus), Sentry, OTLP traces, structured JSON logs with request-id/user-id, Grafana dashboard JSON + alert rules checked into `ops/`. `server_v2` has `print` and the uvicorn access log.
+1. **Nothing blocks the event loop.** No sync `supabase-py`, no ML model loads on the request path. CPU/blocking work (LanguageTool JVM, SpeechBrain, embeddings) is in ARQ workers.
+2. **Stateless app processes.** All state in Postgres/Redis; graphs rebuilt from `entities`/`entity_relations`. Restart = no data loss; horizontal scale is trivial.
+3. **Provider failover.** `LLMRouter` walks `[gemini → cerebras → groq]` per task, trips a breaker on sustained errors. A provider outage degrades to a slower answer, not a 500.
+4. **One auth path.** Single `CurrentUser` dependency + `require_ownership`; missing JWKS fails closed (401), not 500. No copy-pasted ownership checks to forget.
+5. **Fail-soft infra.** Missing DB/Redis → `503 + Retry-After` (typed `UpstreamUnavailable`), not a 500 leaking `RuntimeError("pool not initialised")`. Redis hiccups degrade to cache misses.
+6. **Cost.** Drops Deepgram for Groq Whisper + Edge-TTS (both free); drops the MiniLM blob by defaulting embeddings to Gemini's free tier. Oracle Always-Free + Supabase free + Upstash free → ~$0/mo target.
+7. **Operability.** `/metrics`, Sentry, OTLP traces, structured logs with request-id/user-id, Grafana dashboard + alert rules in `ops/`. `server_v2` has `print`.
 
 ---
 
 ## 4. Behaviour deltas the client must handle
 
-- `POST /v1/ask_consultant` → **SSE by default**. Pass `?stream=false` to keep the old single-JSON shape, or consume `event: token` / `event: done` (carries `finish`, `prompt_tokens`, `completion_tokens`); heartbeats arrive as `event: ping`.
-- `POST /v1/end_session` returns the updated session **synchronously**; title/summary/highlights now land **asynchronously** via the `compute_session_analytics` worker job — poll `GET /v1/session_analytics/{id}` or refresh on next open.
-- `POST /v1/ask_entity` is **graph-aware**: it extracts entities from the question first, looks them up in the user's graph, then prompts with that context. Returns `{answer, entities[], provider}` — render the cited entities (closes todos #12).
-- `WS /v1/stt/stream` emits `{"type":"final","text":...}` and `{"type":"error","message":...}` (was Deepgram's native event shape); token-gated via `?token=<jwt>`.
-- `POST /v1/check_user_turn` persists detected mistakes via the `user_mistakes` table (`source` ∈ `lt|llm`), surfaced by `GET /v1/user_mistakes` (now returns `{items[], counts{}}`).
+- `POST /v1/ask_consultant` → **SSE by default**. `?stream=false` keeps the old single-JSON shape; otherwise consume `event: token` / `event: done` (carries `finish`, `prompt_tokens`, `completion_tokens`); heartbeats are `event: ping`.
+- `POST /v1/end_session` returns the updated session **synchronously**, and now accepts an optional `transcript`. When the client supplies one, v5 enqueues `compute_session_analytics` (title/summary/highlights/coaching report/metrics row), `extract_knowledge` (`session_entities` links), and `compute_embeddings`. Title/summary/highlights are therefore produced **asynchronously** — poll `GET /v1/session_analytics/{id}` / `GET /v1/coaching_report/{id}` or refresh on next open. Omit `transcript` and no follow-up jobs run.
+- `POST /v1/ask_entity` is **graph-aware**: extracts entities from the question, looks them up in the user's graph, prompts with that context. Returns `{answer, entities[], provider}`.
+- `WS /v1/stt/stream` emits `{"type":"final","text":...}` / `{"type":"error","message":...}` (was Deepgram's native event shape); token-gated via `?token=<jwt>`.
+- `POST /v1/check_user_turn` persists detected mistakes (`user_mistakes`, `source ∈ lt|llm`); surfaced by `GET /v1/user_mistakes` → `{items[], counts{}}`.
+- `POST /v1/save_session` is currently a **read-only no-op** (fetch + return). In `server_v2` it persisted the transcript. v5 has no per-turn store yet (Hole H2), so there is nothing to save.
 
-No data migration: `server/` writes to the same Supabase DB as `server_v2/`. The only forward-only change is any *new* Alembic revision beyond `0001`; each must ship a working `downgrade()`.
-
----
-
-## 5. Known gaps / follow-ups (not blockers)
-
-> **Batch 1 (entity routes) — done.** `GET /v1/graph_export/{user_id}`, `GET /v1/entity_timeline/{entity_id}`, `DELETE /v1/sessions/{id}`, `DELETE /v1/memories/{id}` are implemented in v5 (the entity `DELETE` already existed), with JWT-derived ownership, soft deletes, pagination, and a real `session_entities` link table (Alembic `0002`) that the `extract_knowledge` worker now populates. See `docs/superpowers/specs/2026-05-11-v5-port-batch1-entity-routes-design.md`.
-
-> **Batch 2 (gamification HTTP) — done.** `GET /v1/gamification/{user_id}`, `GET /v1/quests/{user_id}` (auto-assigns 3 daily quests), `GET /v1/rewards/{user_id}` (catalog + balance + per-reward affordability/ownership), `POST /v1/rewards/{user_id}/redeem`, `GET /v1/leaderboard?period=all|daily|weekly|monthly&limit=`, `POST /v1/leaderboard/{user_id}/opt_in` are implemented in v5. New tables `xp_transactions` / `achievements` / `user_achievements` (Alembic `0003`, DDL mirrors the live Supabase schema); pure level-math in `bubbles/core/gamification.py`; `add_xp` is now ledger-aware and idempotent on `source_id`. See `docs/superpowers/specs/2026-05-12-v5-port-batch2-gamification-design.md`. Still pending, each per its own batch: quest mission types (`/quests/{uid}/{uqid}/answer` + `/attach_session`), analytics/performance reads, `performance_summary`, speaker `enroll`/`identify_speaker`, `process_transcript_wingman`.
-
-> **Batch 3 (analytics reads + feedback) — done.** `POST /v1/save_feedback` (idempotent on `idempotency_key`), `GET /v1/session_analytics/{session_id}`, `GET /v1/coaching_report/{session_id}`, `GET /v1/digest/{user_id}?period=day|week`, `GET /v1/communication_trends/{user_id}?weeks=N` are implemented in v5. The `compute_session_analytics` worker now also writes a `session_analytics` metrics row (turn/word counts parsed from the transcript; duration; memory/event/highlight counts) and an LLM-generated `coaching_reports` row (`analytics.coaching` task chain). No migration — `session_analytics` / `coaching_reports` / `feedback` already exist in the live Supabase schema. See `docs/superpowers/specs/2026-05-12-v5-port-batch3-analytics-design.md`.
-
-- **Backfill `session_entities`**: the link table (migration `0002`) is populated going forward by the `extract_knowledge` worker; sessions created before this change have no links yet — a one-off `backfill_session_entities` worker job is pending.
-- **Analytics follow-ups**: `GET /v1/session_replay/{session_id}` is not ported — it needs a per-turn store (`session_logs`), which v5 does not keep yet; bundle it with that work. The per-turn-derived `session_analytics` columns (`average_latency_ms`, `avg_advice_latency_ms`, `avg_sentiment_score`, `dominant_sentiment`) stay NULL and the `sentiment_trend` array stays empty until v5 captures per-turn latency/sentiment (a `sentiment_logs` writer). Nothing yet calls `enqueue_session_analytics` (end_session → enqueue) — wiring that trigger is a separate change.
-- **`performance_summary/{user_id}` endpoint**: not yet ported (later batch).
-- **Gamification follow-ups**: the two quest *mission* endpoints (`POST /quests/{uid}/{uqid}/answer` for question_set missions, `POST /quests/{uid}/{uqid}/attach_session` for conversation missions) are not ported yet; `add_xp` does not yet apply v2's automated daily XP cap (500), streak-milestone bursts, or first-action-today bonus (the idempotency mechanism is in place); no worker populates `user_achievements` yet, so `badges[]` stays empty until an achievement-detection job lands; the profile omits v2's `stats{}` block; streak counters (`current_streak`/`longest_streak`/`streak_freezes`) are read but nothing increments them yet — all of that is the future XP-award-worker batch.
-- **Speaker `enroll` / `identify_speaker` HTTP routes**: SpeechBrain runs in the ARQ worker (`speaker_enroll` job); the v2 HTTP endpoints (`POST /v1/enroll`, `POST /v1/identify_speaker`) are not yet exposed in v5 (later batch).
-- **`process_transcript_wingman` route**: v2's real-time wingman-advice endpoint is not yet ported (later batch).
-- **ElevenLabs TTS fallback**: blueprint calls for it behind the same interface as a premium-voice option; Edge-TTS only is wired today.
-- **ARQ dead-letter queue**: jobs are idempotent and retried; an explicit DLQ + alert on repeated failure is still pending.
-- **k6 nightly in CI**: `scripts/load_test.js` exists; wiring it into a scheduled GH Action against staging is pending a live staging URL.
+No data migration: v5 writes to the same Supabase DB. New Alembic revisions beyond `0001` are forward-only and must ship a working `downgrade()`.
 
 ---
 
-## 6. Status — retired
+## 5. Shortcomings & holes (be honest)
 
-`server_v2/` has been **moved to `legacy/server_v2/`** and is no longer deployed, maintained, or referenced by any active config, CI, or the Flutter client. `server/` (Bubbles Brain API v5) is the sole backend. The `legacy/` copy is kept on disk only as a reference for the §2 contract and the §4 behaviour deltas; once the §5 follow-ups land and nothing points at it, `git rm -r legacy/server_v2/` for good.
+Severity: **P0** = v5 is not functionally equivalent / a headline feature is dead · **P1** = a real feature is missing but has a clear workaround or is lower-traffic · **P2** = completeness / parity polish · **P3** = ops / hygiene.
 
-The live-deployment cutover (stand up v5 on a subdomain, flip the Flutter `kUseApiV5` flag, 48 h soak, repoint DNS) is still documented step-by-step in `Documentation/server-blueprint.md` §18 — that's the ops rollout; the repo-side retirement is done.
+### H1 (P0) — ~~No worker job is ever enqueued from the API~~ **DONE (2026-05-12)**
+
+~~`bubbles/workers/enqueue.py` has helpers but nothing in `src/` imports it.~~
+
+**Fixed.** Spec: `docs/superpowers/specs/2026-05-12-v5-port-h1-wire-enqueues-design.md`.
+- New `bubbles/workers/client.py` (`make_arq_pool`); lifespan attaches `app.state.arq` (warn-only on failure — a queue outage doesn't block startup).
+- `deps.py` exposes `ArqDep -> ArqRedis | None` (never raises: a degraded queue must not 503 an otherwise-good write).
+- `EndSessionRequest` gained an optional `transcript` (client supplies the assembled transcript; the per-turn store is H2). `end_session` enqueues `compute_session_analytics` → `extract_knowledge` → `compute_embeddings` for the owner when a transcript is present; enqueue failures are logged and swallowed.
+- `check_user_turn` enqueues `grammar_scan` (the LanguageTool pass that complements the synchronous LLM pass).
+- Tests: `tests/unit/test_enqueue_helpers.py`, `tests/unit/test_routes_grammar_enqueue.py`, and `end_session` enqueue cases in `tests/integration/test_routes_sessions.py`.
+
+Still cron-only on the *worker* side beyond these: `seed_quests`, `send_reminders`. The `backfill_session_entities` one-off (H8) is now actionable.
+
+### H2 (P0) — v5 stores no per-turn conversation content
+
+There is no `session_logs` / `sentiment_logs` writer and no route that appends turns. `process_transcript_wingman` (v2's per-turn endpoint, which also persisted the turn) is not ported, and `save_session` is a no-op. The transcript only ever exists transiently as a string handed to the worker — which, per H1, is never invoked anyway.
+
+Consequence: `session_replay/{session_id}` is unbuildable; the per-turn `session_analytics` columns (`average_latency_ms`, `avg_advice_latency_ms`, `avg_sentiment_score`, `dominant_sentiment`) stay NULL; `sentiment_trend` stays `[]`; the coaching report can only ever be computed from whatever transcript string a caller passes.
+
+**Patch / decision needed — pick one:**
+- (a) Add a `session_turns` table + a `log_turn` route (or fold it into the `process_transcript_wingman` port) that appends each turn; `end_session` then assembles the transcript from rows and enqueues the worker. This unlocks `session_replay` and the per-turn columns.
+- (b) Accept "client supplies the full transcript at `end_session`" and **document that `session_replay` and per-turn metrics are permanently out of scope** in v5.
+
+The current state is neither — that's the problem.
+
+### H3 (P0) — `process_transcript_wingman` (live wingman advice) not ported
+
+v2's real-time, per-turn advice loop is the actual product feature. v5 ships only `suggest_reply` — a one-shot "suggest one short reply" against `wingman.short`. Not equivalent. Likely the same batch as H2 (the wingman loop is where turns naturally get persisted).
+
+**Patch:** port the endpoint; route advice through `LLMRouter` task `wingman.*`; persist each turn (see H2(a)).
+
+### H4 (P1) — Speaker `enroll` / `identify_speaker` HTTP routes missing
+
+The `speaker_enroll` ARQ job exists and `api/middleware.py` already lists `/v1/identify_speaker` as an audio path — but no route is registered. Dangling reference.
+
+**Patch:** expose `POST /v1/enroll` and `POST /v1/identify_speaker` over the existing job (enroll = enqueue; identify = synchronous embedding compare against stored vectors). Remove the middleware entry if you decide not to.
+
+### H5 (P1) — Coaching transcript truncated to the last 4 KB
+
+`ai/extraction._truncate` keeps only the last 4000 characters before generating the coaching report, so the **opening of every conversation is dropped** from the analysis (talk-time %, topics, tone all skewed).
+
+**Patch:** raise the limit to the model's real budget, or chunk-summarize long transcripts (map-reduce) instead of hard-truncating.
+
+### H6 (P2) — Gamification parity gaps
+
+- `add_xp` is idempotent on `source_id` but does **not** apply v2's automated daily XP cap (500), streak-milestone bursts, or first-action-today bonus.
+- Streak counters (`current_streak`, `longest_streak`, `streak_freezes`) are read by the profile endpoint but **nothing increments them**.
+- No achievement-detection worker → `user_achievements` stays empty → `badges[]` always `[]`.
+- The profile omits v2's `stats{}` block.
+- Quest **mission** endpoints (`POST /quests/{uid}/{uqid}/answer` for question-set missions, `POST /quests/{uid}/{uqid}/attach_session` for conversation missions) are not ported — daily quests are auto-assigned but most can't be completed.
+
+**Patch:** one "XP-award worker + gamification completeness" batch covering all of the above.
+
+### H7 (P2) — `performance_summary/{user_id}` not ported
+
+v2's aggregate performance endpoint. Later batch.
+
+### H8 (P2) — `backfill_session_entities` one-off job not written
+
+`session_entities` (Alembic `0002`) is populated going forward by `extract_knowledge`; sessions created before that migration have no links. (Moot until H1 is fixed and `extract_knowledge` actually runs.) Write the one-off backfill job after H1.
+
+### H9 (P3) — ElevenLabs premium-TTS fallback not wired
+
+Blueprint asks for ElevenLabs behind the same interface as a premium-voice option; only Edge-TTS is wired today.
+
+### H10 (P3) — No ARQ dead-letter queue
+
+Jobs are idempotent and retried, but there's no explicit DLQ and no alert on repeated failure. Add a DLQ + a Prometheus alert on `arq_jobs_failed`.
+
+### H11 (P3) — k6 nightly load test not in CI
+
+`scripts/load_test.js` exists; wiring it into a scheduled GH Action needs a live staging URL.
+
+### H12 (P3) — Integration suites are opt-in
+
+The 5 testcontainers suites are gated behind `RUN_INTEGRATION=1` + the docker SDK; they auto-skip locally. Confirm CI actually sets `RUN_INTEGRATION=1` — if it doesn't, those suites never run anywhere.
+
+### H13 (P3) — No schema-drift guard; Alembic baseline is a no-op
+
+`0001` is a no-op against the live Supabase schema, so the migration chain has never been exercised against a from-scratch DB, and divergence between the code's row models and the prod schema is caught only by code review (the recent `entities.is_archived` vs `deleted_at` near-miss is the cautionary tale). Add a CI job: build the schema from Alembic head into a throwaway Postgres, diff it against `Documentation/db_schema_final_v2.sql`, fail on drift.
+
+### H14 (P3) — Minor nits
+
+- `SaveFeedbackRequest.idempotency_key` is `max_length=200`; other idempotency keys use `128` — pick one.
+- `coaching_report.tone_scores` filter is `isinstance(v, int | float)`, which also accepts `bool` — tighten to exclude `bool`.
+- `core/transcript._SPEAKER_RE` treats any `prefix: rest` line as a speaker turn, so a bare line containing `https://...` is mis-parsed as speaker `"https"`. Add a guard (e.g. reject prefixes containing `/` or whitespace runs, or require a known/short speaker token).
+
+---
+
+## 6. Recommended order of work to fully retire `server_v2`
+
+1. ~~**H1 — wire the enqueues.**~~ **Done 2026-05-12.** `end_session` (with a client-supplied transcript) → `compute_session_analytics` + `extract_knowledge` + `compute_embeddings`; `check_user_turn` → `grammar_scan`. Spec: `docs/superpowers/specs/2026-05-12-v5-port-h1-wire-enqueues-design.md`.
+2. **H2 + H3 — per-turn store + `process_transcript_wingman`.** One batch: `session_turns` table (decision 5.H2(a)), `log_turn` / wingman route, `end_session` assembles transcript and enqueues. Unlocks `session_replay`, per-turn `session_analytics` columns, `sentiment_trend`.
+3. **H4 — speaker `enroll` / `identify_speaker` routes** over the existing job.
+4. **H5 — stop truncating the coaching transcript.**
+5. **H6 — XP-award worker + gamification completeness** (caps, streaks, achievements, `stats{}`, quest mission endpoints).
+6. **H7 — `performance_summary/{user_id}`**; **H8 — `backfill_session_entities` job** (after H1).
+7. **H9–H14 — ops/hygiene:** ElevenLabs fallback, ARQ DLQ + alert, k6 nightly, confirm CI runs integration suites, schema-drift CI job, the H14 nits.
+8. When the above land and nothing references `legacy/server_v2/`: `git rm -r legacy/server_v2/`.
+
+Each item gets the usual spec → plan → subagent-driven execution cycle; specs live in `docs/superpowers/specs/`.
+
+---
+
+## 7. Status
+
+`server_v2/` is at `legacy/server_v2/` — not deployed, not in CI, not referenced by active config or the Flutter client. `server/` (Bubbles Brain API v5) is the primary backend. The `legacy/` copy stays on disk **only** as the reference for §2 (contract) and §4 (deltas) until §6 is complete; then it is deleted.
+
+The live-deployment cutover (stand up v5 on a subdomain, flip the Flutter `kUseApiV5` flag, 48 h soak, repoint DNS) is documented step-by-step in `Documentation/server-blueprint.md` §18 — that's the ops rollout. The repo-side retirement (move + de-reference) is already done; the *functional* retirement waits on §6 — **H1 landed 2026-05-12**, next is **H2 + H3** (per-turn store + `process_transcript_wingman`).
+
+### Done so far (v5 port batches)
+
+- **Batch 1 (entity routes).** `GET /v1/graph_export/{user_id}`, `GET /v1/entity_timeline/{entity_id}`, `DELETE /v1/sessions/{id}`, `DELETE /v1/memories/{id}` (entity `DELETE` already existed): JWT-derived ownership, soft deletes, pagination, real `session_entities` link table (Alembic `0002`) that `extract_knowledge` populates *when run* (see H1). Spec: `docs/superpowers/specs/2026-05-11-v5-port-batch1-entity-routes-design.md`.
+- **Batch 2 (gamification HTTP).** `GET /v1/gamification/{user_id}`, `GET /v1/quests/{user_id}` (auto-assigns 3 daily quests), `GET /v1/rewards/{user_id}`, `POST /v1/rewards/{user_id}/redeem`, `GET /v1/leaderboard`, `POST /v1/leaderboard/{user_id}/opt_in`. New tables `xp_transactions`/`achievements`/`user_achievements` (Alembic `0003`); pure level math in `core/gamification.py`; `add_xp` ledger-aware + idempotent on `source_id` (gaps: H6). Spec: `docs/superpowers/specs/2026-05-12-v5-port-batch2-gamification-design.md`.
+- **Batch 3 (analytics reads + feedback).** `POST /v1/save_feedback` (idempotent on `idempotency_key`), `GET /v1/session_analytics/{session_id}`, `GET /v1/coaching_report/{session_id}`, `GET /v1/digest/{user_id}?period=day|week`, `GET /v1/communication_trends/{user_id}?weeks=N`. `compute_session_analytics` worker enhanced to also write a `session_analytics` metrics row (turn/word counts from the transcript, duration, memory/event/highlight counts) and an LLM coaching report (`analytics.coaching` task chain) — both inert until H1. No migration (`session_analytics`/`coaching_reports`/`feedback` already in the live schema). Spec: `docs/superpowers/specs/2026-05-12-v5-port-batch3-analytics-design.md`.
