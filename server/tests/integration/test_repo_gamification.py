@@ -134,6 +134,8 @@ async def test_leaderboard_and_ranks(pool: asyncpg.Pool, user_id: UUID) -> None:
         # caller: 100 total, opted in; other: 300 total, opted in
         await repo.add_xp(uow.conn, user_id=user_id, amount=100)
         await repo.add_xp(uow.conn, user_id=other, amount=300)
+        await repo.set_leaderboard_opt_in(uow.conn, user_id=user_id, opt_in=True)
+        await repo.set_leaderboard_opt_in(uow.conn, user_id=other, opt_in=True)
         top = await repo.leaderboard_top(uow.conn, limit=10)
         my_all_rank = await repo.rank_all_time(uow.conn, user_id=user_id)
         # period: both add_xp calls wrote xp_transactions rows with created_at = now()
