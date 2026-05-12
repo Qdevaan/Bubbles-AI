@@ -329,3 +329,138 @@ class OptInRequest(_Base):
 class OptInResponse(_Base):
     user_id: UUID
     leaderboard_opt_in: bool
+
+
+# --- analytics: feedback ---------------------------------------------------
+
+
+class SaveFeedbackRequest(_Base):
+    session_id: UUID | None = None
+    session_log_id: UUID | None = None
+    consultant_log_id: UUID | None = None
+    feedback_type: Literal["thumbs", "star", "text"]
+    value: int | None = Field(default=None, ge=-1, le=5)
+    comment: str | None = Field(default=None, max_length=1000)
+    idempotency_key: str | None = Field(default=None, max_length=200)
+
+
+class SaveFeedbackResponse(_Base):
+    status: Literal["ok"]
+    idempotent: bool = False
+
+
+# --- analytics: session analytics ------------------------------------------
+
+
+class SentimentPoint(_Base):
+    turn_index: int
+    score: float | None
+    label: str | None
+
+
+class SessionAnalyticsOut(_Base):
+    session_id: UUID
+    total_turns: int
+    user_turns: int
+    others_turns: int
+    llm_turns: int
+    user_word_count: int
+    assistant_word_count: int
+    average_latency_ms: int | None
+    avg_advice_latency_ms: float | None
+    total_duration_seconds: float | None
+    memories_saved: int
+    events_extracted: int
+    highlights_created: int
+    avg_sentiment_score: float | None
+    dominant_sentiment: str | None
+    topic_summary: str | None
+    sentiment_trend: list[SentimentPoint]
+    computed_at: datetime
+
+
+# --- analytics: coaching report --------------------------------------------
+
+
+class CoachingReportOut(_Base):
+    session_id: UUID | None
+    model_used: str | None
+    user_talk_pct: float | None
+    others_talk_pct: float | None
+    key_topics: list[str]
+    key_decisions: list[str]
+    action_items: list[str]
+    follow_up_people: list[str]
+    filler_words: list[str]
+    filler_word_count: int
+    tone_summary: str | None
+    engagement_trend: str | None
+    suggestions: list[str]
+    strengths: list[str]
+    areas_of_improvement: list[str]
+    report_text: str | None
+    tone_scores: dict[str, int]
+    generated_at: datetime
+
+
+# --- analytics: digest -----------------------------------------------------
+
+
+class DigestSession(_Base):
+    id: UUID
+    title: str | None
+    mode: str | None
+    status: str | None
+    created_at: datetime
+    summary: str | None
+
+
+class DigestTask(_Base):
+    id: UUID
+    title: str | None
+    status: str | None
+    priority: str | None
+
+
+class DigestEntity(_Base):
+    id: UUID
+    display_name: str | None
+    entity_type: str | None
+    mention_count: int | None
+
+
+class DigestHighlight(_Base):
+    id: UUID
+    highlight_type: str | None
+    title: str | None
+    body: str | None
+
+
+class DigestResponse(_Base):
+    period: Literal["day", "week"]
+    user_id: UUID
+    sessions_count: int
+    recent_sessions: list[DigestSession]
+    pending_tasks: list[DigestTask]
+    top_entities: list[DigestEntity]
+    recent_highlights: list[DigestHighlight]
+
+
+# --- analytics: communication trends ---------------------------------------
+
+
+class WeeklyTrendOut(_Base):
+    week: str
+    sessions: int
+    total_turns: int
+    user_words: int
+    ai_words: int
+    avg_sentiment_score: float | None
+    total_duration_seconds: float
+
+
+class CommunicationTrendsResponse(_Base):
+    user_id: UUID
+    weeks_requested: int
+    weeks_available: int
+    trends: list[WeeklyTrendOut]
