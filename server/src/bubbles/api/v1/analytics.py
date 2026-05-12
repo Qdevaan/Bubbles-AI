@@ -91,8 +91,8 @@ async def save_feedback(
         if existing is not None:
             return SaveFeedbackResponse(status="ok", idempotent=True)
     rating = body.value if body.feedback_type == "star" else None
-    async with UnitOfWork(pool) as uow:
-        try:
+    try:
+        async with UnitOfWork(pool) as uow:
             await feedback_repo.insert(
                 uow.conn,
                 user_id=UUID(user.id),
@@ -105,8 +105,8 @@ async def save_feedback(
                 comment=body.comment,
                 idempotency_key=body.idempotency_key,
             )
-        except asyncpg.UniqueViolationError:
-            return SaveFeedbackResponse(status="ok", idempotent=True)
+    except asyncpg.UniqueViolationError:
+        return SaveFeedbackResponse(status="ok", idempotent=True)
     return SaveFeedbackResponse(status="ok")
 
 

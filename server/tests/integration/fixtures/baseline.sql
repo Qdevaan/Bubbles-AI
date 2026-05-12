@@ -59,7 +59,6 @@ CREATE TABLE entities (
     is_archived boolean DEFAULT false,
     last_seen_at timestamptz,
     created_at timestamptz DEFAULT now(),
-    deleted_at timestamptz,
     UNIQUE (user_id, canonical_name)
 );
 

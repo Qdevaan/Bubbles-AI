@@ -307,7 +307,7 @@ async def digest_top_entities(
             """
             SELECT id, display_name, entity_type, mention_count
             FROM entities
-            WHERE user_id = $1 AND deleted_at IS NULL
+            WHERE user_id = $1 AND is_archived = false
             ORDER BY mention_count DESC NULLS LAST
             LIMIT $2
             """,
