@@ -125,6 +125,15 @@ async def turn_count(conn: asyncpg.Connection, *, session_id: UUID) -> int:
     return n or 0
 
 
+async def role_count(conn: asyncpg.Connection, *, session_id: UUID, role: str) -> int:
+    n: int | None = await conn.fetchval(
+        "SELECT COUNT(*)::int FROM session_logs WHERE session_id = $1 AND role = $2",
+        session_id,
+        role,
+    )
+    return n or 0
+
+
 async def assemble_transcript(
     conn: asyncpg.Connection,
     *,

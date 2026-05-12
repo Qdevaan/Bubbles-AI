@@ -28,6 +28,7 @@ from bubbles.auth.current_user import CurrentUserDep, require_ownership
 from bubbles.core.errors import NotFound
 from bubbles.core.logging import get_logger
 from bubbles.db.repo import entities as entities_repo
+from bubbles.db.repo import gamification as gamification_repo
 from bubbles.db.repo import memories as memories_repo
 from bubbles.db.repo import session_logs as session_logs_repo
 from bubbles.db.repo import sessions as sessions_repo
@@ -120,6 +121,18 @@ async def _persist_advice_and_followups(
             n = await session_logs_repo.turn_count(uow.conn, session_id=session_id)
             transcript = await session_logs_repo.assemble_transcript(
                 uow.conn, session_id=session_id, last_n=40
+            )
+            # Small per-turn XP (daily-capped) + nudge the "use wingman turns" quest.
+            await gamification_repo.add_xp(
+                uow.conn,
+                user_id=user_id,
+                amount=2,
+                source_type="wingman_turn",
+                source_id=f"wt_{session_id}_{n}",
+                description="Wingman advice turn",
+            )
+            await gamification_repo.bump_quest_progress_by_action(
+                uow.conn, user_id=user_id, action_type="use_wingman_turns", delta=1
             )
         if arq is not None:
             if n % _EXTRACT_EVERY_N_TURNS == 0 and transcript:

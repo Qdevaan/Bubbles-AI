@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import json
 from datetime import UTC, date, datetime, time, timedelta
+from typing import Any
 from uuid import UUID
 
 import asyncpg
@@ -531,3 +533,197 @@ async def quest_completion_between(
     )
     assert row is not None
     return int(row["assigned"]), int(row["completed"])
+
+
+# --- activity stats ---------------------------------------------------------
+
+
+async def user_activity_stats(conn: asyncpg.Connection, *, user_id: UUID) -> dict[str, int]:
+    """Aggregate non-deleted activity counts for the profile ``stats{}`` block."""
+    row = await conn.fetchrow(
+        """
+        SELECT
+          (SELECT count(*)::int FROM sessions WHERE user_id = $1 AND deleted_at IS NULL)
+            AS sessions_total,
+          (SELECT count(*)::int FROM sessions
+             WHERE user_id = $1 AND deleted_at IS NULL AND ended_at IS NOT NULL)
+            AS sessions_completed,
+          (SELECT count(*)::int FROM memory WHERE user_id = $1 AND is_archived = false)
+            AS memories_total,
+          (SELECT count(*)::int FROM entities WHERE user_id = $1 AND is_archived = false)
+            AS entities_total,
+          (SELECT count(*)::int FROM user_mistakes WHERE user_id = $1) AS mistakes_total,
+          (SELECT count(*)::int FROM user_quests WHERE user_id = $1 AND is_completed = true)
+            AS quests_completed,
+          (SELECT count(*)::int FROM user_achievements WHERE user_id = $1) AS achievements_earned
+        """,
+        user_id,
+    )
+    assert row is not None
+    return {k: int(v or 0) for k, v in dict(row).items()}
+
+
+# --- quest missions ---------------------------------------------------------
+
+
+async def get_user_quest(conn: asyncpg.Connection, user_quest_id: UUID) -> UserQuest | None:
+    row = await conn.fetchrow(
+        f"SELECT {_USER_QUEST_COLS} FROM user_quests WHERE id = $1", user_quest_id
+    )
+    return _user_quest(row) if row is not None else None
+
+
+async def get_quest_def(conn: asyncpg.Connection, quest_id: UUID) -> QuestDefinition | None:
+    row = await conn.fetchrow(
+        f"SELECT {_QUEST_DEF_COLS} FROM quest_definitions WHERE id = $1", quest_id
+    )
+    return _quest_def(row) if row is not None else None
+
+
+async def _brief_state(conn: asyncpg.Connection, user_quest_id: UUID) -> dict[str, Any]:
+    raw = await conn.fetchval("SELECT brief_state FROM user_quests WHERE id = $1", user_quest_id)
+    if raw is None:
+        return {}
+    if isinstance(raw, str):
+        return dict(json.loads(raw))
+    return dict(raw)
+
+
+async def award_quest_xp_once(
+    conn: asyncpg.Connection, *, user_quest_id: UUID, user_id: UUID, xp_reward: int, title: str
+) -> None:
+    """Award a quest's XP exactly once, flipping ``xp_awarded``."""
+    flagged = await conn.fetchval(
+        "UPDATE user_quests SET xp_awarded = true WHERE id = $1 AND xp_awarded = false RETURNING id",
+        user_quest_id,
+    )
+    if flagged is None or xp_reward <= 0:
+        return
+    await add_xp(
+        conn,
+        user_id=user_id,
+        amount=xp_reward,
+        source_type="quest",
+        source_id=f"quest_{user_quest_id}",
+        description=f"Quest: {title}",
+        capped=False,
+    )
+
+
+async def record_question_answer(
+    conn: asyncpg.Connection, *, quest: UserQuest, question_id: str, answer: str
+) -> tuple[UserQuest, bool]:
+    """Record one answer for a question_set mission. Progress = #distinct questions answered.
+
+    Returns (updated_user_quest, newly_completed). Caller should pass a freshly
+    fetched ``quest`` (we read its ``is_completed`` / ``target`` to decide).
+    """
+    state = await _brief_state(conn, quest.id)
+    answers: dict[str, Any] = dict(state.get("answers") or {})
+    answers[question_id] = answer
+    state["answers"] = answers
+    new_progress = min(len(answers), quest.target)
+    newly_completed = (not quest.is_completed) and len(answers) >= quest.target
+    is_completed = quest.is_completed or newly_completed
+    row = await conn.fetchrow(
+        f"""
+        UPDATE user_quests
+        SET brief_state = $2::jsonb, progress = $3, is_completed = $4,
+            completed_at = CASE WHEN $5 THEN NOW() ELSE completed_at END
+        WHERE id = $1
+        RETURNING {_USER_QUEST_COLS}
+        """,
+        quest.id,
+        json.dumps(state),
+        new_progress,
+        is_completed,
+        newly_completed,
+    )
+    assert row is not None
+    return _user_quest(row), newly_completed
+
+
+async def complete_conversation_quest(
+    conn: asyncpg.Connection,
+    *,
+    quest: UserQuest,
+    session_id: UUID,
+    user_turns: int,
+    min_turns: int,
+) -> tuple[UserQuest, bool]:
+    """Attach a session to a conversation mission. Completes iff ``user_turns >= min_turns``.
+
+    Returns (updated_user_quest, newly_completed). On failure the attempt is
+    recorded in ``brief_state`` so the client can show why and try another session.
+    """
+    state = await _brief_state(conn, quest.id)
+    passed = user_turns >= min_turns
+    state["last_attach"] = {
+        "session_id": str(session_id),
+        "user_turns": user_turns,
+        "min_turns": min_turns,
+        "passed": passed,
+    }
+    if passed:
+        state["attached_session_id"] = str(session_id)
+    newly_completed = (not quest.is_completed) and passed
+    is_completed = quest.is_completed or newly_completed
+    row = await conn.fetchrow(
+        f"""
+        UPDATE user_quests
+        SET brief_state = $2::jsonb,
+            progress = CASE WHEN $5 THEN target ELSE progress END,
+            is_completed = $3,
+            completed_at = CASE WHEN $4 THEN NOW() ELSE completed_at END
+        WHERE id = $1
+        RETURNING {_USER_QUEST_COLS}
+        """,
+        quest.id,
+        json.dumps(state),
+        is_completed,
+        newly_completed,
+        passed,
+    )
+    assert row is not None
+    return _user_quest(row), newly_completed
+
+
+async def bump_quest_progress_by_action(
+    conn: asyncpg.Connection,
+    *,
+    user_id: UUID,
+    action_type: str,
+    delta: int = 1,
+    on_date: date | None = None,
+) -> UserQuest | None:
+    """Advance the user's incomplete daily quest matching ``action_type``; award XP on completion.
+
+    Returns the updated quest, or ``None`` if there is no matching incomplete quest today.
+    """
+    day = on_date or datetime.now(tz=UTC).date()
+    target = await conn.fetchrow(
+        """
+        SELECT uq.id, qd.xp_reward, qd.title
+        FROM user_quests uq JOIN quest_definitions qd ON qd.id = uq.quest_id
+        WHERE uq.user_id = $1 AND uq.assigned_date = $2
+          AND uq.is_completed = false AND qd.action_type = $3
+        ORDER BY uq.created_at ASC LIMIT 1
+        """,
+        user_id,
+        day,
+        action_type,
+    )
+    if target is None:
+        return None
+    updated = await increment_quest_progress(conn, user_quest_id=target["id"], delta=delta)
+    if updated is None:
+        return None
+    if updated.is_completed:
+        await award_quest_xp_once(
+            conn,
+            user_quest_id=updated.id,
+            user_id=user_id,
+            xp_reward=int(target["xp_reward"] or 0),
+            title=str(target["title"] or "Daily quest"),
+        )
+    return updated

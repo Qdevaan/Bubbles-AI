@@ -46,7 +46,9 @@ Also registered as of 2026-05-12 (H2/H3/H4): `process_transcript_wingman`, `log_
 
 Also registered 2026-05-12 (H7): `performance_summary/{user_id}`.
 
-**Not yet registered** (still only in `server_v2/`): the quest mission endpoints (`quests/{uid}/{uqid}/answer`, `.../attach_session`) — see H6b.
+Also registered 2026-05-12 (H6b): `quests/{user_id}/{user_quest_id}/answer`, `quests/{user_id}/{user_quest_id}/attach_session`.
+
+**Not yet registered:** none — the v2 `/v1/*` surface is fully ported.
 
 ---
 
@@ -135,10 +137,11 @@ Done:
 - **Achievement-detection worker** — `workers/jobs/detect_achievements.py`: computes the user's stats (xp, level, streaks, sessions/memories/entities/quests-completed/mistakes counts), evaluates each un-earned `achievements` row's `criteria_type`/`criteria_value`, inserts `user_achievements` (unique-constrained) and awards `xp_reward` (cap-exempt, deduped on the achievement id). Registered in the worker; `enqueue_detect_achievements` helper; enqueued from `end_session`. `achievements_repo` gained `list_unearned` / `award`.
 - Tests: `tests/integration/test_gamification_h6.py` (cap clamping, streak rules incl. freeze + milestone, achievement worker idempotency).
 
-**Still open (H6b):**
-- Profile **`stats{}` block** — the `GET /v1/gamification/{user_id}` response still omits v2's aggregate `stats{}` (total sessions / memories / entities / mistakes / etc.). Cheap to add — a few count queries (the worker's `_compute_stats` already has them).
-- Quest **mission** endpoints — `POST /quests/{uid}/{uqid}/answer` (question-set missions) and `POST /quests/{uid}/{uqid}/attach_session` (conversation missions) still not ported, so most daily quests can be auto-assigned but not completed. `quest_definitions.mission_type` + `brief` already exist; `increment_quest_progress` exists; needs the two routes + the answer-checking logic.
-- XP awards aren't yet wired into the live loops (entity-extraction XP, "use wingman turns" / "save memory" quest progress) — `process_transcript_wingman` could call `add_xp` / `increment_quest_progress` but doesn't.
+**H6b — DONE (2026-05-12):**
+- Profile **`stats{}` block** — `GET /v1/gamification/{user_id}` now returns `stats: {sessions_total, sessions_completed, memories_total, entities_total, mistakes_total, quests_completed, achievements_earned}` via `gamification_repo.user_activity_stats` (one round-trip).
+- Quest **mission** endpoints — `POST /v1/quests/{user_id}/{user_quest_id}/answer` (question_set: records one answer keyed by `question_id` in `user_quests.brief_state`; progress = #distinct questions answered; completes + awards `xp_reward` at `target`; rejects unknown ids when `brief.questions[].id` is set) and `POST /v1/quests/{user_id}/{user_quest_id}/attach_session` (conversation: completes + awards XP iff the attached session has ≥ `brief.min_turns` user turns; records the attempt in `brief_state` either way). New repo: `get_user_quest`, `get_quest_def`, `record_question_answer`, `complete_conversation_quest`, `award_quest_xp_once`, `bump_quest_progress_by_action`. Schemas `QuestAnswerRequest` / `QuestAttachSessionRequest` / `QuestMissionResult`. *(Not ported: v2's LLM transcript-evaluator for conversation missions — completion is gated on `min_turns` only; a brief-criteria LLM check is a follow-up.)*
+- Live-loop XP wiring — `process_transcript_wingman`'s background path now awards a small per-turn XP (`wingman_turn`, daily-capped, idempotent per turn) and calls `bump_quest_progress_by_action(user_id, "use_wingman_turns")`. (`ask_consultant` / memory-save quest hooks still TODO — low priority.)
+- Tests: `tests/integration/test_routes_quest_missions.py`.
 
 ### H7 (P2) — ~~`performance_summary/{user_id}` not ported~~ **DONE (2026-05-12)**
 
@@ -182,11 +185,10 @@ The testcontainers suites are gated behind `RUN_INTEGRATION=1` + the docker SDK;
 2. ~~**H2 + H3 — per-turn store + `process_transcript_wingman`.**~~ **Done 2026-05-12.** `session_logs` (Alembic `0004`), `db/repo/session_logs.py`, `POST /v1/log_turn`, `GET /v1/session_replay/{id}`, `POST /v1/process_transcript_wingman`, `end_session` assembles from rows. Spec: `docs/superpowers/specs/2026-05-12-v5-port-h2-h3-turn-store-wingman-design.md`. Follow-ups: analytics worker to read `session_logs` for the per-turn columns; turn-level sentiment scan; rolling-summary; multiplayer turns.
 3. ~~**H4 — speaker `enroll` / `identify_speaker` routes**~~ **Done 2026-05-12.** Also fixed the worker dispatch (colliding `run` registrations → single `_job_name` dispatcher) — the prerequisite for any enqueued job actually running.
 4. ~~**H5 — stop truncating the coaching transcript.**~~ **Done 2026-05-12.** `prepare_transcript` (map-reduce condense for long transcripts) replaces the 4 KB tail-slice.
-5. ~~**H6 — XP-award worker + gamification completeness.**~~ **Mostly done 2026-05-12** — daily XP cap, streak increments + milestone bonuses (wired into `start_session`), achievement-detection worker (enqueued from `end_session`). **H6b remaining:** profile `stats{}` block, quest-mission endpoints (`answer` / `attach_session`), XP wiring into the live loops.
+5. ~~**H6 — XP-award worker + gamification completeness.**~~ **Done 2026-05-12** — daily XP cap, streaks + milestone bonuses (wired into `start_session`), achievement worker (enqueued from `end_session`); + H6b: profile `stats{}`, quest-mission endpoints (`answer` / `attach_session`), per-turn XP + quest progress in `process_transcript_wingman`.
 6. ~~**H7 — `performance_summary/{user_id}`**; **H8 — `backfill_session_entities` job**.~~ **Done 2026-05-12.**
-7. **H9–H14 — ops/hygiene:** ~~H9 ElevenLabs fallback~~ (done), ~~H14 nits~~ (done), H12 testcontainers-import fix (done — but no CI workflow exists yet). **Remaining: H10** (ARQ DLQ + alert), **H11** (k6 nightly), **H13** (schema-drift CI) — all need a CI workflow to be created first.  ← next
-8. **H6b** — profile `stats{}`, quest-mission endpoints, live-loop XP wiring.
-9. When the above land and nothing references `legacy/server_v2/`: `git rm -r legacy/server_v2/`.
+7. **H9–H14 — ops/hygiene:** ~~H9 ElevenLabs fallback~~, ~~H14 nits~~, H12 testcontainers-import fix — done. **Remaining: H10** (ARQ DLQ + alert), **H11** (k6 nightly), **H13** (schema-drift CI) — all need a `.github/workflows/` to be created first (none exists).  ← all that's left
+8. When the above land and nothing references `legacy/server_v2/`: `git rm -r legacy/server_v2/`.
 
 Each item gets the usual spec → plan → subagent-driven execution cycle; specs live in `docs/superpowers/specs/`.
 
@@ -196,7 +198,7 @@ Each item gets the usual spec → plan → subagent-driven execution cycle; spec
 
 `server_v2/` is at `legacy/server_v2/` — not deployed, not in CI, not referenced by active config or the Flutter client. `server/` (Bubbles Brain API v5) is the primary backend. The `legacy/` copy stays on disk **only** as the reference for §2 (contract) and §4 (deltas) until §6 is complete; then it is deleted.
 
-The live-deployment cutover (stand up v5 on a subdomain, flip the Flutter `kUseApiV5` flag, 48 h soak, repoint DNS) is documented step-by-step in `Documentation/server-blueprint.md` §18 — that's the ops rollout. The repo-side retirement (move + de-reference) is already done; the *functional* retirement waits on §6 — **H1–H9, H12, H14 landed 2026-05-12** (H6 partial; plus the worker-dispatch fix), remaining: **H10/H11/H13** (need a CI workflow to be created first) and **H6b** (profile `stats{}`, quest missions, live-loop XP wiring).
+The live-deployment cutover (stand up v5 on a subdomain, flip the Flutter `kUseApiV5` flag, 48 h soak, repoint DNS) is documented step-by-step in `Documentation/server-blueprint.md` §18 — that's the ops rollout. The repo-side retirement (move + de-reference) is already done; the *functional* retirement is essentially done — **H1–H9, H6b, H12, H14 landed 2026-05-12** (plus the worker-dispatch fix); the whole v2 `/v1/*` surface is ported. All that's left is **H10/H11/H13** — ops/CI hygiene that needs a `.github/workflows/` to be created first (none exists). Once that's in and nothing references `legacy/server_v2/`, delete it.
 
 ### Done so far (v5 port batches)
 

@@ -336,6 +336,25 @@ class GamificationProfile(_Base):
     last_active_date: date | None
     badges: list[AchievementOut]
     recent_xp: list[XpEntryOut]
+    stats: dict[str, int] = Field(default_factory=dict)
+
+
+class QuestAnswerRequest(_Base):
+    question_id: str = Field(..., min_length=1, max_length=128)
+    answer: str = Field(..., min_length=1, max_length=4_000)
+
+
+class QuestAttachSessionRequest(_Base):
+    session_id: UUID
+
+
+class QuestMissionResult(_Base):
+    user_quest_id: UUID
+    mission_type: str
+    progress: int
+    target: int
+    is_completed: bool
+    newly_completed: bool
 
 
 class UserQuestOut(_Base):

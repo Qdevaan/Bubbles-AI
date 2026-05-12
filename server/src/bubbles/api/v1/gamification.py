@@ -22,6 +22,9 @@ from bubbles.api.v1._schemas import (
     LeaderboardResponse,
     OptInRequest,
     OptInResponse,
+    QuestAnswerRequest,
+    QuestAttachSessionRequest,
+    QuestMissionResult,
     RewardCatalogResponse,
     RewardOut,
     RewardRedeemRequest,
@@ -30,10 +33,12 @@ from bubbles.api.v1._schemas import (
     XpEntryOut,
 )
 from bubbles.auth.current_user import CurrentUserDep, require_ownership
-from bubbles.core.errors import BadRequest
+from bubbles.core.errors import BadRequest, NotFound
 from bubbles.core.gamification import level_progress
 from bubbles.db.repo import achievements as achievements_repo
 from bubbles.db.repo import gamification as gamification_repo
+from bubbles.db.repo import session_logs as session_logs_repo
+from bubbles.db.repo import sessions as sessions_repo
 from bubbles.db.repo import xp as xp_repo
 from bubbles.db.uow import UnitOfWork, transaction
 from bubbles.deps import PoolDep
@@ -54,6 +59,7 @@ async def get_gamification(
         g = await gamification_repo.get_or_init_gamification(conn, user_id)
         badges = await achievements_repo.list_for_user(conn, user_id=user_id)
         recent = await xp_repo.recent(conn, user_id=user_id, limit=20)
+        stats = await gamification_repo.user_activity_stats(conn, user_id=user_id)
     lp = level_progress(g.total_xp)
     return GamificationProfile(
         user_id=user_id,
@@ -88,6 +94,7 @@ async def get_gamification(
             )
             for t in recent
         ],
+        stats=stats,
     )
 
 
@@ -248,3 +255,107 @@ async def set_leaderboard_opt_in(
             uow.conn, user_id=user_id, opt_in=body.opt_in
         )
     return OptInResponse(user_id=user_id, leaderboard_opt_in=g.leaderboard_opt_in)
+
+
+# --- quest missions ---------------------------------------------------------
+
+
+@router.post("/quests/{user_id}/{user_quest_id}/answer", response_model=QuestMissionResult)
+async def answer_quest_mission(
+    user_id: UUID,
+    user_quest_id: UUID,
+    body: QuestAnswerRequest,
+    user: CurrentUserDep,
+    pool: PoolDep,
+) -> QuestMissionResult:
+    """Submit one answer for a ``question_set`` mission. Progress = #distinct questions answered."""
+    require_ownership(user, str(user_id))
+    async with UnitOfWork(pool) as uow:
+        uq = await gamification_repo.get_user_quest(uow.conn, user_quest_id)
+        if uq is None or uq.user_id != user_id:
+            raise NotFound("quest assignment not found")
+        qd = await gamification_repo.get_quest_def(uow.conn, uq.quest_id)
+        if qd is None:
+            raise NotFound("quest definition missing")
+        if qd.mission_type != "question_set":
+            raise BadRequest("quest is not a question_set mission")
+        if uq.is_completed:
+            raise BadRequest("quest already completed")
+        questions = (qd.brief or {}).get("questions") or []
+        valid_ids = {
+            str(q["id"]) for q in questions if isinstance(q, dict) and q.get("id") is not None
+        }
+        if valid_ids and body.question_id not in valid_ids:
+            raise BadRequest(f"unknown question id: {body.question_id}")
+        updated, newly = await gamification_repo.record_question_answer(
+            uow.conn, quest=uq, question_id=body.question_id, answer=body.answer
+        )
+        if newly:
+            await gamification_repo.award_quest_xp_once(
+                uow.conn,
+                user_quest_id=updated.id,
+                user_id=uq.user_id,
+                xp_reward=qd.xp_reward,
+                title=qd.title,
+            )
+    return QuestMissionResult(
+        user_quest_id=updated.id,
+        mission_type=qd.mission_type,
+        progress=updated.progress,
+        target=updated.target,
+        is_completed=updated.is_completed,
+        newly_completed=newly,
+    )
+
+
+@router.post("/quests/{user_id}/{user_quest_id}/attach_session", response_model=QuestMissionResult)
+async def attach_quest_session(
+    user_id: UUID,
+    user_quest_id: UUID,
+    body: QuestAttachSessionRequest,
+    user: CurrentUserDep,
+    pool: PoolDep,
+) -> QuestMissionResult:
+    """Attach a session to a ``conversation`` mission. Completes iff it has ≥ ``brief.min_turns`` user turns."""
+    require_ownership(user, str(user_id))
+    async with UnitOfWork(pool) as uow:
+        uq = await gamification_repo.get_user_quest(uow.conn, user_quest_id)
+        if uq is None or uq.user_id != user_id:
+            raise NotFound("quest assignment not found")
+        qd = await gamification_repo.get_quest_def(uow.conn, uq.quest_id)
+        if qd is None:
+            raise NotFound("quest definition missing")
+        if qd.mission_type != "conversation":
+            raise BadRequest("quest is not a conversation mission")
+        if uq.is_completed:
+            raise BadRequest("quest already completed")
+        sess = await sessions_repo.get(uow.conn, body.session_id)
+        if sess is None or sess.user_id != user_id:
+            raise NotFound("session not found")
+        user_turns = await session_logs_repo.role_count(
+            uow.conn, session_id=body.session_id, role="user"
+        )
+        min_turns = max(1, int((qd.brief or {}).get("min_turns", 1)))
+        updated, newly = await gamification_repo.complete_conversation_quest(
+            uow.conn,
+            quest=uq,
+            session_id=body.session_id,
+            user_turns=user_turns,
+            min_turns=min_turns,
+        )
+        if newly:
+            await gamification_repo.award_quest_xp_once(
+                uow.conn,
+                user_quest_id=updated.id,
+                user_id=uq.user_id,
+                xp_reward=qd.xp_reward,
+                title=qd.title,
+            )
+    return QuestMissionResult(
+        user_quest_id=updated.id,
+        mission_type=qd.mission_type,
+        progress=updated.progress,
+        target=updated.target,
+        is_completed=updated.is_completed,
+        newly_completed=newly,
+    )
