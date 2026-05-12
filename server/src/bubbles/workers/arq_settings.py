@@ -29,6 +29,7 @@ from bubbles.workers.jobs import (
     seed_quests,
     send_reminders,
     speaker_enroll,
+    speaker_identify,
 )
 
 log = get_logger(__name__)
@@ -73,23 +74,34 @@ async def _on_shutdown(ctx: dict[str, Any]) -> None:
 
 
 # --- registered functions --------------------------------------------------
+#
+# Every job module exposes ``run``; ARQ identifies functions by name, so we
+# can't register all the ``run``s directly (they'd collide). Instead a single
+# dispatcher named ``run`` is registered and routes on the ``_job_name`` kwarg
+# the ``workers.enqueue`` helpers pass. Cron jobs use their own wrappers below.
 
-functions = [
-    compute_embeddings.run,
-    extract_knowledge.run,
-    compute_session_analytics.run,
-    grammar_scan.run,
-    send_reminders.run,
-    speaker_enroll.run,
-    seed_quests.run,
-]
+_JOB_REGISTRY: dict[str, Any] = {
+    "compute_embeddings": compute_embeddings.run,
+    "extract_knowledge": extract_knowledge.run,
+    "compute_session_analytics": compute_session_analytics.run,
+    "grammar_scan": grammar_scan.run,
+    "speaker_enroll": speaker_enroll.run,
+    "speaker_identify": speaker_identify.run,
+}
+
+
+async def run(ctx: dict[str, Any], *, _job_name: str, **kwargs: Any) -> Any:
+    """Dispatch an enqueued job to its handler by name."""
+    handler = _JOB_REGISTRY.get(_job_name)
+    if handler is None:
+        raise ValueError(f"unknown job: {_job_name!r}")
+    return await handler(ctx, **kwargs)
+
+
+functions = [run]
 
 
 # --- cron entries ----------------------------------------------------------
-
-
-def _at(hour: int, minute: int, fn: Any, *, run_at_startup: bool = False) -> Any:
-    return cron(fn, hour={hour}, minute={minute}, run_at_startup=run_at_startup)
 
 
 async def _wrap_seed_quests(ctx: dict[str, Any]) -> None:

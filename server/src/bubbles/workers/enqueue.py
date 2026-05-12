@@ -67,3 +67,24 @@ async def enqueue_compute_embeddings(arq: ArqRedis, *, user_id: str) -> Any:
         user_id=user_id,
         _job_id=f"embed:{user_id}",
     )
+
+
+async def enqueue_speaker_enroll(arq: ArqRedis, *, user_id: str, audio_b64: str) -> Any:
+    # One enrolment in flight per user; a re-enrol while one is queued is a no-op.
+    return await arq.enqueue_job(
+        "run",
+        _job_name="speaker_enroll",
+        user_id=user_id,
+        audio_b64=audio_b64,
+        _job_id=f"enroll:{user_id}",
+    )
+
+
+async def enqueue_speaker_identify(arq: ArqRedis, *, user_id: str, audio_b64: str) -> Any:
+    # No stable job id — each identification is distinct and its result is awaited.
+    return await arq.enqueue_job(
+        "run",
+        _job_name="speaker_identify",
+        user_id=user_id,
+        audio_b64=audio_b64,
+    )

@@ -42,9 +42,9 @@ Same `/v1/*` paths and response shapes as `server_v2/`, so the Flutter client mo
 
 Persona Jinja fragments (`casual`/`default`/`educator`/`learner`/`professional` + `_scenario_header`) and the analytics coaching system prompt are ported verbatim from the old `server_v2/app/prompts/`.
 
-Also registered as of 2026-05-12 (H2/H3): `process_transcript_wingman`, `log_turn`, `session_replay/{session_id}`.
+Also registered as of 2026-05-12 (H2/H3/H4): `process_transcript_wingman`, `log_turn`, `session_replay/{session_id}`, `enroll`, `identify_speaker`.
 
-**Not yet registered** (still only in `server_v2/`): `enroll`, `identify_speaker`, `performance_summary/{user_id}`, the quest mission endpoints (`quests/{uid}/{uqid}/answer`, `.../attach_session`).
+**Not yet registered** (still only in `server_v2/`): `performance_summary/{user_id}`, the quest mission endpoints (`quests/{uid}/{uqid}/answer`, `.../attach_session`).
 
 ---
 
@@ -110,11 +110,16 @@ Still cron-only on the *worker* side beyond these: `seed_quests`, `send_reminder
 - New `wingman/advice.jinja` system prompt; `wingman.advice` chain registered in `DEFAULT_CHAINS`.
 - **Not ported (deliberate):** v2's rolling-summary-every-20-turns (`_rolling_summarize`) and multiplayer turn handling — track as follow-ups if wanted.
 
-### H4 (P1) — Speaker `enroll` / `identify_speaker` HTTP routes missing
+### H4 (P1) — ~~Speaker `enroll` / `identify_speaker` HTTP routes missing~~ **DONE (2026-05-12)**
 
-The `speaker_enroll` ARQ job exists and `api/middleware.py` already lists `/v1/identify_speaker` as an audio path — but no route is registered. Dangling reference.
-
-**Patch:** expose `POST /v1/enroll` and `POST /v1/identify_speaker` over the existing job (enroll = enqueue; identify = synchronous embedding compare against stored vectors). Remove the middleware entry if you decide not to.
+**Fixed.** `api/v1/speaker.py`:
+- `POST /v1/enroll` (multipart audio) → enqueues `speaker_enroll` (one in-flight per user via `_job_id=enroll:<uid>`), `202 {status:"queued", job_id}`. Queue down → 503.
+- `POST /v1/identify_speaker` (multipart audio) → enqueues a new `speaker_identify` job and `await job.result(timeout=15s)`; returns `{enrolled, is_user, similarity}`. The heavy ECAPA encode runs in the worker, never on the request path; timeout/worker error → 503 (no internals leaked).
+- New `speaker_identify` worker job (ECAPA encode + pgvector cosine distance vs the user's enrolment; match threshold ≈ cos-sim 0.70). `speaker_enroll` refactored to a `db/repo/voice.py` (`upsert_embedding` / `cosine_distance_to_user`) — fixes the old `ON CONFLICT (id)` bug that inserted a fresh row every enrol.
+- Alembic `0005` adds `voice_enrollments` (no-op on prod where the table + `vector` extension already exist; the migration does *not* create the extension). `baseline.sql` now `CREATE EXTENSION IF NOT EXISTS vector` + the table; conftest teardown updated.
+- **Also fixed (latent P0 it depended on):** the worker's function registration. Every job module exports `run`; ARQ keys functions by name, so the previous `functions = [compute_embeddings.run, extract_knowledge.run, …]` registered eight colliding `run`s and `enqueue.py`'s `enqueue_job("run", _job_name=…)` passed `_job_name` to a `run()` that didn't accept it — i.e. **no enqueued job could ever execute**. Replaced with a single `run(ctx, *, _job_name, **kwargs)` dispatcher over a `_JOB_REGISTRY`. This is what actually makes H1's wiring (and H3's, and H4's) work end-to-end.
+- Middleware `_AUDIO_PATHS` already listed both routes — kept.
+- Tests: `tests/unit/test_routes_speaker.py`, `tests/unit/test_worker_dispatch.py`.
 
 ### H5 (P1) — Coaching transcript truncated to the last 4 KB
 
@@ -172,8 +177,8 @@ The 5 testcontainers suites are gated behind `RUN_INTEGRATION=1` + the docker SD
 
 1. ~~**H1 — wire the enqueues.**~~ **Done 2026-05-12.** `end_session` (with a client-supplied transcript) → `compute_session_analytics` + `extract_knowledge` + `compute_embeddings`; `check_user_turn` → `grammar_scan`. Spec: `docs/superpowers/specs/2026-05-12-v5-port-h1-wire-enqueues-design.md`.
 2. ~~**H2 + H3 — per-turn store + `process_transcript_wingman`.**~~ **Done 2026-05-12.** `session_logs` (Alembic `0004`), `db/repo/session_logs.py`, `POST /v1/log_turn`, `GET /v1/session_replay/{id}`, `POST /v1/process_transcript_wingman`, `end_session` assembles from rows. Spec: `docs/superpowers/specs/2026-05-12-v5-port-h2-h3-turn-store-wingman-design.md`. Follow-ups: analytics worker to read `session_logs` for the per-turn columns; turn-level sentiment scan; rolling-summary; multiplayer turns.
-3. **H4 — speaker `enroll` / `identify_speaker` routes** over the existing job.  ← next
-4. **H5 — stop truncating the coaching transcript.**
+3. ~~**H4 — speaker `enroll` / `identify_speaker` routes**~~ **Done 2026-05-12.** Also fixed the worker dispatch (colliding `run` registrations → single `_job_name` dispatcher) — the prerequisite for any enqueued job actually running.
+4. **H5 — stop truncating the coaching transcript.**  ← next
 5. **H6 — XP-award worker + gamification completeness** (caps, streaks, achievements, `stats{}`, quest mission endpoints).
 6. **H7 — `performance_summary/{user_id}`**; **H8 — `backfill_session_entities` job** (after H1).
 7. **H9–H14 — ops/hygiene:** ElevenLabs fallback, ARQ DLQ + alert, k6 nightly, confirm CI runs integration suites, schema-drift CI job, the H14 nits.
@@ -187,7 +192,7 @@ Each item gets the usual spec → plan → subagent-driven execution cycle; spec
 
 `server_v2/` is at `legacy/server_v2/` — not deployed, not in CI, not referenced by active config or the Flutter client. `server/` (Bubbles Brain API v5) is the primary backend. The `legacy/` copy stays on disk **only** as the reference for §2 (contract) and §4 (deltas) until §6 is complete; then it is deleted.
 
-The live-deployment cutover (stand up v5 on a subdomain, flip the Flutter `kUseApiV5` flag, 48 h soak, repoint DNS) is documented step-by-step in `Documentation/server-blueprint.md` §18 — that's the ops rollout. The repo-side retirement (move + de-reference) is already done; the *functional* retirement waits on §6 — **H1, H2, H3 landed 2026-05-12**, next is **H4** (speaker `enroll` / `identify_speaker` routes).
+The live-deployment cutover (stand up v5 on a subdomain, flip the Flutter `kUseApiV5` flag, 48 h soak, repoint DNS) is documented step-by-step in `Documentation/server-blueprint.md` §18 — that's the ops rollout. The repo-side retirement (move + de-reference) is already done; the *functional* retirement waits on §6 — **H1–H4 landed 2026-05-12** (plus the worker-dispatch fix), next is **H5** (stop truncating the coaching transcript).
 
 ### Done so far (v5 port batches)
 

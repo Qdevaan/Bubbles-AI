@@ -116,6 +116,20 @@ class WingmanTurnResponse(_Base):
     turn_index: int | None = None
 
 
+# --- speaker enrolment / identification -----------------------------------
+
+
+class EnrollResponse(_Base):
+    status: Literal["queued"]
+    job_id: str | None = None
+
+
+class IdentifySpeakerResponse(_Base):
+    enrolled: bool
+    is_user: bool
+    similarity: float | None = None
+
+
 # --- consultant ------------------------------------------------------------
 
 

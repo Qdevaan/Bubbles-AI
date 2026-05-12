@@ -6,6 +6,7 @@
 --   * `memory.embedding` uses pgvector if available; tests skip vector ops if not.
 
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
+CREATE EXTENSION IF NOT EXISTS vector;
 
 -- Stub auth.users so FKs targeting it resolve.
 CREATE SCHEMA IF NOT EXISTS auth;
@@ -374,3 +375,13 @@ CREATE TABLE highlights (
     content text,
     created_at timestamptz DEFAULT now()
 );
+
+CREATE TABLE voice_enrollments (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    embedding vector(192) NOT NULL,
+    samples_count integer DEFAULT 0,
+    model_version text,
+    updated_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX idx_voice_enrollments_user ON voice_enrollments (user_id);
