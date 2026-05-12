@@ -8,14 +8,20 @@ user via ``require_ownership`` (no peeking at other users' data). No upstream
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
+from typing import Literal
 from uuid import UUID
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Query
 
 from bubbles.api.v1._schemas import (
     AchievementOut,
     DailyQuestsResponse,
     GamificationProfile,
+    LeaderboardEntry,
+    LeaderboardMe,
+    LeaderboardResponse,
+    OptInRequest,
+    OptInResponse,
     RewardCatalogResponse,
     RewardOut,
     RewardRedeemRequest,
@@ -33,6 +39,8 @@ from bubbles.db.uow import UnitOfWork, transaction
 from bubbles.deps import PoolDep
 
 router = APIRouter(tags=["gamification"])
+
+_Period = Literal["all", "daily", "weekly", "monthly"]
 
 
 @router.get("/gamification/{user_id}", response_model=GamificationProfile)
@@ -170,3 +178,73 @@ async def redeem_reward(
         unlocked_at=ur.unlocked_at,
         balance_xp=g.total_xp - g.xp_spent,
     )
+
+
+def _period_start(period: _Period, now: datetime) -> datetime | None:
+    if period == "all":
+        return None
+    if period == "daily":
+        return datetime(now.year, now.month, now.day, tzinfo=UTC)
+    if period == "weekly":
+        return now - timedelta(days=7)
+    return now - timedelta(days=30)  # monthly
+
+
+@router.get("/leaderboard", response_model=LeaderboardResponse)
+async def get_leaderboard(
+    user: CurrentUserDep,
+    pool: PoolDep,
+    period: _Period = "all",
+    limit: int = Query(25, ge=1, le=100),
+) -> LeaderboardResponse:
+    me_id = UUID(user.id)
+    now = datetime.now(UTC)
+    since = _period_start(period, now)
+    async with transaction(pool) as conn:
+        if since is None:
+            rows = await gamification_repo.leaderboard_top(conn, limit=limit)
+            entries = [
+                LeaderboardEntry(
+                    user_id=r["user_id"],
+                    xp=r["total_xp"],
+                    level=r["level"],
+                    current_streak=r["current_streak"],
+                    rank=i + 1,
+                )
+                for i, r in enumerate(rows)
+            ]
+            my_rank = await gamification_repo.rank_all_time(conn, user_id=me_id)
+            my_g = await gamification_repo.get_or_init_gamification(conn, me_id)
+            my_xp = my_g.total_xp
+        else:
+            rows = await gamification_repo.leaderboard_period(conn, since=since, limit=limit)
+            entries = [
+                LeaderboardEntry(
+                    user_id=r["user_id"],
+                    xp=r["xp"],
+                    level=r["level"],
+                    current_streak=r["current_streak"],
+                    rank=i + 1,
+                )
+                for i, r in enumerate(rows)
+            ]
+            my_rank = await gamification_repo.rank_period(conn, user_id=me_id, since=since)
+            my_xp = await xp_repo.sum_since(conn, user_id=me_id, since=since)
+    return LeaderboardResponse(
+        period=period, entries=entries, me=LeaderboardMe(rank=my_rank, xp=my_xp)
+    )
+
+
+@router.post("/leaderboard/{user_id}/opt_in", response_model=OptInResponse)
+async def set_leaderboard_opt_in(
+    user_id: UUID,
+    body: OptInRequest,
+    user: CurrentUserDep,
+    pool: PoolDep,
+) -> OptInResponse:
+    require_ownership(user, str(user_id))
+    async with UnitOfWork(pool) as uow:
+        g = await gamification_repo.set_leaderboard_opt_in(
+            uow.conn, user_id=user_id, opt_in=body.opt_in
+        )
+    return OptInResponse(user_id=user_id, leaderboard_opt_in=g.leaderboard_opt_in)

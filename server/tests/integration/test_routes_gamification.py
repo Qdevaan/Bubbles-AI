@@ -190,3 +190,79 @@ async def test_rewards_other_user_403(app: FastAPI, pool: asyncpg.Pool, user_id:
         r2 = await ac.post(f"/v1/rewards/{other}/redeem", json={"reward_id": str(uuid4())})
     assert r1.status_code == 403
     assert r2.status_code == 403
+
+
+async def test_leaderboard_all_period(app: FastAPI, pool: asyncpg.Pool, user_id: UUID) -> None:
+    from bubbles.db.repo import gamification as grepo
+    from bubbles.db.uow import UnitOfWork
+
+    other = await _new_user(pool)
+    async with UnitOfWork(pool) as uow:
+        await grepo.add_xp(uow.conn, user_id=user_id, amount=100)
+        await grepo.add_xp(uow.conn, user_id=other, amount=300)
+        await grepo.set_leaderboard_opt_in(uow.conn, user_id=user_id, opt_in=True)
+        await grepo.set_leaderboard_opt_in(uow.conn, user_id=other, opt_in=True)
+    _override(app, pool, user_id)
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://t") as ac:
+        r = await ac.get("/v1/leaderboard", params={"period": "all", "limit": 10})
+    assert r.status_code == 200
+    body = r.json()
+    assert body["period"] == "all"
+    assert [e["user_id"] for e in body["entries"]][:2] == [str(other), str(user_id)]
+    assert [e["rank"] for e in body["entries"]][:2] == [1, 2]
+    assert body["me"]["rank"] == 2
+    assert body["me"]["xp"] == 100
+
+
+async def test_leaderboard_weekly_period_window(
+    app: FastAPI, pool: asyncpg.Pool, user_id: UUID
+) -> None:
+    # one positive tx now (counts), one positive tx 10 days ago (doesn't)
+    async with pool.acquire() as con:
+        await con.execute(
+            "INSERT INTO user_gamification (user_id, leaderboard_opt_in) VALUES ($1, true)"
+            " ON CONFLICT (user_id) DO UPDATE SET leaderboard_opt_in = true",
+            user_id,
+        )
+        await con.execute(
+            "INSERT INTO xp_transactions (user_id, amount, source_type) VALUES ($1, 40, 'recent')",
+            user_id,
+        )
+        await con.execute(
+            "INSERT INTO xp_transactions (user_id, amount, source_type, created_at)"
+            " VALUES ($1, 999, 'old', now() - interval '10 days')",
+            user_id,
+        )
+    _override(app, pool, user_id)
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://t") as ac:
+        r = await ac.get("/v1/leaderboard", params={"period": "weekly"})
+    body = r.json()
+    assert body["period"] == "weekly"
+    me_entry = [e for e in body["entries"] if e["user_id"] == str(user_id)]
+    assert me_entry and me_entry[0]["xp"] == 40
+    assert body["me"]["xp"] == 40
+
+
+async def test_leaderboard_bad_period_422(app: FastAPI, pool: asyncpg.Pool, user_id: UUID) -> None:
+    _override(app, pool, user_id)
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://t") as ac:
+        r = await ac.get("/v1/leaderboard", params={"period": "yearly"})
+    assert r.status_code == 422
+
+
+async def test_opt_in_toggle(app: FastAPI, pool: asyncpg.Pool, user_id: UUID) -> None:
+    _override(app, pool, user_id)
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://t") as ac:
+        off = await ac.post(f"/v1/leaderboard/{user_id}/opt_in", json={"opt_in": False})
+        on = await ac.post(f"/v1/leaderboard/{user_id}/opt_in", json={"opt_in": True})
+    assert off.status_code == 200 and off.json()["leaderboard_opt_in"] is False
+    assert on.status_code == 200 and on.json()["leaderboard_opt_in"] is True
+    assert on.json()["user_id"] == str(user_id)
+
+
+async def test_opt_in_other_user_403(app: FastAPI, pool: asyncpg.Pool, user_id: UUID) -> None:
+    other = await _new_user(pool)
+    _override(app, pool, user_id)
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://t") as ac:
+        r = await ac.post(f"/v1/leaderboard/{other}/opt_in", json={"opt_in": True})
+    assert r.status_code == 403
