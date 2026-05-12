@@ -250,6 +250,25 @@ async def test_leaderboard_bad_period_422(app: FastAPI, pool: asyncpg.Pool, user
     assert r.status_code == 422
 
 
+async def test_leaderboard_me_rank_none_when_not_opted_in(
+    app: FastAPI, pool: asyncpg.Pool, user_id: UUID
+) -> None:
+    from bubbles.db.repo import gamification as grepo
+    from bubbles.db.uow import UnitOfWork
+
+    async with UnitOfWork(pool) as uow:
+        await grepo.add_xp(uow.conn, user_id=user_id, amount=50)
+        await grepo.set_leaderboard_opt_in(uow.conn, user_id=user_id, opt_in=False)
+    _override(app, pool, user_id)
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://t") as ac:
+        r = await ac.get("/v1/leaderboard", params={"period": "all"})
+    assert r.status_code == 200
+    body = r.json()
+    assert body["me"]["rank"] is None  # caller opted out → no rank
+    assert body["me"]["xp"] == 50  # but total xp still reported
+    assert all(e["user_id"] != str(user_id) for e in body["entries"])  # not listed
+
+
 async def test_opt_in_toggle(app: FastAPI, pool: asyncpg.Pool, user_id: UUID) -> None:
     _override(app, pool, user_id)
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://t") as ac:
