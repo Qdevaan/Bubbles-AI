@@ -191,6 +191,7 @@ DEFAULT_CHAINS: tuple[TaskChain, ...] = (
     TaskChain("consultant.complete", ("gemini", "cerebras", "groq"), max_tokens=1024),
     TaskChain("wingman.json", ("cerebras", "groq", "gemini"), temperature=0.2, max_tokens=600),
     TaskChain("wingman.short", ("cerebras", "groq"), temperature=0.3, max_tokens=300),
+    TaskChain("wingman.advice", ("cerebras", "groq", "gemini"), temperature=0.4, max_tokens=300),
     TaskChain("grammar.correct", ("groq", "cerebras"), temperature=0.0, max_tokens=400),
     TaskChain(
         "analytics.coaching", ("gemini", "cerebras", "groq"), temperature=0.3, max_tokens=900

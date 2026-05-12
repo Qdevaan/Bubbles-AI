@@ -35,6 +35,28 @@ class Session:
 
 
 @dataclass(frozen=True, slots=True)
+class SessionLog:
+    """One conversation turn. ``role`` is one of ``user`` / ``others`` / ``llm``."""
+
+    id: UUID
+    session_id: UUID
+    turn_index: int
+    role: str
+    content: str | None
+    speaker_label: str | None
+    confidence: float | None
+    model_used: str | None
+    latency_ms: int | None
+    tokens_used: int | None
+    finish_reason: str | None
+    has_error: bool
+    error_message: str | None
+    sentiment_score: float | None
+    sentiment_label: str | None
+    created_at: datetime
+
+
+@dataclass(frozen=True, slots=True)
 class Entity:
     id: UUID
     user_id: UUID

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import pytest
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
@@ -25,6 +26,37 @@ async def test_check_user_turn_requires_text(app: FastAPI) -> None:
         resp = await ac.post(
             "/v1/check_user_turn",
             json={"text": ""},
+            headers={"Authorization": "Bearer fake"},
+        )
+    assert resp.status_code in (401, 422)
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"transcript": "", "speaker_role": "others"},
+        {"transcript": "hi", "speaker_role": "robot"},
+        {"transcript": "hi", "speaker_role": "llm"},  # 'llm' not allowed on input
+        {"transcript": "hi", "speaker_role": "others", "confidence": 1.5},
+    ],
+)
+async def test_process_transcript_wingman_validation(
+    app: FastAPI, payload: dict[str, object]
+) -> None:
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://t") as ac:
+        resp = await ac.post(
+            "/v1/process_transcript_wingman", json=payload, headers={"Authorization": "Bearer fake"}
+        )
+    assert resp.status_code in (401, 422)
+
+
+async def test_log_turn_requires_content(app: FastAPI) -> None:
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://t") as ac:
+        resp = await ac.post(
+            "/v1/log_turn",
+            json={"session_id": "00000000-0000-0000-0000-000000000000", "content": ""},
             headers={"Authorization": "Bearer fake"},
         )
     assert resp.status_code in (401, 422)

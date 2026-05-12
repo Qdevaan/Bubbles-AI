@@ -67,6 +67,55 @@ class SuggestReplyResponse(_Base):
     provider: str
 
 
+# --- per-turn store + wingman ---------------------------------------------
+
+
+_TurnRole = Literal["user", "others", "llm"]
+_SpeakerRole = Literal["user", "others"]
+
+
+class LogTurnRequest(_Base):
+    session_id: UUID
+    role: _TurnRole = "others"
+    content: str = Field(..., min_length=1, max_length=8_000)
+    speaker_label: str | None = Field(default=None, max_length=120)
+    confidence: float | None = Field(default=None, ge=0.0, le=1.0)
+
+
+class TurnOut(_Base):
+    turn_index: int
+    role: str
+    content: str | None
+    speaker_label: str | None
+    confidence: float | None
+    model_used: str | None
+    latency_ms: int | None
+    sentiment_score: float | None
+    sentiment_label: str | None
+    created_at: datetime
+
+
+class SessionReplayResponse(_Base):
+    session_id: UUID
+    turns: list[TurnOut]
+
+
+class WingmanTurnRequest(_Base):
+    session_id: UUID | None = None
+    transcript: str = Field(..., min_length=1, max_length=4_000)
+    speaker_role: _SpeakerRole = "others"
+    speaker_label: str | None = Field(default=None, max_length=120)
+    confidence: float | None = Field(default=None, ge=0.0, le=1.0)
+    mode: str = "live_wingman"
+    persona: str = "casual"
+
+
+class WingmanTurnResponse(_Base):
+    advice: str
+    provider: str
+    turn_index: int | None = None
+
+
 # --- consultant ------------------------------------------------------------
 
 

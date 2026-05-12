@@ -9,16 +9,20 @@ from fastapi import APIRouter, Response, status
 
 from bubbles.api.v1._schemas import (
     EndSessionRequest,
+    LogTurnRequest,
     SaveSessionRequest,
     SessionContextRequest,
     SessionOut,
+    SessionReplayResponse,
     StartSessionRequest,
     SuggestReplyRequest,
     SuggestReplyResponse,
+    TurnOut,
 )
 from bubbles.auth.current_user import CurrentUserDep, require_ownership
 from bubbles.core.errors import NotFound
 from bubbles.core.logging import get_logger
+from bubbles.db.repo import session_logs as session_logs_repo
 from bubbles.db.repo import sessions as sessions_repo
 from bubbles.db.uow import UnitOfWork, transaction
 from bubbles.deps import ArqDep, PoolDep, RouterDep
@@ -105,14 +109,65 @@ async def end_session(
         ended = await sessions_repo.end(uow.conn, session_id=body.session_id, summary=body.summary)
     if ended is None:
         raise NotFound("session not found")
-    if arq is not None and body.transcript:
+    # Stored turns are authoritative; fall back to a client-supplied transcript.
+    async with transaction(pool) as conn:
+        row_transcript = await session_logs_repo.assemble_transcript(
+            conn, session_id=body.session_id
+        )
+    transcript = row_transcript or (body.transcript or "")
+    if arq is not None and transcript:
         await _enqueue_post_session_jobs(
             arq,
             user_id=str(existing.user_id),
             session_id=str(body.session_id),
-            transcript=body.transcript,
+            transcript=transcript,
         )
     return _to_out(ended)
+
+
+@router.post("/log_turn", response_model=TurnOut, status_code=status.HTTP_201_CREATED)
+async def log_turn(
+    body: LogTurnRequest,
+    user: CurrentUserDep,
+    pool: PoolDep,
+) -> TurnOut:
+    async with transaction(pool) as conn:
+        sess = await sessions_repo.get(conn, body.session_id)
+    if sess is None:
+        raise NotFound("session not found")
+    require_ownership(user, str(sess.user_id))
+    async with UnitOfWork(pool) as uow:
+        log = await session_logs_repo.append(
+            uow.conn,
+            session_id=body.session_id,
+            role=body.role,
+            content=body.content,
+            speaker_label=body.speaker_label,
+            confidence=body.confidence,
+        )
+    return TurnOut.model_validate(session_logs_repo.to_out_dict(log))
+
+
+@router.get("/session_replay/{session_id}", response_model=SessionReplayResponse)
+async def session_replay(
+    session_id: UUID,
+    user: CurrentUserDep,
+    pool: PoolDep,
+    limit: int = 500,
+    offset: int = 0,
+) -> SessionReplayResponse:
+    async with transaction(pool) as conn:
+        sess = await sessions_repo.get(conn, session_id)
+        if sess is None:
+            raise NotFound("session not found")
+        require_ownership(user, str(sess.user_id))
+        logs = await session_logs_repo.list_for_session(
+            conn, session_id=session_id, limit=min(max(limit, 1), 1000), offset=max(offset, 0)
+        )
+    return SessionReplayResponse(
+        session_id=session_id,
+        turns=[TurnOut.model_validate(session_logs_repo.to_out_dict(log)) for log in logs],
+    )
 
 
 @router.post("/sessions/{session_id}/context", response_model=SessionOut)

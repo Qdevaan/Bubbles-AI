@@ -117,3 +117,73 @@ async def test_end_session_ok_when_queue_down(
             json={"session_id": str(sid), "transcript": "User: hi"},
         )
     assert r.status_code == 200
+
+
+async def test_log_turn_then_replay(app: FastAPI, pool: asyncpg.Pool, user_id: UUID) -> None:
+    _override(app, pool, user_id)
+    sid = await _make_session(pool, user_id)
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://t") as ac:
+        r0 = await ac.post(
+            "/v1/log_turn",
+            json={"session_id": str(sid), "role": "user", "content": "hey there"},
+        )
+        r1 = await ac.post(
+            "/v1/log_turn",
+            json={
+                "session_id": str(sid),
+                "role": "others",
+                "content": "hi",
+                "speaker_label": "Sam",
+            },
+        )
+        rep = await ac.get(f"/v1/session_replay/{sid}")
+    assert r0.status_code == 201
+    assert r0.json()["turn_index"] == 0
+    assert r1.json()["turn_index"] == 1
+    body = rep.json()
+    assert body["session_id"] == str(sid)
+    assert [t["role"] for t in body["turns"]] == ["user", "others"]
+    assert body["turns"][1]["speaker_label"] == "Sam"
+
+
+async def test_log_turn_other_user_403(app: FastAPI, pool: asyncpg.Pool, user_id: UUID) -> None:
+    other = uuid4()
+    async with pool.acquire() as con:
+        await con.execute("INSERT INTO auth.users (id) VALUES ($1)", other)
+    sid = await _make_session(pool, other)
+    _override(app, pool, user_id)
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://t") as ac:
+        r = await ac.post("/v1/log_turn", json={"session_id": str(sid), "content": "x"})
+    assert r.status_code == 403
+
+
+async def test_session_replay_unknown_404(app: FastAPI, pool: asyncpg.Pool, user_id: UUID) -> None:
+    _override(app, pool, user_id)
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://t") as ac:
+        r = await ac.get(f"/v1/session_replay/{uuid4()}")
+    assert r.status_code == 404
+
+
+async def test_end_session_assembles_transcript_from_rows(
+    app: FastAPI, pool: asyncpg.Pool, user_id: UUID
+) -> None:
+    arq = FakeArq()
+    _override(app, pool, user_id, arq=arq)
+    sid = await _make_session(pool, user_id)
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://t") as ac:
+        await ac.post(
+            "/v1/log_turn", json={"session_id": str(sid), "role": "user", "content": "hi"}
+        )
+        await ac.post(
+            "/v1/log_turn", json={"session_id": str(sid), "role": "others", "content": "hello"}
+        )
+        # No transcript in the body — must be assembled from the rows above.
+        r = await ac.post("/v1/end_session", json={"session_id": str(sid)})
+    assert r.status_code == 200
+    assert [kw["_job_name"] for (_, kw) in arq.calls] == [
+        "compute_session_analytics",
+        "extract_knowledge",
+        "compute_embeddings",
+    ]
+    sent_transcript = arq.calls[0][1]["transcript"]
+    assert sent_transcript == "User: hi\nOthers: hello"

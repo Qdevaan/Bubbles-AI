@@ -47,6 +47,27 @@ CREATE TABLE sessions (
     idempotency_key text UNIQUE
 );
 
+CREATE TABLE session_logs (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    session_id uuid REFERENCES sessions(id) ON DELETE CASCADE,
+    turn_index integer NOT NULL DEFAULT 0,
+    role text NOT NULL,
+    content text,
+    content_html text,
+    model_used text,
+    latency_ms integer,
+    tokens_used integer,
+    finish_reason text,
+    has_error boolean DEFAULT false,
+    error_message text,
+    speaker_label text,
+    confidence numeric,
+    sentiment_score numeric,
+    sentiment_label text,
+    created_at timestamptz DEFAULT now()
+);
+CREATE INDEX idx_session_logs_session_turn ON session_logs (session_id, turn_index);
+
 CREATE TABLE entities (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id uuid REFERENCES auth.users(id) ON DELETE CASCADE,

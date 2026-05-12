@@ -42,7 +42,9 @@ Same `/v1/*` paths and response shapes as `server_v2/`, so the Flutter client mo
 
 Persona Jinja fragments (`casual`/`default`/`educator`/`learner`/`professional` + `_scenario_header`) and the analytics coaching system prompt are ported verbatim from the old `server_v2/app/prompts/`.
 
-**Not yet registered** (still only in `server_v2/`): `process_transcript_wingman`, `enroll`, `identify_speaker`, `session_replay/{session_id}`, `performance_summary/{user_id}`, the quest mission endpoints (`quests/{uid}/{uqid}/answer`, `.../attach_session`).
+Also registered as of 2026-05-12 (H2/H3): `process_transcript_wingman`, `log_turn`, `session_replay/{session_id}`.
+
+**Not yet registered** (still only in `server_v2/`): `enroll`, `identify_speaker`, `performance_summary/{user_id}`, the quest mission endpoints (`quests/{uid}/{uqid}/answer`, `.../attach_session`).
 
 ---
 
@@ -65,7 +67,7 @@ Persona Jinja fragments (`casual`/`default`/`educator`/`learner`/`professional` 
 - `POST /v1/ask_entity` is **graph-aware**: extracts entities from the question, looks them up in the user's graph, prompts with that context. Returns `{answer, entities[], provider}`.
 - `WS /v1/stt/stream` emits `{"type":"final","text":...}` / `{"type":"error","message":...}` (was Deepgram's native event shape); token-gated via `?token=<jwt>`.
 - `POST /v1/check_user_turn` persists detected mistakes (`user_mistakes`, `source ∈ lt|llm`); surfaced by `GET /v1/user_mistakes` → `{items[], counts{}}`.
-- `POST /v1/save_session` is currently a **read-only no-op** (fetch + return). In `server_v2` it persisted the transcript. v5 has no per-turn store yet (Hole H2), so there is nothing to save.
+- `POST /v1/save_session` remains a **read-only no-op** (fetch + return). In `server_v2` it persisted a transcript blob; in v5 the per-turn store is written via `POST /v1/log_turn` (or the wingman loop) — one turn at a time — so `save_session` has nothing to do. Clients that were calling `save_session` to persist the conversation should call `log_turn` per turn instead.
 
 No data migration: v5 writes to the same Supabase DB. New Alembic revisions beyond `0001` are forward-only and must ship a working `downgrade()`.
 
@@ -88,23 +90,25 @@ Severity: **P0** = v5 is not functionally equivalent / a headline feature is dea
 
 Still cron-only on the *worker* side beyond these: `seed_quests`, `send_reminders`. The `backfill_session_entities` one-off (H8) is now actionable.
 
-### H2 (P0) — v5 stores no per-turn conversation content
+### H2 (P0) — ~~v5 stores no per-turn conversation content~~ **DONE (2026-05-12)** — chose option (a)
 
-There is no `session_logs` / `sentiment_logs` writer and no route that appends turns. `process_transcript_wingman` (v2's per-turn endpoint, which also persisted the turn) is not ported, and `save_session` is a no-op. The transcript only ever exists transiently as a string handed to the worker — which, per H1, is never invoked anyway.
+**Fixed.** Spec: `docs/superpowers/specs/2026-05-12-v5-port-h2-h3-turn-store-wingman-design.md`.
+- Alembic `0004` adds `session_logs` (column set mirrors live Supabase; `CREATE TABLE IF NOT EXISTS`, so a no-op on prod, create-from-scratch on a fresh CI DB). `baseline.sql` + conftest teardown updated.
+- `db/models.py` → `SessionLog`; new `db/repo/session_logs.py` (`append` with server-assigned monotonic `turn_index`; `list_for_session`; `turn_count`; `assemble_transcript` with role→label map and `last_n`).
+- `POST /v1/log_turn` appends a turn (ownership-checked); `GET /v1/session_replay/{session_id}` returns turns ordered by `turn_index` (paginated).
+- `end_session` now assembles the transcript from `session_logs` rows when present (a client-supplied `transcript` remains a fallback), then enqueues the post-session jobs.
+- `compute_session_analytics` worker now still accepts a `transcript` arg — wiring it to *prefer* `session_logs` rows (so the per-turn columns `average_latency_ms` / `avg_advice_latency_ms` / `avg_sentiment_score` / `dominant_sentiment` and `sentiment_trend` can be populated from row metadata) is a small follow-up; the rows are written, the math just needs to read them.
+- **Sub-hole still open:** turn-level sentiment scoring. `session_logs.sentiment_score` / `sentiment_label` ship nullable; a `sentiment_scan` worker (writing those + `sentiment_logs`) is a later item — track under H2.
+- Tests: `tests/integration/test_repo_session_logs.py`, `tests/integration/test_routes_wingman.py`, `log_turn`/`session_replay`/`end_session`-from-rows cases in `tests/integration/test_routes_sessions.py`, validation cases in `tests/unit/test_routes_validation.py`.
 
-Consequence: `session_replay/{session_id}` is unbuildable; the per-turn `session_analytics` columns (`average_latency_ms`, `avg_advice_latency_ms`, `avg_sentiment_score`, `dominant_sentiment`) stay NULL; `sentiment_trend` stays `[]`; the coaching report can only ever be computed from whatever transcript string a caller passes.
+### H3 (P0) — ~~`process_transcript_wingman` (live wingman advice) not ported~~ **DONE (2026-05-12)**
 
-**Patch / decision needed — pick one:**
-- (a) Add a `session_turns` table + a `log_turn` route (or fold it into the `process_transcript_wingman` port) that appends each turn; `end_session` then assembles the transcript from rows and enqueues the worker. This unlocks `session_replay` and the per-turn columns.
-- (b) Accept "client supplies the full transcript at `end_session`" and **document that `session_replay` and per-turn metrics are permanently out of scope** in v5.
-
-The current state is neither — that's the problem.
-
-### H3 (P0) — `process_transcript_wingman` (live wingman advice) not ported
-
-v2's real-time, per-turn advice loop is the actual product feature. v5 ships only `suggest_reply` — a one-shot "suggest one short reply" against `wingman.short`. Not equivalent. Likely the same batch as H2 (the wingman loop is where turns naturally get persisted).
-
-**Patch:** port the endpoint; route advice through `LLMRouter` task `wingman.*`; persist each turn (see H2(a)).
+**Fixed.** `POST /v1/process_transcript_wingman` (`api/v1/wingman.py`):
+- Auth + ownership on `session_id` when supplied; appends the incoming turn to `session_logs` synchronously and returns its `turn_index`.
+- `speaker_role == "user"` → fast path: persist + enqueue an embeddings refresh + return `{"advice":"WAITING"}` (matches v2 — advice is only for the *other* side).
+- `speaker_role == "others"` → builds a small context (recent memories via embeddings/`memory.similar`, falling back to recent rows; top entities), hard-capped at 0.5 s; calls `LLMRouter` task `wingman.advice` (new chain: cerebras → groq → gemini); returns the advice; then **in the background** (`app.state.bg` `FireAndForget`, or inline if absent) appends the advice as an `llm` turn (with `model_used`/`latency_ms`/`tokens_used`/`finish_reason`), and every 5th turn enqueues `extract_knowledge` for the rolling transcript + always enqueues `compute_embeddings`.
+- New `wingman/advice.jinja` system prompt; `wingman.advice` chain registered in `DEFAULT_CHAINS`.
+- **Not ported (deliberate):** v2's rolling-summary-every-20-turns (`_rolling_summarize`) and multiplayer turn handling — track as follow-ups if wanted.
 
 ### H4 (P1) — Speaker `enroll` / `identify_speaker` HTTP routes missing
 
@@ -167,8 +171,8 @@ The 5 testcontainers suites are gated behind `RUN_INTEGRATION=1` + the docker SD
 ## 6. Recommended order of work to fully retire `server_v2`
 
 1. ~~**H1 — wire the enqueues.**~~ **Done 2026-05-12.** `end_session` (with a client-supplied transcript) → `compute_session_analytics` + `extract_knowledge` + `compute_embeddings`; `check_user_turn` → `grammar_scan`. Spec: `docs/superpowers/specs/2026-05-12-v5-port-h1-wire-enqueues-design.md`.
-2. **H2 + H3 — per-turn store + `process_transcript_wingman`.** One batch: `session_turns` table (decision 5.H2(a)), `log_turn` / wingman route, `end_session` assembles transcript and enqueues. Unlocks `session_replay`, per-turn `session_analytics` columns, `sentiment_trend`.
-3. **H4 — speaker `enroll` / `identify_speaker` routes** over the existing job.
+2. ~~**H2 + H3 — per-turn store + `process_transcript_wingman`.**~~ **Done 2026-05-12.** `session_logs` (Alembic `0004`), `db/repo/session_logs.py`, `POST /v1/log_turn`, `GET /v1/session_replay/{id}`, `POST /v1/process_transcript_wingman`, `end_session` assembles from rows. Spec: `docs/superpowers/specs/2026-05-12-v5-port-h2-h3-turn-store-wingman-design.md`. Follow-ups: analytics worker to read `session_logs` for the per-turn columns; turn-level sentiment scan; rolling-summary; multiplayer turns.
+3. **H4 — speaker `enroll` / `identify_speaker` routes** over the existing job.  ← next
 4. **H5 — stop truncating the coaching transcript.**
 5. **H6 — XP-award worker + gamification completeness** (caps, streaks, achievements, `stats{}`, quest mission endpoints).
 6. **H7 — `performance_summary/{user_id}`**; **H8 — `backfill_session_entities` job** (after H1).
@@ -183,7 +187,7 @@ Each item gets the usual spec → plan → subagent-driven execution cycle; spec
 
 `server_v2/` is at `legacy/server_v2/` — not deployed, not in CI, not referenced by active config or the Flutter client. `server/` (Bubbles Brain API v5) is the primary backend. The `legacy/` copy stays on disk **only** as the reference for §2 (contract) and §4 (deltas) until §6 is complete; then it is deleted.
 
-The live-deployment cutover (stand up v5 on a subdomain, flip the Flutter `kUseApiV5` flag, 48 h soak, repoint DNS) is documented step-by-step in `Documentation/server-blueprint.md` §18 — that's the ops rollout. The repo-side retirement (move + de-reference) is already done; the *functional* retirement waits on §6 — **H1 landed 2026-05-12**, next is **H2 + H3** (per-turn store + `process_transcript_wingman`).
+The live-deployment cutover (stand up v5 on a subdomain, flip the Flutter `kUseApiV5` flag, 48 h soak, repoint DNS) is documented step-by-step in `Documentation/server-blueprint.md` §18 — that's the ops rollout. The repo-side retirement (move + de-reference) is already done; the *functional* retirement waits on §6 — **H1, H2, H3 landed 2026-05-12**, next is **H4** (speaker `enroll` / `identify_speaker` routes).
 
 ### Done so far (v5 port batches)
 
