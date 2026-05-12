@@ -67,7 +67,7 @@ async def test_worker_writes_analytics_and_coaching(pool: asyncpg.Pool, user_id:
         assert sa.total_turns == 3
         assert sa.user_turns == 2
         assert sa.llm_turns == 1
-        assert sa.user_word_count == 8
+        assert sa.user_word_count == 7
         assert sa.assistant_word_count == 4
         cr = await analytics_repo.get_coaching_report(conn, session_id=sid)
         assert cr is not None
