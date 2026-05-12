@@ -22,6 +22,7 @@ from bubbles.core.redis import make_redis
 from bubbles.db.pool import close_pool, create_pool
 from bubbles.settings import Settings, get_settings
 from bubbles.workers.jobs import (
+    backfill_session_entities,
     compute_embeddings,
     compute_session_analytics,
     detect_achievements,
@@ -89,6 +90,7 @@ _JOB_REGISTRY: dict[str, Any] = {
     "speaker_enroll": speaker_enroll.run,
     "speaker_identify": speaker_identify.run,
     "detect_achievements": detect_achievements.run,
+    "backfill_session_entities": backfill_session_entities.run,
 }
 
 

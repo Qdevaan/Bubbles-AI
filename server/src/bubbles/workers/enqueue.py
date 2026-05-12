@@ -69,6 +69,15 @@ async def enqueue_compute_embeddings(arq: ArqRedis, *, user_id: str) -> Any:
     )
 
 
+async def enqueue_backfill_session_entities(arq: ArqRedis, *, limit: int = 200) -> Any:
+    return await arq.enqueue_job(
+        "run",
+        _job_name="backfill_session_entities",
+        limit=limit,
+        _job_id="backfill_session_entities",
+    )
+
+
 async def enqueue_detect_achievements(arq: ArqRedis, *, user_id: str) -> Any:
     return await arq.enqueue_job(
         "run",

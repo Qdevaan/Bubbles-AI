@@ -27,6 +27,7 @@ from bubbles.api.v1._schemas import (
     DigestResponse,
     DigestSession,
     DigestTask,
+    PerformanceSummaryResponse,
     SaveFeedbackRequest,
     SaveFeedbackResponse,
     SessionAnalyticsOut,
@@ -34,8 +35,10 @@ from bubbles.api.v1._schemas import (
 )
 from bubbles.auth.current_user import CurrentUserDep, require_ownership
 from bubbles.core.errors import NotFound
+from bubbles.core.performance import PerformanceInputs, compute_performance
 from bubbles.db.repo import analytics as analytics_repo
 from bubbles.db.repo import feedback as feedback_repo
+from bubbles.db.repo import gamification as gamification_repo
 from bubbles.db.uow import UnitOfWork, transaction
 from bubbles.deps import PoolDep
 
@@ -224,4 +227,53 @@ async def get_communication_trends(
     trends = _group_by_week(rows)
     return CommunicationTrendsResponse(
         user_id=user_id, weeks_requested=weeks, weeks_available=len(trends), trends=trends
+    )
+
+
+async def _performance_inputs(
+    pool: PoolDep, *, user_id: UUID, since: datetime, until: datetime | None
+) -> PerformanceInputs:
+    async with transaction(pool) as conn:
+        win = await analytics_repo.performance_window(
+            conn, user_id=user_id, since=since, until=until
+        )
+        assigned, completed = await gamification_repo.quest_completion_between(
+            conn, user_id=user_id, since_date=since.date()
+        )
+        g = await gamification_repo.get_or_init_gamification(conn, user_id)
+    return PerformanceInputs(
+        session_count=win["session_count"],
+        avg_sentiment=win["avg_sentiment"],
+        avg_user_talk_pct=win["avg_user_talk_pct"],
+        avg_filler_count=win["avg_filler_count"],
+        quests_assigned=assigned,
+        quests_completed=completed,
+        current_streak=g.current_streak,
+    )
+
+
+@router.get("/performance_summary/{user_id}", response_model=PerformanceSummaryResponse)
+async def get_performance_summary(
+    user_id: UUID,
+    user: CurrentUserDep,
+    pool: PoolDep,
+) -> PerformanceSummaryResponse:
+    require_ownership(user, str(user_id))
+    now = datetime.now(tz=UTC)
+    this_week = await _performance_inputs(
+        pool, user_id=user_id, since=now - timedelta(days=7), until=None
+    )
+    prev_week = await _performance_inputs(
+        pool, user_id=user_id, since=now - timedelta(days=14), until=now - timedelta(days=7)
+    )
+    summary = compute_performance(this_week)
+    prev = compute_performance(prev_week)
+    return PerformanceSummaryResponse(
+        performance_tier=summary.performance_tier,
+        recommended_difficulty=summary.recommended_difficulty,
+        focus_areas=summary.focus_areas,
+        ai_coaching_tip=summary.ai_coaching_tip,
+        weekly_score=summary.weekly_score,
+        score_delta=round(summary.weekly_score - prev.weekly_score, 1),
+        breakdown=summary.breakdown,
     )

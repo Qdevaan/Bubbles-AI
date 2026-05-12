@@ -44,7 +44,9 @@ Persona Jinja fragments (`casual`/`default`/`educator`/`learner`/`professional` 
 
 Also registered as of 2026-05-12 (H2/H3/H4): `process_transcript_wingman`, `log_turn`, `session_replay/{session_id}`, `enroll`, `identify_speaker`.
 
-**Not yet registered** (still only in `server_v2/`): `performance_summary/{user_id}`, the quest mission endpoints (`quests/{uid}/{uqid}/answer`, `.../attach_session`).
+Also registered 2026-05-12 (H7): `performance_summary/{user_id}`.
+
+**Not yet registered** (still only in `server_v2/`): the quest mission endpoints (`quests/{uid}/{uqid}/answer`, `.../attach_session`) — see H6b.
 
 ---
 
@@ -138,13 +140,13 @@ Done:
 - Quest **mission** endpoints — `POST /quests/{uid}/{uqid}/answer` (question-set missions) and `POST /quests/{uid}/{uqid}/attach_session` (conversation missions) still not ported, so most daily quests can be auto-assigned but not completed. `quest_definitions.mission_type` + `brief` already exist; `increment_quest_progress` exists; needs the two routes + the answer-checking logic.
 - XP awards aren't yet wired into the live loops (entity-extraction XP, "use wingman turns" / "save memory" quest progress) — `process_transcript_wingman` could call `add_xp` / `increment_quest_progress` but doesn't.
 
-### H7 (P2) — `performance_summary/{user_id}` not ported
+### H7 (P2) — ~~`performance_summary/{user_id}` not ported~~ **DONE (2026-05-12)**
 
-v2's aggregate performance endpoint. Later batch.
+**Fixed.** `GET /v1/performance_summary/{user_id}` (in `api/v1/analytics.py`). Pure composite math lives in `core/performance.py` (`compute_performance(PerformanceInputs) -> PerformanceSummary`) — re-derived from the metrics v5 actually persists (v2's `mutual_engagement_score` doesn't exist here; engagement is proxied by talk-time balance from `coaching_reports.user_talk_pct`). Six weighted components (engagement 0.30 / sentiment 0.15 / session-freq 0.20 / quest-completion 0.15 / streak 0.10 / filler-control 0.10), tier (`struggling`/`steady`/`improving`/`excelling`) → recommended difficulty + a coaching tip + `focus_areas`. The route reads the trailing 7-day window and the 7–14-day window and returns `score_delta` between the two composites. New repo helpers: `analytics_repo.performance_window`, `gamification_repo.quest_completion_between`. Tests: `tests/unit/test_performance.py`, `tests/integration/test_performance_h7_h8.py`.
 
-### H8 (P2) — `backfill_session_entities` one-off job not written
+### H8 (P2) — ~~`backfill_session_entities` one-off job not written~~ **DONE (2026-05-12)**
 
-`session_entities` (Alembic `0002`) is populated going forward by `extract_knowledge`; sessions created before that migration have no links. (Moot until H1 is fixed and `extract_knowledge` actually runs.) Write the one-off backfill job after H1.
+**Fixed.** `workers/jobs/backfill_session_entities.py` — finds sessions that have `session_logs` rows but no `session_entities` rows, assembles each transcript, and runs `extract_knowledge` inline for it (bounded by a `limit`, default 200). Sessions with no stored transcript (pre-H2, no `session_logs`) are skipped — there's nothing to extract from. Registered in the worker; `enqueue_backfill_session_entities` helper (`_job_id` fixed so only one runs at a time) — an operator enqueues it and re-runs until `sessions_processed` is 0. Test: `test_backfill_session_entities` in `tests/integration/test_performance_h7_h8.py`.
 
 ### H9 (P3) — ElevenLabs premium-TTS fallback not wired
 
@@ -181,9 +183,10 @@ The 5 testcontainers suites are gated behind `RUN_INTEGRATION=1` + the docker SD
 3. ~~**H4 — speaker `enroll` / `identify_speaker` routes**~~ **Done 2026-05-12.** Also fixed the worker dispatch (colliding `run` registrations → single `_job_name` dispatcher) — the prerequisite for any enqueued job actually running.
 4. ~~**H5 — stop truncating the coaching transcript.**~~ **Done 2026-05-12.** `prepare_transcript` (map-reduce condense for long transcripts) replaces the 4 KB tail-slice.
 5. ~~**H6 — XP-award worker + gamification completeness.**~~ **Mostly done 2026-05-12** — daily XP cap, streak increments + milestone bonuses (wired into `start_session`), achievement-detection worker (enqueued from `end_session`). **H6b remaining:** profile `stats{}` block, quest-mission endpoints (`answer` / `attach_session`), XP wiring into the live loops.
-6. **H7 — `performance_summary/{user_id}`**; **H8 — `backfill_session_entities` job** (after H1).  ← next
-7. **H9–H14 — ops/hygiene:** ElevenLabs fallback, ARQ DLQ + alert, k6 nightly, confirm CI runs integration suites, schema-drift CI job, the H14 nits.
-8. When the above land and nothing references `legacy/server_v2/`: `git rm -r legacy/server_v2/`.
+6. ~~**H7 — `performance_summary/{user_id}`**; **H8 — `backfill_session_entities` job**.~~ **Done 2026-05-12.**
+7. **H9–H14 — ops/hygiene:** ElevenLabs fallback, ARQ DLQ + alert, k6 nightly, confirm CI runs integration suites, schema-drift CI job, the H14 nits.  ← next
+8. **H6b** — profile `stats{}`, quest-mission endpoints, live-loop XP wiring.
+9. When the above land and nothing references `legacy/server_v2/`: `git rm -r legacy/server_v2/`.
 
 Each item gets the usual spec → plan → subagent-driven execution cycle; specs live in `docs/superpowers/specs/`.
 
@@ -193,7 +196,7 @@ Each item gets the usual spec → plan → subagent-driven execution cycle; spec
 
 `server_v2/` is at `legacy/server_v2/` — not deployed, not in CI, not referenced by active config or the Flutter client. `server/` (Bubbles Brain API v5) is the primary backend. The `legacy/` copy stays on disk **only** as the reference for §2 (contract) and §4 (deltas) until §6 is complete; then it is deleted.
 
-The live-deployment cutover (stand up v5 on a subdomain, flip the Flutter `kUseApiV5` flag, 48 h soak, repoint DNS) is documented step-by-step in `Documentation/server-blueprint.md` §18 — that's the ops rollout. The repo-side retirement (move + de-reference) is already done; the *functional* retirement waits on §6 — **H1–H5 + most of H6 landed 2026-05-12** (plus the worker-dispatch fix), next is **H7/H8** (`performance_summary` route + `backfill_session_entities` job), then **H6b** (profile `stats{}`, quest missions) and **H9–H14**.
+The live-deployment cutover (stand up v5 on a subdomain, flip the Flutter `kUseApiV5` flag, 48 h soak, repoint DNS) is documented step-by-step in `Documentation/server-blueprint.md` §18 — that's the ops rollout. The repo-side retirement (move + de-reference) is already done; the *functional* retirement waits on §6 — **H1–H8 landed 2026-05-12** (H6 partial; plus the worker-dispatch fix), remaining: **H9–H14** (ops/hygiene) and **H6b** (profile `stats{}`, quest missions, live-loop XP wiring).
 
 ### Done so far (v5 port batches)
 

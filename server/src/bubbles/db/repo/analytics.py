@@ -334,3 +334,48 @@ async def digest_recent_highlights(
             limit,
         )
     )
+
+
+async def performance_window(
+    conn: asyncpg.Connection, *, user_id: UUID, since: datetime, until: datetime | None = None
+) -> dict[str, Any]:
+    """Aggregate the metrics the performance summary needs over ``[since, until)``.
+
+    ``until=None`` means open-ended (up to now). Counts a session toward
+    frequency once it has been ended (``ended_at`` set) within the window.
+    """
+    session_count = await conn.fetchval(
+        """
+        SELECT count(*)::int FROM sessions
+        WHERE user_id = $1 AND deleted_at IS NULL AND ended_at IS NOT NULL
+          AND ended_at >= $2 AND ($3::timestamptz IS NULL OR ended_at < $3)
+        """,
+        user_id,
+        since,
+        until,
+    )
+    avg_sentiment = await conn.fetchval(
+        """
+        SELECT avg(avg_sentiment_score)::float FROM session_analytics
+        WHERE user_id = $1 AND computed_at >= $2 AND ($3::timestamptz IS NULL OR computed_at < $3)
+        """,
+        user_id,
+        since,
+        until,
+    )
+    crow = await conn.fetchrow(
+        """
+        SELECT avg(user_talk_pct)::float AS talk_pct, avg(filler_word_count)::float AS filler
+        FROM coaching_reports
+        WHERE user_id = $1 AND generated_at >= $2 AND ($3::timestamptz IS NULL OR generated_at < $3)
+        """,
+        user_id,
+        since,
+        until,
+    )
+    return {
+        "session_count": int(session_count or 0),
+        "avg_sentiment": avg_sentiment,
+        "avg_user_talk_pct": crow["talk_pct"] if crow else None,
+        "avg_filler_count": crow["filler"] if crow else None,
+    }

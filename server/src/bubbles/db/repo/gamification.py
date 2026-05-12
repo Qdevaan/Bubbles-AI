@@ -513,3 +513,21 @@ async def rank_period(conn: asyncpg.Connection, *, user_id: UUID, since: datetim
         since,
     )
     return val
+
+
+async def quest_completion_between(
+    conn: asyncpg.Connection, *, user_id: UUID, since_date: date
+) -> tuple[int, int]:
+    """(assigned, completed) daily quests with ``assigned_date >= since_date``."""
+    row = await conn.fetchrow(
+        """
+        SELECT count(*)::int AS assigned,
+               count(*) FILTER (WHERE is_completed)::int AS completed
+        FROM user_quests
+        WHERE user_id = $1 AND assigned_date >= $2
+        """,
+        user_id,
+        since_date,
+    )
+    assert row is not None
+    return int(row["assigned"]), int(row["completed"])

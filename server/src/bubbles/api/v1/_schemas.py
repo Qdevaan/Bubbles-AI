@@ -130,6 +130,19 @@ class IdentifySpeakerResponse(_Base):
     similarity: float | None = None
 
 
+# --- performance summary ---------------------------------------------------
+
+
+class PerformanceSummaryResponse(_Base):
+    performance_tier: Literal["struggling", "steady", "improving", "excelling"]
+    recommended_difficulty: str
+    focus_areas: list[str]
+    ai_coaching_tip: str
+    weekly_score: float
+    score_delta: float
+    breakdown: dict[str, float]
+
+
 # --- consultant ------------------------------------------------------------
 
 
