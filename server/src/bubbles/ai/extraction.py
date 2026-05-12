@@ -68,3 +68,13 @@ async def generate_summary(router: LLMRouter, transcript: str) -> str:
 async def correct_grammar(router: LLMRouter, snippet: str) -> dict[str, Any]:
     prompt = render("wingman/grammar_correct.jinja", snippet=snippet)
     return await _wingman_json(router, prompt)
+
+
+async def generate_coaching_report(router: LLMRouter, transcript: str) -> dict[str, Any]:
+    prompt = render("coaching/report.jinja", transcript=_truncate(transcript))
+    completion = await router.complete(
+        "analytics.coaching",
+        [ChatMessage(role=Role.user, content=prompt)],
+        response_format="json",
+    )
+    return _parse_json(completion.text)

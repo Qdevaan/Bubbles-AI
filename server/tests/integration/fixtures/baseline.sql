@@ -280,3 +280,76 @@ CREATE TABLE session_entities (
 );
 CREATE INDEX session_entities_entity_idx ON session_entities (entity_id, last_seen_at DESC);
 CREATE INDEX session_entities_user_idx ON session_entities (user_id, last_seen_at DESC);
+
+-- feedback (matches Documentation/db_schema.sql)
+CREATE TABLE feedback (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    session_id uuid,
+    log_id uuid,
+    consultant_log_id uuid,
+    feedback_type text,
+    rating integer,
+    value integer,
+    comment text,
+    idempotency_key text UNIQUE,
+    created_at timestamptz NOT NULL DEFAULT now()
+);
+
+-- session_analytics (matches Documentation/db_schema.sql; session_id is the PK)
+CREATE TABLE session_analytics (
+    session_id uuid NOT NULL PRIMARY KEY,
+    user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    total_turns integer DEFAULT 0,
+    user_word_count integer DEFAULT 0,
+    assistant_word_count integer DEFAULT 0,
+    average_latency_ms integer,
+    topic_summary text,
+    user_turns integer DEFAULT 0,
+    others_turns integer DEFAULT 0,
+    llm_turns integer DEFAULT 0,
+    avg_advice_latency_ms numeric,
+    total_duration_seconds numeric,
+    memories_saved integer DEFAULT 0,
+    events_extracted integer DEFAULT 0,
+    highlights_created integer DEFAULT 0,
+    avg_sentiment_score numeric,
+    dominant_sentiment text,
+    computed_at timestamptz NOT NULL DEFAULT now()
+);
+
+-- coaching_reports (matches Documentation/db_schema.sql)
+CREATE TABLE coaching_reports (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    session_id uuid,
+    report_content jsonb NOT NULL DEFAULT '{}'::jsonb,
+    areas_of_improvement text[],
+    model_used text,
+    user_talk_pct double precision,
+    others_talk_pct double precision,
+    key_topics text[],
+    key_decisions text[],
+    action_items text[],
+    follow_up_people text[],
+    filler_words text[],
+    filler_word_count integer DEFAULT 0,
+    tone_summary text,
+    engagement_trend text,
+    suggestions text[],
+    strengths text[],
+    report_text text,
+    generated_at timestamptz NOT NULL DEFAULT now()
+);
+
+-- highlights (written by the compute_session_analytics worker; read by digest)
+CREATE TABLE highlights (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id uuid REFERENCES auth.users(id) ON DELETE CASCADE,
+    session_id uuid,
+    highlight_type text,
+    title text,
+    body text,
+    content text,
+    created_at timestamptz DEFAULT now()
+);

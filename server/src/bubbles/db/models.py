@@ -218,3 +218,75 @@ class UserBadge:
 
     achievement: Achievement
     awarded_at: datetime
+
+
+@dataclass(frozen=True, slots=True)
+class SessionAnalytics:
+    session_id: UUID
+    user_id: UUID
+    total_turns: int
+    user_turns: int
+    others_turns: int
+    llm_turns: int
+    user_word_count: int
+    assistant_word_count: int
+    average_latency_ms: int | None
+    avg_advice_latency_ms: float | None
+    total_duration_seconds: float | None
+    memories_saved: int
+    events_extracted: int
+    highlights_created: int
+    avg_sentiment_score: float | None
+    dominant_sentiment: str | None
+    topic_summary: str | None
+    computed_at: datetime
+
+
+@dataclass(frozen=True, slots=True)
+class CoachingReport:
+    id: UUID
+    user_id: UUID
+    session_id: UUID | None
+    model_used: str | None
+    user_talk_pct: float | None
+    others_talk_pct: float | None
+    key_topics: list[str]
+    key_decisions: list[str]
+    action_items: list[str]
+    follow_up_people: list[str]
+    filler_words: list[str]
+    filler_word_count: int
+    tone_summary: str | None
+    engagement_trend: str | None
+    suggestions: list[str]
+    strengths: list[str]
+    areas_of_improvement: list[str]
+    report_text: str | None
+    report_content: dict[str, Any]
+    generated_at: datetime
+
+
+@dataclass(frozen=True, slots=True)
+class Feedback:
+    id: UUID
+    user_id: UUID
+    session_id: UUID | None
+    log_id: UUID | None
+    consultant_log_id: UUID | None
+    feedback_type: str | None
+    rating: int | None
+    value: int | None
+    comment: str | None
+    idempotency_key: str | None
+    created_at: datetime
+
+
+@dataclass(frozen=True, slots=True)
+class WeeklyTrend:
+    week: str
+    sessions: int
+    total_turns: int
+    user_words: int
+    ai_words: int
+    avg_sentiment_score: float | None
+    total_duration_seconds: float
