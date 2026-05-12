@@ -2,7 +2,7 @@
 
 These three tables already exist in the live Supabase database
 (``Documentation/db_schema.sql``); ``upgrade()`` is therefore a no-op there
-(``CREATE TABLE IF NOT EXISTS``), matching how the ``0001`` baseline behaves.
+(``CREATE TABLE IF NOT EXISTS``), matching how the ``0002`` migration behaves.
 The test baseline schema (``tests/integration/fixtures/baseline.sql``) gets
 the same tables so integration tests can exercise the new repos.
 
@@ -28,18 +28,18 @@ def upgrade() -> None:
         """
         CREATE TABLE IF NOT EXISTS xp_transactions (
             id          uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
-            user_id     uuid        NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+            user_id     uuid        REFERENCES auth.users(id) ON DELETE CASCADE,
             amount      integer     NOT NULL,
             source_type text        NOT NULL,
             source_id   text,
             description text,
-            created_at  timestamptz NOT NULL DEFAULT now()
+            created_at  timestamptz DEFAULT now()
         );
-        CREATE UNIQUE INDEX IF NOT EXISTS xp_transactions_dedup_idx
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_xp_transactions_dedup
             ON xp_transactions (user_id, source_type, source_id) WHERE source_id IS NOT NULL;
-        CREATE INDEX IF NOT EXISTS xp_transactions_user_recent_idx
+        CREATE INDEX IF NOT EXISTS idx_xp_transactions_user_time
             ON xp_transactions (user_id, created_at DESC);
-        CREATE INDEX IF NOT EXISTS xp_transactions_period_idx
+        CREATE INDEX IF NOT EXISTS idx_xp_transactions_period
             ON xp_transactions (created_at, user_id) WHERE amount > 0;
 
         CREATE TABLE IF NOT EXISTS achievements (
@@ -58,9 +58,9 @@ def upgrade() -> None:
 
         CREATE TABLE IF NOT EXISTS user_achievements (
             id             uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
-            user_id        uuid        NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-            achievement_id uuid        NOT NULL REFERENCES achievements(id) ON DELETE CASCADE,
-            awarded_at     timestamptz NOT NULL DEFAULT now(),
+            user_id        uuid        REFERENCES auth.users(id) ON DELETE CASCADE,
+            achievement_id uuid        REFERENCES achievements(id) ON DELETE CASCADE,
+            awarded_at     timestamptz DEFAULT now(),
             UNIQUE (user_id, achievement_id)
         );
         """

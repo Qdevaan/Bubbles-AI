@@ -176,17 +176,17 @@ CREATE TABLE user_rewards (
 
 CREATE TABLE xp_transactions (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    user_id uuid REFERENCES auth.users(id) ON DELETE CASCADE,
     amount integer NOT NULL,
     source_type text NOT NULL,
     source_id text,
     description text,
-    created_at timestamptz NOT NULL DEFAULT now()
+    created_at timestamptz DEFAULT now()
 );
-CREATE UNIQUE INDEX xp_transactions_dedup_idx
+CREATE UNIQUE INDEX idx_xp_transactions_dedup
     ON xp_transactions (user_id, source_type, source_id) WHERE source_id IS NOT NULL;
-CREATE INDEX xp_transactions_user_recent_idx ON xp_transactions (user_id, created_at DESC);
-CREATE INDEX xp_transactions_period_idx ON xp_transactions (created_at, user_id) WHERE amount > 0;
+CREATE INDEX idx_xp_transactions_user_time ON xp_transactions (user_id, created_at DESC);
+CREATE INDEX idx_xp_transactions_period ON xp_transactions (created_at, user_id) WHERE amount > 0;
 
 CREATE TABLE achievements (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -204,9 +204,9 @@ CREATE TABLE achievements (
 
 CREATE TABLE user_achievements (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-    achievement_id uuid NOT NULL REFERENCES achievements(id) ON DELETE CASCADE,
-    awarded_at timestamptz NOT NULL DEFAULT now(),
+    user_id uuid REFERENCES auth.users(id) ON DELETE CASCADE,
+    achievement_id uuid REFERENCES achievements(id) ON DELETE CASCADE,
+    awarded_at timestamptz DEFAULT now(),
     UNIQUE (user_id, achievement_id)
 );
 
