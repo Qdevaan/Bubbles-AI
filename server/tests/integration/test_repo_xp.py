@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 import asyncpg
@@ -64,7 +64,7 @@ async def test_recent_orders_newest_first(pool: asyncpg.Pool, user_id: UUID) -> 
 async def test_sum_since_counts_positive_only_within_window(
     pool: asyncpg.Pool, user_id: UUID
 ) -> None:
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     async with UnitOfWork(pool) as uow:
         # one inside the window, one negative inside, one positive but old
         await uow.conn.execute(
