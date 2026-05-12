@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime
 from uuid import UUID
 
 import asyncpg
@@ -14,6 +14,7 @@ from bubbles.db.models import (
     UserQuest,
     UserReward,
 )
+from bubbles.db.repo import xp as xp_repo
 
 _GAMIF_COLS = """
     user_id, total_xp, level, current_streak, longest_streak, streak_freezes,
@@ -129,9 +130,32 @@ async def get_or_init_gamification(conn: asyncpg.Connection, user_id: UUID) -> U
     return _gamif(row)
 
 
-async def add_xp(conn: asyncpg.Connection, *, user_id: UUID, amount: int) -> UserGamification:
+async def add_xp(
+    conn: asyncpg.Connection,
+    *,
+    user_id: UUID,
+    amount: int,
+    source_type: str = "manual",
+    source_id: str | None = None,
+    description: str | None = None,
+) -> UserGamification:
+    """Award XP. Writes an ``xp_transactions`` ledger row first; if that row was
+    deduped (same ``source_id`` already awarded) the ``user_gamification`` total
+    is left unchanged — making repeated awards with the same ``source_id`` a no-op.
+    """
     if amount < 0:
         raise ValueError("amount must be non-negative")
+    ledger_row = await xp_repo.record(
+        conn,
+        user_id=user_id,
+        amount=amount,
+        source_type=source_type,
+        source_id=source_id,
+        description=description,
+    )
+    if ledger_row is None:
+        # Already awarded for this source_id — do not double-count.
+        return await get_or_init_gamification(conn, user_id)
     row = await conn.fetchrow(
         f"""
         INSERT INTO user_gamification (user_id, total_xp, last_active_date, updated_at)
@@ -308,3 +332,97 @@ async def redeem_reward(
     )
     assert row is not None
     return _user_reward(row)
+
+
+async def owned_reward_ids(conn: asyncpg.Connection, *, user_id: UUID) -> set[UUID]:
+    rows = await conn.fetch("SELECT reward_id FROM user_rewards WHERE user_id = $1", user_id)
+    return {r["reward_id"] for r in rows}
+
+
+async def get_or_assign_daily_quests(
+    conn: asyncpg.Connection,
+    *,
+    user_id: UUID,
+    on_date: date,
+    n: int = 3,
+) -> list[UserQuest]:
+    """Return the user's quests assigned for ``on_date``; if none are assigned
+    yet, pick up to ``n`` random active definitions, assign each, and return
+    them. Runs inside the caller's transaction (no commit here). Returns ``[]``
+    if there are no active quest definitions.
+    """
+    existing = await list_user_quests(conn, user_id=user_id, on_date=on_date)
+    if existing:
+        return existing
+    defs = await conn.fetch(
+        f"SELECT {_QUEST_DEF_COLS} FROM quest_definitions WHERE is_active = true "
+        "ORDER BY random() LIMIT $1",
+        n,
+    )
+    assigned: list[UserQuest] = []
+    for d in defs:
+        qd = _quest_def(d)
+        assigned.append(
+            await assign_quest(
+                conn,
+                user_id=user_id,
+                quest_id=qd.id,
+                target=qd.target,
+                assigned_date=on_date,
+            )
+        )
+    return assigned
+
+
+async def leaderboard_period(
+    conn: asyncpg.Connection, *, since: datetime, limit: int = 25
+) -> list[asyncpg.Record]:
+    """Top opted-in users by XP earned since ``since`` (positive ledger rows)."""
+    rows = await conn.fetch(
+        """
+        SELECT t.user_id, COALESCE(SUM(t.amount), 0)::int AS xp, g.level, g.current_streak
+        FROM xp_transactions t
+        JOIN user_gamification g ON g.user_id = t.user_id AND g.leaderboard_opt_in = true
+        WHERE t.amount > 0 AND t.created_at >= $1
+        GROUP BY t.user_id, g.level, g.current_streak
+        ORDER BY xp DESC
+        LIMIT $2
+        """,
+        since,
+        limit,
+    )
+    return list(rows)
+
+
+async def rank_all_time(conn: asyncpg.Connection, *, user_id: UUID) -> int | None:
+    """1-based rank of ``user_id`` among opted-in users by ``total_xp``; ``None``
+    if the user is not opted in."""
+    val: int | None = await conn.fetchval(
+        """
+        SELECT rnk FROM (
+            SELECT user_id, RANK() OVER (ORDER BY total_xp DESC) AS rnk
+            FROM user_gamification WHERE leaderboard_opt_in = true
+        ) s WHERE s.user_id = $1
+        """,
+        user_id,
+    )
+    return val
+
+
+async def rank_period(conn: asyncpg.Connection, *, user_id: UUID, since: datetime) -> int | None:
+    """1-based rank of ``user_id`` among opted-in users by XP since ``since``;
+    ``None`` if the user has no positive ledger rows in the window or isn't opted in."""
+    val: int | None = await conn.fetchval(
+        """
+        SELECT rnk FROM (
+            SELECT t.user_id, RANK() OVER (ORDER BY COALESCE(SUM(t.amount), 0) DESC) AS rnk
+            FROM xp_transactions t
+            JOIN user_gamification g ON g.user_id = t.user_id AND g.leaderboard_opt_in = true
+            WHERE t.amount > 0 AND t.created_at >= $2
+            GROUP BY t.user_id
+        ) s WHERE s.user_id = $1
+        """,
+        user_id,
+        since,
+    )
+    return val
