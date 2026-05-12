@@ -240,6 +240,8 @@ Versioned business endpoints:
   - `POST /v1/save_feedback`
   - `GET /v1/session_analytics/{session_id}`
   - `GET /v1/coaching_report/{session_id}`
+  - `GET /v1/digest/{user_id}`
+  - `GET /v1/communication_trends/{user_id}`
 - Entities
   - `POST /v1/ask_entity`
   - `GET /v1/graph_export/{user_id}`
