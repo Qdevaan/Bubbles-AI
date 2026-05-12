@@ -10,6 +10,7 @@ from bubbles.ai.extraction import (
     generate_coaching_report,
     generate_summary,
     generate_title,
+    prepare_transcript,
 )
 from bubbles.core.errors import UpstreamUnavailable
 from bubbles.core.logging import get_logger
@@ -74,26 +75,33 @@ async def run(
     highlights: list[dict[str, Any]] = []
     coaching: dict[str, Any] | None = None
 
+    # Metrics use the raw transcript (accurate turn/word counts); the LLM
+    # prompts use a budget-fitted version (whole conversation, condensed if long).
+    stats = parse_transcript(transcript)
     try:
-        title = await generate_title(bub.ai.router, transcript)
+        prepared = await prepare_transcript(bub.ai.router, transcript)
+    except UpstreamUnavailable as exc:
+        log.warning("transcript_prepare_upstream", error=str(exc))
+        prepared = transcript
+
+    try:
+        title = await generate_title(bub.ai.router, prepared)
     except UpstreamUnavailable as exc:
         log.warning("title_upstream", error=str(exc))
     try:
-        summary = await generate_summary(bub.ai.router, transcript)
+        summary = await generate_summary(bub.ai.router, prepared)
     except UpstreamUnavailable as exc:
         log.warning("summary_upstream", error=str(exc))
     try:
-        h_payload = await extract_highlights(bub.ai.router, transcript)
+        h_payload = await extract_highlights(bub.ai.router, prepared)
         h_raw = h_payload.get("highlights") or []
         highlights = [h for h in h_raw if isinstance(h, dict)][:5]
     except UpstreamUnavailable as exc:
         log.warning("highlights_upstream", error=str(exc))
     try:
-        coaching = await generate_coaching_report(bub.ai.router, transcript)
+        coaching = await generate_coaching_report(bub.ai.router, prepared)
     except UpstreamUnavailable as exc:
         log.warning("coaching_upstream", error=str(exc))
-
-    stats = parse_transcript(transcript)
 
     async with UnitOfWork(bub.pool) as uow:
         await uow.conn.execute(

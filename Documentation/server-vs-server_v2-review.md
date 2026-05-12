@@ -121,11 +121,9 @@ Still cron-only on the *worker* side beyond these: `seed_quests`, `send_reminder
 - Middleware `_AUDIO_PATHS` already listed both routes — kept.
 - Tests: `tests/unit/test_routes_speaker.py`, `tests/unit/test_worker_dispatch.py`.
 
-### H5 (P1) — Coaching transcript truncated to the last 4 KB
+### H5 (P1) — ~~Coaching transcript truncated to the last 4 KB~~ **DONE (2026-05-12)**
 
-`ai/extraction._truncate` keeps only the last 4000 characters before generating the coaching report, so the **opening of every conversation is dropped** from the analysis (talk-time %, topics, tone all skewed).
-
-**Patch:** raise the limit to the model's real budget, or chunk-summarize long transcripts (map-reduce) instead of hard-truncating.
+**Fixed.** `ai/extraction._truncate` (last-4 KB hard slice) is gone. New `prepare_transcript(router, transcript)`: passes through anything ≤ 32 KB verbatim; longer transcripts are split on line boundaries (~16 KB chunks), each chunk condensed by the LLM (`wingman/condense_segment.jinja` → `[Segment N] …`), the join re-condensed up to 3 passes if still over budget, and only hard-clipped as a last resort (single un-splittable segment / pass cap). A failed segment falls back to its clipped raw text. The `compute_session_analytics` and `extract_knowledge` workers call `prepare_transcript` **once** and feed the result to all the extraction prompts; turn/word-count metrics still use the **raw** transcript. Tests: `prepare_transcript` / `_split_on_line_boundaries` cases in `tests/unit/test_extraction.py`.
 
 ### H6 (P2) — Gamification parity gaps
 
@@ -178,8 +176,8 @@ The 5 testcontainers suites are gated behind `RUN_INTEGRATION=1` + the docker SD
 1. ~~**H1 — wire the enqueues.**~~ **Done 2026-05-12.** `end_session` (with a client-supplied transcript) → `compute_session_analytics` + `extract_knowledge` + `compute_embeddings`; `check_user_turn` → `grammar_scan`. Spec: `docs/superpowers/specs/2026-05-12-v5-port-h1-wire-enqueues-design.md`.
 2. ~~**H2 + H3 — per-turn store + `process_transcript_wingman`.**~~ **Done 2026-05-12.** `session_logs` (Alembic `0004`), `db/repo/session_logs.py`, `POST /v1/log_turn`, `GET /v1/session_replay/{id}`, `POST /v1/process_transcript_wingman`, `end_session` assembles from rows. Spec: `docs/superpowers/specs/2026-05-12-v5-port-h2-h3-turn-store-wingman-design.md`. Follow-ups: analytics worker to read `session_logs` for the per-turn columns; turn-level sentiment scan; rolling-summary; multiplayer turns.
 3. ~~**H4 — speaker `enroll` / `identify_speaker` routes**~~ **Done 2026-05-12.** Also fixed the worker dispatch (colliding `run` registrations → single `_job_name` dispatcher) — the prerequisite for any enqueued job actually running.
-4. **H5 — stop truncating the coaching transcript.**  ← next
-5. **H6 — XP-award worker + gamification completeness** (caps, streaks, achievements, `stats{}`, quest mission endpoints).
+4. ~~**H5 — stop truncating the coaching transcript.**~~ **Done 2026-05-12.** `prepare_transcript` (map-reduce condense for long transcripts) replaces the 4 KB tail-slice.
+5. **H6 — XP-award worker + gamification completeness** (caps, streaks, achievements, `stats{}`, quest mission endpoints).  ← next
 6. **H7 — `performance_summary/{user_id}`**; **H8 — `backfill_session_entities` job** (after H1).
 7. **H9–H14 — ops/hygiene:** ElevenLabs fallback, ARQ DLQ + alert, k6 nightly, confirm CI runs integration suites, schema-drift CI job, the H14 nits.
 8. When the above land and nothing references `legacy/server_v2/`: `git rm -r legacy/server_v2/`.
@@ -192,7 +190,7 @@ Each item gets the usual spec → plan → subagent-driven execution cycle; spec
 
 `server_v2/` is at `legacy/server_v2/` — not deployed, not in CI, not referenced by active config or the Flutter client. `server/` (Bubbles Brain API v5) is the primary backend. The `legacy/` copy stays on disk **only** as the reference for §2 (contract) and §4 (deltas) until §6 is complete; then it is deleted.
 
-The live-deployment cutover (stand up v5 on a subdomain, flip the Flutter `kUseApiV5` flag, 48 h soak, repoint DNS) is documented step-by-step in `Documentation/server-blueprint.md` §18 — that's the ops rollout. The repo-side retirement (move + de-reference) is already done; the *functional* retirement waits on §6 — **H1–H4 landed 2026-05-12** (plus the worker-dispatch fix), next is **H5** (stop truncating the coaching transcript).
+The live-deployment cutover (stand up v5 on a subdomain, flip the Flutter `kUseApiV5` flag, 48 h soak, repoint DNS) is documented step-by-step in `Documentation/server-blueprint.md` §18 — that's the ops rollout. The repo-side retirement (move + de-reference) is already done; the *functional* retirement waits on §6 — **H1–H5 landed 2026-05-12** (plus the worker-dispatch fix), next is **H6** (gamification completeness: XP cap, streaks, achievement worker, `stats{}`, quest missions).
 
 ### Done so far (v5 port batches)
 

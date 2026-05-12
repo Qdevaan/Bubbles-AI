@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
-from bubbles.ai.extraction import extract_entities
+from bubbles.ai.extraction import extract_entities, prepare_transcript
 from bubbles.core.errors import UpstreamUnavailable
 from bubbles.core.logging import get_logger
 from bubbles.db.repo import entities as entities_repo
@@ -31,7 +31,8 @@ async def run(
 ) -> dict[str, int]:
     bub = _ctx(ctx)
     try:
-        payload = await extract_entities(bub.ai.router, transcript)
+        prepared = await prepare_transcript(bub.ai.router, transcript)
+        payload = await extract_entities(bub.ai.router, prepared)
     except UpstreamUnavailable as exc:
         log.warning("extract_knowledge_upstream", error=str(exc))
         return {"entities": 0, "relations": 0, "links": 0}

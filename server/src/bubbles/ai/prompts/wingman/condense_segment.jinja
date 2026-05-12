@@ -1,0 +1,10 @@
+Condense one segment of a longer conversation transcript into a faithful
+summary that preserves what matters for downstream analysis: who spoke and
+roughly how much, the topics raised, decisions and action items, named people
+and things, the emotional tone, and any notable moments. Keep speaker
+attributions where they matter. Do not invent anything not in the segment.
+
+Return JSON only: {"summary": "<the condensed segment>"}.
+
+SEGMENT:
+{{ segment }}

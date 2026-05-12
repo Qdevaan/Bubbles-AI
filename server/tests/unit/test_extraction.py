@@ -6,7 +6,14 @@ from collections.abc import AsyncIterator, Sequence
 
 import pytest
 
-from bubbles.ai.extraction import extract_entities, generate_summary, generate_title
+from bubbles.ai.extraction import (
+    _TRANSCRIPT_BUDGET_CHARS,
+    _split_on_line_boundaries,
+    extract_entities,
+    generate_summary,
+    generate_title,
+    prepare_transcript,
+)
 from bubbles.ai.providers.base import ChatMessage, Chunk, Completion, ResponseFormat, Usage
 from bubbles.ai.router import LLMRouter, TaskChain
 from bubbles.core.errors import UpstreamUnavailable
@@ -74,3 +81,41 @@ async def test_invalid_json_raises_upstream() -> None:
     r = _router("not json")
     with pytest.raises(UpstreamUnavailable):
         await extract_entities(r, "x")
+
+
+def _empty_router() -> LLMRouter:
+    return LLMRouter([], [TaskChain("wingman.json", ())])
+
+
+def test_split_on_line_boundaries() -> None:
+    text = "".join(f"line {i}\n" for i in range(100))  # ~ 900 chars
+    chunks = _split_on_line_boundaries(text, 200)
+    assert len(chunks) > 1
+    assert "".join(chunks) == text
+    assert all(c.endswith("\n") for c in chunks)
+    assert all(len(c) <= 200 + len("line 99\n") for c in chunks)
+
+
+async def test_prepare_transcript_short_passthrough() -> None:
+    r = _router('{"summary": "should not be called"}')
+    text = "User: hi\nOthers: hello\n"
+    assert await prepare_transcript(r, text) == text
+
+
+async def test_prepare_transcript_condenses_long() -> None:
+    r = _router('{"summary": "SEG"}')
+    long_text = "".join(f"User: turn {i} blah blah blah\n" for i in range(4000))
+    assert len(long_text) > _TRANSCRIPT_BUDGET_CHARS
+    out = await prepare_transcript(r, long_text)
+    assert len(out) <= _TRANSCRIPT_BUDGET_CHARS
+    assert out.startswith("[Segment 1] SEG")
+    assert "[Segment 2] SEG" in out
+
+
+async def test_prepare_transcript_falls_back_to_raw_on_upstream() -> None:
+    r = _empty_router()  # router.complete raises UpstreamUnavailable -> segment fallback
+    long_text = "".join(f"User: turn {i}\n" for i in range(5000))
+    assert len(long_text) > _TRANSCRIPT_BUDGET_CHARS
+    out = await prepare_transcript(r, long_text)
+    assert len(out) <= _TRANSCRIPT_BUDGET_CHARS
+    assert "[Segment 1] User: turn 0" in out  # raw (clipped) segment text, not a summary
