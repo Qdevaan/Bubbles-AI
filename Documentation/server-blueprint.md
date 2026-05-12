@@ -1,7 +1,7 @@
 # Bubbles-AI Server v3 — Implementation Blueprint
 
 **Status:** Plan • **Date:** 2026-05-10 • **Owner:** Backend
-**Scope:** Full rewrite of `server_v2/` into `server/` (Bubbles Brain API v5).
+**Scope:** Full rewrite of `server_v2/` into `server/` (Bubbles Brain API v5). `server_v2/` is now retired and parked at `legacy/server_v2/` — `server/` is the only active backend.
 **Goals (in priority order):** correctness → reliability → low p95 latency → low cost (free tier only) → developer ergonomics.
 **Non-goals:** behavioural parity bugs, placeholder code, "TODO later" comments, paid SaaS.
 
@@ -115,7 +115,7 @@ Routes carried forward (semantics preserved): `analytics`, `consultant`, `entiti
 ## 4. Repo Layout
 
 ```
-server/                                # new top-level (replaces server_v2/)
+server/                                # the backend (old server_v2/ retired to legacy/server_v2/)
 ├── pyproject.toml                     # uv + hatchling, ruff, mypy, pytest config
 ├── uv.lock
 ├── Dockerfile                         # multi-stage, distroless final
@@ -498,7 +498,7 @@ Each phase ends with green CI (lint + type + tests) and a tag.
 - [ ] Run new server side-by-side with `server_v2` on subdomain `api2.bubbles.app`.
 - [ ] Flutter feature flag `kUseApiV5` to flip per-environment.
 - [ ] Soak 48 h on staging traffic.
-- [ ] Flip prod, decommission `server_v2/`, archive branch.
+- [ ] Flip prod, archive branch. (Repo-side: `server_v2/` already moved to `legacy/server_v2/`.)
 
 **Total: ~14 working days for a single dev. Parallelisable down to ~7 with two devs (split AI router + voice from domain work).**
 
@@ -567,7 +567,7 @@ Each phase ends with green CI (lint + type + tests) and a tag.
 | 7 — Observability + ops | ✅ done | Prometheus `/metrics` + middleware, Sentry, Logtail handler, OTLP, Grafana dashboard JSON, alert rules |
 | 8 — Deploy | ✅ done | multi-stage Dockerfile (runtime/worker), Caddyfile (auto-TLS, h3, SSE-safe), prod + dev compose, GH Actions deploy w/ migration gate |
 | 9 — Load + chaos | ✅ done | k6 + locust load scripts, deps fail-soft (503 not 500), chaos tests (provider outage, Redis-down degrade) |
-| 10 — Cutover | ⏳ pending | runbook below; needs a live deploy + Flutter flag |
+| 10 — Cutover | 🟡 repo-side done | `server_v2/` retired to `legacy/server_v2/`; live deploy + Flutter `kUseApiV5` flip still pending (runbook §18) |
 
 Test suite at this revision: **85 unit tests + integration suites** (run with `RUN_INTEGRATION=1`), `ruff` clean, `mypy --strict` clean.
 
@@ -582,7 +582,7 @@ Test suite at this revision: **85 unit tests + integration suites** (run with `R
 2. `docker compose -f docker-compose.prod.yml up -d` — `migrate` runs `alembic upgrade head` (baseline `0001` is a no-op against the existing Supabase DB), then `server` + `worker` + `caddy` come up.
 3. Point DNS `api2.bubbles.app` at the VM (Cloudflare, 60 s TTL). Caddy auto-issues TLS.
 4. Smoke: `curl -fsS https://api2.bubbles.app/health/ready` → 200; `curl https://api2.bubbles.app/health/deep` with a real JWT → providers map populated.
-5. `server_v2/` keeps serving `api.bubbles.app` untouched.
+5. The retired v2 (now `legacy/server_v2/`) keeps serving `api.bubbles.app` untouched until the flip — redeploy from that path if you need it.
 
 ### 18.2 Flutter feature flag
 - Add `kUseApiV5` (env-driven, default `false`). Resolves the base URL: `false` → `api.bubbles.app` (v2), `true` → `api2.bubbles.app` (v5).
@@ -604,8 +604,9 @@ Test suite at this revision: **85 unit tests + integration suites** (run with `R
 3. Keep `server_v2/` running for 7 days as instant rollback (flip DNS + flag back).
 
 ### 18.5 Decommission v2
-- After 7 clean days: stop the `server_v2/` container, snapshot its DB (`pg_dump` → Supabase Storage), `git rm -r server_v2/`, remove its CI workflows, archive the `feat/server-v3` branch into `main`.
-- Update `CLAUDE.md` / docs: the server lives in `server/`.
+- Repo-side **done**: `server_v2/` moved to `legacy/server_v2/`; nothing in CI, compose, or the Flutter client references it any more.
+- After 7 clean days: stop the legacy v2 container, snapshot its DB (`pg_dump` → Supabase Storage), then `git rm -r legacy/server_v2/` for good, and archive the `feat/server-v3` branch into `main`.
+- Docs already updated: the server lives in `server/` (`Documentation/server-vs-server_v2-review.md` §6).
 
 ### 18.6 Rollback (any stage)
 - **Pre-flip:** set `kUseApiV5=false`; v5 keeps running on `api2` for debugging.

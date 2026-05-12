@@ -1,6 +1,6 @@
 # `server` (Bubbles Brain API v5) vs `server_v2` — Comparison Review
 
-**Date:** 2026-05-11 • **Reviewer:** backend • **Verdict:** `server/` supersedes `server_v2/`; cut over per blueprint §18, then delete `server_v2/`.
+**Date:** 2026-05-11 (retirement applied same day) • **Reviewer:** backend • **Verdict:** `server/` (Bubbles Brain API v5) is the primary backend. `server_v2/` is retired — moved to `legacy/server_v2/` for reference only, no longer deployed or maintained.
 
 ---
 
@@ -36,7 +36,7 @@ Same `/v1/*` paths and response shapes as `server_v2/`, so the Flutter client on
 
 `/health/*`, `start_session`, `save_session`, `end_session`, `sessions/{id}/context`, `suggest_reply`, `ask_consultant`(+`/batch`), `ask`, `ask_entity`, `graph_export/{user_id}`, `entity_timeline/{entity_id}`, `DELETE entities|sessions|memories`, `check_user_turn`, `user_mistakes`, `me/persona` (GET/PUT), `getToken`, `process_audio`, `voice_command`, `tts`, `WS /v1/stt/stream`.
 
-Persona Jinja fragments (`casual`/`default`/`educator`/`learner`/`professional` + `_scenario_header`) ported verbatim from `server_v2/app/prompts/personas/`.
+Persona Jinja fragments (`casual`/`default`/`educator`/`learner`/`professional` + `_scenario_header`) ported verbatim from the old `server_v2/app/prompts/personas/` (now `legacy/server_v2/app/prompts/personas/`).
 
 ---
 
@@ -66,16 +66,21 @@ No data migration: `server/` writes to the same Supabase DB as `server_v2/`. The
 
 ## 5. Known gaps / follow-ups (not blockers)
 
-- **Analytics/performance read endpoints** (`coaching_report`, `session_replay`, `digest`, `communication_trends`, `performance_summary`): scaffolded in the route map but bodies depend on real session-analytics data; finish during the 48 h soak with production traffic.
-- **Gamification HTTP routes** (`quests`, `rewards`, `leaderboard`, `opt_in`): repo logic exists and is integration-tested; the thin HTTP wrappers are TODO before the prod flip.
+> **Batch 1 (entity routes) — done.** `GET /v1/graph_export/{user_id}`, `GET /v1/entity_timeline/{entity_id}`, `DELETE /v1/sessions/{id}`, `DELETE /v1/memories/{id}` are implemented in v5 (the entity `DELETE` already existed), with JWT-derived ownership, soft deletes, pagination, and a real `session_entities` link table (Alembic `0002`) that the `extract_knowledge` worker now populates. See `docs/superpowers/specs/2026-05-11-v5-port-batch1-entity-routes-design.md`. The remaining ports (gamification HTTP, analytics/performance reads, `performance_summary`, speaker `enroll`/`identify_speaker`, `process_transcript_wingman`) are still pending — each gets its own batch.
+
+- **Backfill `session_entities`**: the link table (migration `0002`) is populated going forward by the `extract_knowledge` worker; sessions created before this change have no links yet — a one-off `backfill_session_entities` worker job is pending.
+- **Analytics/performance read endpoints** (`coaching_report`, `session_replay`, `digest`, `communication_trends`, `performance_summary`): no route module in v5 yet — repo/worker data exists; bodies depend on real session-analytics data; planned as a later batch.
+- **Gamification HTTP routes** (`quests`, `rewards`, `leaderboard`, `opt_in`): repo logic exists and is integration-tested; the thin HTTP wrappers are TODO (later batch).
+- **Speaker `enroll` / `identify_speaker` HTTP routes**: SpeechBrain runs in the ARQ worker (`speaker_enroll` job); the v2 HTTP endpoints (`POST /v1/enroll`, `POST /v1/identify_speaker`) are not yet exposed in v5 (later batch).
+- **`process_transcript_wingman` route**: v2's real-time wingman-advice endpoint is not yet ported (later batch).
 - **ElevenLabs TTS fallback**: blueprint calls for it behind the same interface as a premium-voice option; Edge-TTS only is wired today.
 - **ARQ dead-letter queue**: jobs are idempotent and retried; an explicit DLQ + alert on repeated failure is still pending.
 - **k6 nightly in CI**: `scripts/load_test.js` exists; wiring it into a scheduled GH Action against staging is pending a live staging URL.
 
 ---
 
-## 6. Recommendation
+## 6. Status — retired
 
-Ship `server/` to `api2.bubbles.app` side-by-side with `server_v2/`, flip the Flutter `kUseApiV5` flag on staging, soak 48 h against the Grafana dashboard + alert rules, then repoint `api.bubbles.app` and keep `server_v2/` running 7 days as instant rollback. After 7 clean days: `git rm -r server_v2/`, drop its CI workflows, update docs. Full runbook: `Documentation/server-blueprint.md` §18.
+`server_v2/` has been **moved to `legacy/server_v2/`** and is no longer deployed, maintained, or referenced by any active config, CI, or the Flutter client. `server/` (Bubbles Brain API v5) is the sole backend. The `legacy/` copy is kept on disk only as a reference for the §2 contract and the §4 behaviour deltas; once the §5 follow-ups land and nothing points at it, `git rm -r legacy/server_v2/` for good.
 
-Until cutover, **`server_v2/` remains the production server** — do not delete it.
+The live-deployment cutover (stand up v5 on a subdomain, flip the Flutter `kUseApiV5` flag, 48 h soak, repoint DNS) is still documented step-by-step in `Documentation/server-blueprint.md` §18 — that's the ops rollout; the repo-side retirement is done.

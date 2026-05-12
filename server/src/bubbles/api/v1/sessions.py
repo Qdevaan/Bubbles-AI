@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from fastapi import APIRouter, status
+from fastapi import APIRouter, Response, status
 
 from bubbles.api.v1._schemas import (
     EndSessionRequest,
@@ -133,3 +133,21 @@ async def suggest_reply(
     )
     provider = completion.raw.get("model", "") if isinstance(completion.raw, dict) else ""
     return SuggestReplyResponse(suggestion=completion.text.strip(), provider=str(provider))
+
+
+@router.delete("/sessions/{session_id}", status_code=204, response_class=Response)
+async def delete_session(
+    session_id: UUID,
+    user: CurrentUserDep,
+    pool: PoolDep,
+) -> Response:
+    async with transaction(pool) as conn:
+        sess = await sessions_repo.get(conn, session_id)
+    if sess is None:
+        raise NotFound("session not found")
+    require_ownership(user, str(sess.user_id))
+    async with UnitOfWork(pool) as uow:
+        ok = await sessions_repo.soft_delete(uow.conn, session_id=session_id, user_id=UUID(user.id))
+    if not ok:
+        raise NotFound("session not found")
+    return Response(status_code=204)
