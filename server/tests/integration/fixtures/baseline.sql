@@ -280,3 +280,18 @@ CREATE TABLE session_entities (
 );
 CREATE INDEX session_entities_entity_idx ON session_entities (entity_id, last_seen_at DESC);
 CREATE INDEX session_entities_user_idx ON session_entities (user_id, last_seen_at DESC);
+
+-- feedback (matches Documentation/db_schema.sql)
+CREATE TABLE feedback (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    session_id uuid,
+    log_id uuid,
+    consultant_log_id uuid,
+    feedback_type text,
+    rating integer,
+    value integer,
+    comment text,
+    idempotency_key text UNIQUE,
+    created_at timestamptz NOT NULL DEFAULT now()
+);

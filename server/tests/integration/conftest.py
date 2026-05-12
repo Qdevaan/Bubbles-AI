@@ -72,7 +72,7 @@ async def pool(pg_dsn: str) -> AsyncIterator[asyncpg.Pool]:
             await con.execute(
                 """
                 DROP SCHEMA IF EXISTS auth CASCADE;
-                DROP TABLE IF EXISTS session_entities, events, tasks,
+                DROP TABLE IF EXISTS feedback, session_entities, events, tasks,
                     user_rewards, rewards, user_achievements, achievements, xp_transactions,
                     user_quests, quest_definitions,
                     user_gamification, user_mistakes, memory, user_personas,
