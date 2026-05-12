@@ -16,15 +16,20 @@ from bubbles.api.v1._schemas import (
     AchievementOut,
     DailyQuestsResponse,
     GamificationProfile,
+    RewardCatalogResponse,
+    RewardOut,
+    RewardRedeemRequest,
+    RewardRedeemResponse,
     UserQuestOut,
     XpEntryOut,
 )
 from bubbles.auth.current_user import CurrentUserDep, require_ownership
+from bubbles.core.errors import BadRequest
 from bubbles.core.gamification import level_progress
 from bubbles.db.repo import achievements as achievements_repo
 from bubbles.db.repo import gamification as gamification_repo
 from bubbles.db.repo import xp as xp_repo
-from bubbles.db.uow import transaction
+from bubbles.db.uow import UnitOfWork, transaction
 from bubbles.deps import PoolDep
 
 router = APIRouter(tags=["gamification"])
@@ -109,4 +114,59 @@ async def get_quests(
         daily_reset_at=reset_at,
         total_completed_today=completed,
         total_quests_today=len(quests),
+    )
+
+
+@router.get("/rewards/{user_id}", response_model=RewardCatalogResponse)
+async def list_rewards(
+    user_id: UUID,
+    user: CurrentUserDep,
+    pool: PoolDep,
+) -> RewardCatalogResponse:
+    require_ownership(user, str(user_id))
+    async with transaction(pool) as conn:
+        g = await gamification_repo.get_or_init_gamification(conn, user_id)
+        rewards = await gamification_repo.list_active_rewards(conn)
+        owned = await gamification_repo.owned_reward_ids(conn, user_id=user_id)
+    balance = g.total_xp - g.xp_spent
+    return RewardCatalogResponse(
+        balance_xp=balance,
+        rewards=[
+            RewardOut(
+                id=r.id,
+                title=r.title,
+                description=r.description,
+                icon=r.icon,
+                category=r.category,
+                cost_xp=r.cost_xp,
+                sort_order=r.sort_order,
+                affordable=balance >= r.cost_xp,
+                owned=r.id in owned,
+            )
+            for r in rewards
+        ],
+    )
+
+
+@router.post("/rewards/{user_id}/redeem", response_model=RewardRedeemResponse)
+async def redeem_reward(
+    user_id: UUID,
+    body: RewardRedeemRequest,
+    user: CurrentUserDep,
+    pool: PoolDep,
+) -> RewardRedeemResponse:
+    require_ownership(user, str(user_id))
+    async with UnitOfWork(pool) as uow:
+        try:
+            ur = await gamification_repo.redeem_reward(
+                uow.conn, user_id=user_id, reward_id=body.reward_id
+            )
+        except ValueError as e:
+            raise BadRequest(str(e)) from e
+        g = await gamification_repo.get_or_init_gamification(uow.conn, user_id)
+    return RewardRedeemResponse(
+        reward_id=ur.reward_id,
+        cost_xp=ur.cost_xp,
+        unlocked_at=ur.unlocked_at,
+        balance_xp=g.total_xp - g.xp_spent,
     )
