@@ -10,57 +10,57 @@ Each item gets the usual spec → plan → subagent-driven execution cycle; spec
 
 ### 1. H1 (P0) — Wire worker enqueues from the API  ← do first
 
-- [ ] `end_session` calls `enqueue_session_analytics` (existing helper, stable `_job_id`).
-- [ ] Wherever the assembled transcript is available, call `enqueue_extract_knowledge`.
-- [ ] Decide triggers for `enqueue_grammar_scan` (per `check_user_turn`?) and `enqueue_compute_embeddings` (after memory writes? cron?).
-- [ ] Integration test: end a session → assert the job was enqueued.
+- [x] `end_session` calls `enqueue_session_analytics` (existing helper, stable `_job_id`).
+- [x] Wherever the assembled transcript is available, call `enqueue_extract_knowledge`.
+- [x] Decide triggers for `enqueue_grammar_scan` (per `check_user_turn`?) and `enqueue_compute_embeddings` (after memory writes? cron?).
+- [x] Integration test: end a session → assert the job was enqueued.
 
 **Why first:** `workers/enqueue.py` helpers exist but nothing in `src/` imports them. Until wired, Batch 1's `session_entities` population and Batch 3's `compute_session_analytics` enhancement do nothing — no titles/summaries/highlights/coaching reports/entity links/embeddings are ever produced. Only cron (`seed_quests`, `send_reminders`) runs. Small change, biggest unlock.
 
 ### 2. H2 + H3 (P0) — Per-turn store + `process_transcript_wingman`
 
-- [ ] Decide: (a) add `session_turns` table + `log_turn` route; or (b) "client supplies full transcript at `end_session`" and document `session_replay` + per-turn metrics as permanently out of scope.
-- [ ] If (a): Alembic migration for `session_turns`; `end_session` assembles transcript from rows, then enqueues (see H1).
-- [ ] Port `POST /v1/process_transcript_wingman` — advice via `LLMRouter` `wingman.*` tasks; persist each turn (H2(a)).
-- [ ] If (a): port `GET /v1/session_replay/{session_id}`.
-- [ ] If (a): worker fills per-turn `session_analytics` columns (`average_latency_ms`, `avg_advice_latency_ms`, `avg_sentiment_score`, `dominant_sentiment`) and `sentiment_trend`.
+- [x] Decide: (a) add `session_turns` table + `log_turn` route; or (b) "client supplies full transcript at `end_session`" and document `session_replay` + per-turn metrics as permanently out of scope.
+- [x] Alembic 0004 `session_logs` migration; `end_session` assembles transcript from rows, then enqueues (see H1).
+- [x] Port `POST /v1/process_transcript_wingman` — advice via `LLMRouter` `wingman.*` tasks; persist each turn (H2(a)).
+- [x] Port `GET /v1/session_replay/{session_id}`.
+- [x] Worker fills per-turn `session_analytics` columns (`average_latency_ms`, `avg_advice_latency_ms`, `avg_sentiment_score`, `dominant_sentiment`) and `sentiment_trend`.
 - [ ] Make `save_session` actually persist (currently a no-op fetch) — or remove it if turns are logged live.
 
 **Why:** v5 stores no per-turn content today. No `session_logs`/`sentiment_logs` writer; `process_transcript_wingman` (the actual live-wingman product feature) not ported; `suggest_reply` is only a one-shot stand-in.
 
 ### 3. H4 (P1) — Speaker HTTP routes
 
-- [ ] `POST /v1/enroll` — enqueue the existing `speaker_enroll` job.
-- [ ] `POST /v1/identify_speaker` — synchronous embedding compare vs stored vectors.
-- [ ] Remove the dangling `/v1/identify_speaker` entry in `api/middleware.py` if route isn't added.
+- [x] `POST /v1/enroll` — enqueue the existing `speaker_enroll` job.
+- [x] `POST /v1/identify_speaker` — synchronous embedding compare vs stored vectors.
+- [x] `/v1/identify_speaker` entry in `api/middleware.py` matches a real route now.
 
 ### 4. H5 (P1) — Stop truncating the coaching transcript
 
-- [ ] `ai/extraction._truncate`: raise to the model's real token budget, or chunk-summarize long transcripts (map-reduce) instead of keeping only the last 4000 chars (currently drops every conversation's opening → skewed talk-time %, topics, tone).
+- [x] `ai/extraction._truncate` replaced by `prepare_transcript` (map-reduce, 32 KB budget, segment-condense with summary join, up to 3 passes, hard-clip only as last resort). Was: kept only the last 4000 chars → dropped every conversation's opening → skewed talk-time %, topics, tone.
 
 ### 5. H6 (P2) — XP-award worker + gamification completeness
 
-- [ ] `add_xp`: daily XP cap (500), streak-milestone bursts, first-action-today bonus.
-- [ ] Increment streak counters (`current_streak`, `longest_streak`, `streak_freezes`) — currently read by the profile but never written.
-- [ ] Achievement-detection worker → populate `user_achievements` → `badges[]` (currently always `[]`).
-- [ ] Add v2's `stats{}` block to the profile response.
-- [ ] Quest mission endpoints: `POST /v1/quests/{uid}/{uqid}/answer` (question-set), `POST /v1/quests/{uid}/{uqid}/attach_session` (conversation).
+- [x] `add_xp`: daily XP cap (500), streak-milestone bursts, first-action-today bonus.
+- [x] Increment streak counters (`current_streak`, `longest_streak`, `streak_freezes`) — currently read by the profile but never written.
+- [x] Achievement-detection worker → populate `user_achievements` → `badges[]` (currently always `[]`).
+- [x] Add v2's `stats{}` block to the profile response.
+- [x] Quest mission endpoints: `POST /v1/quests/{uid}/{uqid}/answer` (question-set), `POST /v1/quests/{uid}/{uqid}/attach_session` (conversation).
 
 ### 6. H7 / H8 (P2)
 
-- [ ] H7 — port `GET /v1/performance_summary/{user_id}`.
-- [ ] H8 — `backfill_session_entities` one-off worker job (after H1; pre-`0002` sessions have no entity links).
+- [x] H7 — port `GET /v1/performance_summary/{user_id}`.
+- [x] H8 — `backfill_session_entities` one-off worker job (after H1; pre-`0002` sessions have no entity links).
 
 ### 7. H9–H14 (P3) — Ops / hygiene
 
-- [ ] H9 — ElevenLabs premium-TTS fallback behind the same interface as Edge-TTS.
-- [ ] H10 — ARQ dead-letter queue + Prometheus alert on `arq_jobs_failed`.
-- [ ] H11 — wire `scripts/load_test.js` (k6) into a scheduled GH Action against staging (needs a live staging URL).
-- [ ] H12 — confirm CI sets `RUN_INTEGRATION=1` so the 5 testcontainers suites actually run; fix if not.
-- [ ] H13 — CI job: build schema from Alembic head into a throwaway Postgres, diff vs `Documentation/db_schema_final_v2.sql`, fail on drift (Alembic `0001` is a no-op → drift currently caught only by code review, cf. `entities.is_archived` vs `deleted_at` near-miss).
-- [ ] H14a — pick one `idempotency_key` `max_length` (currently `200` in `SaveFeedbackRequest`, `128` elsewhere).
-- [ ] H14b — `coaching_report.tone_scores` filter `isinstance(v, int | float)` also accepts `bool` — exclude `bool`.
-- [ ] H14c — `core/transcript._SPEAKER_RE` mis-parses a bare line containing `https://...` as speaker `"https"` — guard against `/`-containing or long prefixes.
+- [x] H9 — ElevenLabs premium-TTS fallback behind the same interface as Edge-TTS.
+- [x] H10 — ARQ dead-letter queue + Prometheus alert on `arq_jobs_failed`.
+- [x] H11 — Locust load test wired into `.github/workflows/load-test.yml` — nightly + workflow_dispatch against `secrets.STAGING_URL` / `secrets.STAGING_BUBBLES_TOKEN` (clean-skip when secrets are unset).
+- [x] H12 — `.github/workflows/ci.yml` `integration` job sets `RUN_INTEGRATION=1`; testcontainers DeprecationWarning fixed (`filterwarnings` ignore in `pyproject.toml`).
+- [x] H13 — `scripts/check_schema_drift.py` (tolerant column-inventory comparator vs `Documentation/db_schema.sql`, since the prod dump has RLS / `auth` schema / `uuid_generate_v4()` that the Alembic-built DB doesn't) + `migrations` CI job: builds Alembic head, applies baseline.sql, runs the comparator, then round-trips `downgrade base → upgrade head`.
+- [x] H14a — pick one `idempotency_key` `max_length` (currently `200` in `SaveFeedbackRequest`, `128` elsewhere).
+- [x] H14b — `coaching_report.tone_scores` filter `isinstance(v, int | float)` also accepts `bool` — exclude `bool`.
+- [x] H14c — `core/transcript._SPEAKER_RE` mis-parses a bare line containing `https://...` as speaker `"https"` — guard against `/`-containing or long prefixes.
 
 ### 8. Final retirement
 
@@ -92,7 +92,7 @@ Backend reads these from env (`env/.env`, fallback `server/.env`); see `server/s
 ### Voice (only if using realtime audio / LiveKit)
 
 - [ ] **`LIVEKIT_URL`**, **`LIVEKIT_API_KEY`**, **`LIVEKIT_API_SECRET`** — LiveKit Cloud (`cloud.livekit.io`) or self-hosted. Needed for `getToken` / realtime sessions. (TTS = Edge-TTS, needs no key. STT = Groq Whisper, uses `GROQ_API_KEY`.)
-- [ ] **ElevenLabs key** — *not wired yet (H9).* When the premium-TTS fallback lands it'll need an `ELEVENLABS_API_KEY`.
+- [ ] **`ELEVENLABS_API_KEY`** — ElevenLabs (`elevenlabs.io`). Optional. When set, the `premium` / `premium-male` TTS presets use ElevenLabs; falls back to Edge-TTS on any failure or when unset.
 
 ### Push notifications (optional)
 
