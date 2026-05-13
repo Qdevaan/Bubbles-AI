@@ -92,7 +92,7 @@ Backend reads these from env (`env/.env`, fallback `server/.env`); see `server/s
 ### Voice (only if using realtime audio / LiveKit)
 
 - [x] **`LIVEKIT_URL`**, **`LIVEKIT_API_KEY`**, **`LIVEKIT_API_SECRET`** — LiveKit Cloud (`cloud.livekit.io`) or self-hosted. Needed for `getToken` / realtime sessions. (TTS = Edge-TTS, needs no key. STT = Groq Whisper, uses `GROQ_API_KEY`.)
-- [ ] **`ELEVENLABS_API_KEY`** — ElevenLabs (`elevenlabs.io`). Optional. When set, the `premium` / `premium-male` TTS presets use ElevenLabs; falls back to Edge-TTS on any failure or when unset.
+- [x] **`ELEVENLABS_API_KEY`** — ElevenLabs (`elevenlabs.io`). Optional. When set, the `premium` / `premium-male` TTS presets use ElevenLabs; falls back to Edge-TTS on any failure or when unset.
 
 ### Push notifications (optional)
 
