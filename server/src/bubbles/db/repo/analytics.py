@@ -129,15 +129,22 @@ async def upsert_session_analytics(
     events_extracted: int,
     highlights_created: int,
     topic_summary: str | None,
+    average_latency_ms: int | None = None,
+    avg_advice_latency_ms: float | None = None,
+    avg_sentiment_score: float | None = None,
+    dominant_sentiment: str | None = None,
 ) -> None:
     await conn.execute(
         """
         INSERT INTO session_analytics (
             session_id, user_id, total_turns, user_turns, others_turns, llm_turns,
             user_word_count, assistant_word_count, total_duration_seconds,
-            memories_saved, events_extracted, highlights_created, topic_summary, computed_at
+            memories_saved, events_extracted, highlights_created, topic_summary,
+            average_latency_ms, avg_advice_latency_ms, avg_sentiment_score,
+            dominant_sentiment, computed_at
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, now())
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13,
+                $14, $15, $16, $17, now())
         ON CONFLICT (session_id) DO UPDATE SET
             user_id = EXCLUDED.user_id,
             total_turns = EXCLUDED.total_turns,
@@ -151,6 +158,10 @@ async def upsert_session_analytics(
             events_extracted = EXCLUDED.events_extracted,
             highlights_created = EXCLUDED.highlights_created,
             topic_summary = EXCLUDED.topic_summary,
+            average_latency_ms = COALESCE(EXCLUDED.average_latency_ms, session_analytics.average_latency_ms),
+            avg_advice_latency_ms = COALESCE(EXCLUDED.avg_advice_latency_ms, session_analytics.avg_advice_latency_ms),
+            avg_sentiment_score = COALESCE(EXCLUDED.avg_sentiment_score, session_analytics.avg_sentiment_score),
+            dominant_sentiment = COALESCE(EXCLUDED.dominant_sentiment, session_analytics.dominant_sentiment),
             computed_at = now()
         """,
         session_id,
@@ -166,7 +177,24 @@ async def upsert_session_analytics(
         events_extracted,
         highlights_created,
         topic_summary,
+        average_latency_ms,
+        avg_advice_latency_ms,
+        avg_sentiment_score,
+        dominant_sentiment,
     )
+
+
+async def sentiment_trend_for_session(conn: asyncpg.Connection, *, session_id: UUID) -> list[float]:
+    """Ordered list of per-turn sentiment scores (turns without a score are skipped)."""
+    rows = await conn.fetch(
+        """
+        SELECT sentiment_score FROM session_logs
+        WHERE session_id = $1 AND sentiment_score IS NOT NULL
+        ORDER BY turn_index ASC
+        """,
+        session_id,
+    )
+    return [float(r["sentiment_score"]) for r in rows]
 
 
 # --- coaching_reports ------------------------------------------------------

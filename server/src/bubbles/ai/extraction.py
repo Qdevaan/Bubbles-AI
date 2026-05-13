@@ -135,3 +135,43 @@ async def generate_coaching_report(router: LLMRouter, transcript: str) -> dict[s
         response_format="json",
     )
     return _parse_json(completion.text)
+
+
+async def score_turn_sentiments(
+    router: LLMRouter, turns: list[dict[str, Any]]
+) -> dict[int, tuple[float | None, str | None]]:
+    """Score a batch of turns → {turn_index: (score in [-1,1] | None, label | None)}.
+
+    ``turns`` items: ``{"turn_index": int, "role": str, "content": str}``.
+    Best-effort: returns ``{}`` on a non-JSON / malformed response.
+    """
+    if not turns:
+        return {}
+    prompt = render("analytics/sentiment.jinja", turns=turns)
+    try:
+        completion = await router.complete(
+            "analytics.sentiment",
+            [ChatMessage(role=Role.user, content=prompt)],
+            response_format="json",
+        )
+        data = _parse_json(completion.text)
+    except UpstreamUnavailable:
+        return {}
+    out: dict[int, tuple[float | None, str | None]] = {}
+    for item in data.get("turns") or []:
+        if not isinstance(item, dict):
+            continue
+        try:
+            idx = int(item["turn_index"])
+        except (KeyError, TypeError, ValueError):
+            continue
+        raw_score = item.get("score")
+        score: float | None
+        try:
+            score = max(-1.0, min(1.0, float(raw_score))) if raw_score is not None else None
+        except (TypeError, ValueError):
+            score = None
+        label = item.get("label")
+        label_str = str(label).strip().lower()[:40] or None if label is not None else None
+        out[idx] = (score, label_str)
+    return out

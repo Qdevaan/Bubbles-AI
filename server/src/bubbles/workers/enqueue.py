@@ -33,9 +33,13 @@ async def enqueue_extract_knowledge(
 
 
 async def enqueue_session_analytics(
-    arq: ArqRedis, *, user_id: str, session_id: str, transcript: str
+    arq: ArqRedis, *, user_id: str, session_id: str, transcript: str, job_suffix: str = ""
 ) -> Any:
-    job_id = f"analytics:{_hash_id((user_id, session_id))}"
+    # ``job_suffix`` lets a follow-up (e.g. after the sentiment scan) force a
+    # re-run instead of being deduped against the first run's result.
+    job_id = (
+        f"analytics:{_hash_id((user_id, session_id))}{(':' + job_suffix) if job_suffix else ''}"
+    )
     return await arq.enqueue_job(
         "run",
         _job_name="compute_session_analytics",
@@ -43,6 +47,16 @@ async def enqueue_session_analytics(
         session_id=session_id,
         transcript=transcript,
         _job_id=job_id,
+    )
+
+
+async def enqueue_sentiment_scan(arq: ArqRedis, *, user_id: str, session_id: str) -> Any:
+    return await arq.enqueue_job(
+        "run",
+        _job_name="sentiment_scan",
+        user_id=user_id,
+        session_id=session_id,
+        _job_id=f"sentiment:{_hash_id((user_id, session_id))}",
     )
 
 

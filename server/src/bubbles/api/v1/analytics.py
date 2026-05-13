@@ -119,9 +119,12 @@ async def get_session_analytics(
 ) -> SessionAnalyticsOut:
     async with transaction(pool) as conn:
         row = await analytics_repo.get_session_analytics(conn, session_id=session_id)
-    if row is None:
-        raise NotFound("session analytics not found")
-    require_ownership(user, str(row.user_id))
+        if row is None:
+            raise NotFound("session analytics not found")
+        require_ownership(user, str(row.user_id))
+        sentiment_trend = await analytics_repo.sentiment_trend_for_session(
+            conn, session_id=session_id
+        )
     return SessionAnalyticsOut(
         session_id=row.session_id,
         total_turns=row.total_turns,
@@ -139,7 +142,7 @@ async def get_session_analytics(
         avg_sentiment_score=row.avg_sentiment_score,
         dominant_sentiment=row.dominant_sentiment,
         topic_summary=row.topic_summary,
-        sentiment_trend=[],
+        sentiment_trend=sentiment_trend,
         computed_at=row.computed_at,
     )
 

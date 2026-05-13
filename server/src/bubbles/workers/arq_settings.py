@@ -31,6 +31,7 @@ from bubbles.workers.jobs import (
     grammar_scan,
     seed_quests,
     send_reminders,
+    sentiment_scan,
     speaker_enroll,
     speaker_identify,
 )
@@ -92,6 +93,7 @@ _JOB_REGISTRY: dict[str, Any] = {
     "speaker_identify": speaker_identify.run,
     "detect_achievements": detect_achievements.run,
     "backfill_session_entities": backfill_session_entities.run,
+    "sentiment_scan": sentiment_scan.run,
 }
 
 

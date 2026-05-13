@@ -1,0 +1,14 @@
+Score the emotional sentiment of each numbered conversation turn below.
+
+For every turn return:
+- "turn_index": the integer index given,
+- "score": a float in [-1.0, 1.0] (negative = upset/frustrated/sad, 0 = neutral, positive = warm/pleased/enthusiastic),
+- "label": one short lowercase word for the dominant emotion (e.g. neutral, frustrated, pleased, anxious, confident, sad, curious).
+
+Judge only what the words convey; do not invent context. Return JSON only:
+{"turns": [{"turn_index": 0, "score": 0.0, "label": "neutral"}, ...]}
+
+TURNS:
+{% for t in turns %}
+[{{ t.turn_index }}] {{ t.role }}: {{ t.content }}
+{% endfor %}

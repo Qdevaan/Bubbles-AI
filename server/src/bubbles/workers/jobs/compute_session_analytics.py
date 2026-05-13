@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections import Counter
 from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
@@ -16,6 +17,7 @@ from bubbles.core.errors import UpstreamUnavailable
 from bubbles.core.logging import get_logger
 from bubbles.core.transcript import parse_transcript
 from bubbles.db.repo import analytics as analytics_repo
+from bubbles.db.repo import session_logs as session_logs_repo
 from bubbles.db.uow import UnitOfWork
 
 if TYPE_CHECKING:
@@ -150,6 +152,19 @@ async def run(
             await uow.conn.fetchval("SELECT count(*) FROM events WHERE session_id = $1", sess_uuid)
             or 0
         )
+        # Per-turn aggregates from session_logs (latency from wingman advice
+        # turns; sentiment from a prior sentiment_scan run, NULL until then).
+        turn_rows = await session_logs_repo.turns_for_analytics(uow.conn, session_id=sess_uuid)
+        latencies = [int(r["latency_ms"]) for r in turn_rows if r["latency_ms"] is not None]
+        advice_latencies = [
+            int(r["latency_ms"])
+            for r in turn_rows
+            if r["role"] == "llm" and r["latency_ms"] is not None
+        ]
+        sentiments = [
+            float(r["sentiment_score"]) for r in turn_rows if r["sentiment_score"] is not None
+        ]
+        labels = [r["sentiment_label"] for r in turn_rows if r["sentiment_label"]]
         await analytics_repo.upsert_session_analytics(
             uow.conn,
             session_id=sess_uuid,
@@ -165,6 +180,12 @@ async def run(
             events_extracted=int(events_extracted),
             highlights_created=len(highlights),
             topic_summary=summary or None,
+            average_latency_ms=round(sum(latencies) / len(latencies)) if latencies else None,
+            avg_advice_latency_ms=(
+                sum(advice_latencies) / len(advice_latencies) if advice_latencies else None
+            ),
+            avg_sentiment_score=(sum(sentiments) / len(sentiments)) if sentiments else None,
+            dominant_sentiment=Counter(labels).most_common(1)[0][0] if labels else None,
         )
 
         if coaching is not None:

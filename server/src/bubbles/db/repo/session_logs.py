@@ -134,6 +134,66 @@ async def role_count(conn: asyncpg.Connection, *, session_id: UUID, role: str) -
     return n or 0
 
 
+async def turns_for_analytics(
+    conn: asyncpg.Connection, *, session_id: UUID
+) -> list[asyncpg.Record]:
+    """role / latency_ms / sentiment_score / sentiment_label, ordered by turn_index."""
+    return list(
+        await conn.fetch(
+            """
+            SELECT turn_index, role, latency_ms, sentiment_score, sentiment_label
+            FROM session_logs WHERE session_id = $1 ORDER BY turn_index ASC
+            """,
+            session_id,
+        )
+    )
+
+
+async def unscored_turns(
+    conn: asyncpg.Connection, *, session_id: UUID, limit: int = 200
+) -> list[asyncpg.Record]:
+    """User/others turns that don't have a sentiment score yet (LLM turns excluded)."""
+    return list(
+        await conn.fetch(
+            """
+            SELECT turn_index, role, content
+            FROM session_logs
+            WHERE session_id = $1 AND role <> 'llm' AND sentiment_score IS NULL
+              AND content IS NOT NULL AND length(btrim(content)) > 0
+            ORDER BY turn_index ASC LIMIT $2
+            """,
+            session_id,
+            limit,
+        )
+    )
+
+
+async def update_sentiments(
+    conn: asyncpg.Connection,
+    *,
+    session_id: UUID,
+    scores: dict[int, tuple[float | None, str | None]],
+) -> int:
+    """Write (score, label) onto session_logs rows by turn_index. Returns rows updated."""
+    updated = 0
+    for turn_index, (score, label) in scores.items():
+        if score is None and label is None:
+            continue
+        res = await conn.execute(
+            """
+            UPDATE session_logs SET sentiment_score = $3, sentiment_label = $4
+            WHERE session_id = $1 AND turn_index = $2
+            """,
+            session_id,
+            turn_index,
+            score,
+            label,
+        )
+        # asyncpg execute() returns e.g. "UPDATE 1"
+        updated += int(res.split()[-1]) if res.startswith("UPDATE") else 0
+    return updated
+
+
 async def assemble_transcript(
     conn: asyncpg.Connection,
     *,

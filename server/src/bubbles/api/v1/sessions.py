@@ -31,6 +31,7 @@ from bubbles.workers.enqueue import (
     enqueue_compute_embeddings,
     enqueue_detect_achievements,
     enqueue_extract_knowledge,
+    enqueue_sentiment_scan,
     enqueue_session_analytics,
 )
 
@@ -51,6 +52,9 @@ async def _enqueue_post_session_jobs(
         )
         await enqueue_compute_embeddings(arq, user_id=user_id)
         await enqueue_detect_achievements(arq, user_id=user_id)
+        # Score per-turn sentiment, then it re-runs compute_session_analytics so
+        # the metrics row picks up avg_sentiment_score / dominant_sentiment.
+        await enqueue_sentiment_scan(arq, user_id=user_id, session_id=session_id)
     except Exception as exc:
         log.warning("post_session_enqueue_failed", error=str(exc), session_id=session_id)
 

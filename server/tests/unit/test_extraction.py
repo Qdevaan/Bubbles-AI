@@ -54,7 +54,10 @@ class _Stub:
 
 
 def _router(text: str) -> LLMRouter:
-    return LLMRouter([_Stub(text)], [TaskChain("wingman.json", ("stub",))])
+    return LLMRouter(
+        [_Stub(text)],
+        [TaskChain("wingman.json", ("stub",)), TaskChain("analytics.sentiment", ("stub",))],
+    )
 
 
 async def test_extract_entities_parses_json() -> None:
@@ -119,3 +122,36 @@ async def test_prepare_transcript_falls_back_to_raw_on_upstream() -> None:
     out = await prepare_transcript(r, long_text)
     assert len(out) <= _TRANSCRIPT_BUDGET_CHARS
     assert "[Segment 1] User: turn 0" in out  # raw (clipped) segment text, not a summary
+
+
+from bubbles.ai.extraction import score_turn_sentiments  # noqa: E402
+
+
+async def test_score_turn_sentiments_parses_and_clamps() -> None:
+    r = _router(
+        '{"turns": ['
+        '{"turn_index": 0, "score": 0.5, "label": "Pleased"}, '
+        '{"turn_index": 1, "score": 2.0, "label": "Enthused"}, '
+        '{"turn_index": "bad"}, '
+        '{"turn_index": 3, "score": "nope", "label": null}'
+        "]}"
+    )
+    out = await score_turn_sentiments(r, [{"turn_index": 0, "role": "user", "content": "yay"}])
+    assert out[0] == (0.5, "pleased")
+    assert out[1] == (1.0, "enthused")  # clamped to [-1, 1], label lowercased
+    assert 2 not in out  # turn_index not an int -> skipped
+    assert out[3] == (None, None)  # bad score, null label
+
+
+async def test_score_turn_sentiments_empty_skips_llm() -> None:
+    r = _router('{"turns": [{"turn_index": 0, "score": 1, "label": "x"}]}')  # would parse, but
+    assert await score_turn_sentiments(r, []) == {}  # ...not called for an empty batch
+
+
+async def test_score_turn_sentiments_bad_json_returns_empty() -> None:
+    assert (
+        await score_turn_sentiments(
+            _router("not json"), [{"turn_index": 0, "role": "user", "content": "x"}]
+        )
+        == {}
+    )
