@@ -79,9 +79,9 @@ Backend reads these from env (`env/.env`, fallback `server/.env`); see `server/s
 
 - [x] **`SUPABASE_URL`** — Supabase project URL. *Supabase dashboard → Project Settings → API.*
 - [x] **`SUPABASE_SERVICE_KEY`** — Supabase `service_role` secret key. *Same page. Server-side only — never ship to the Flutter client.*
-- [ ] **`SUPABASE_JWKS_URL`** — JWKS endpoint for verifying Supabase JWTs (`https://<ref>.supabase.co/auth/v1/.well-known/jwks.json`).
+- [x] **`SUPABASE_JWKS_URL`** — JWKS endpoint for verifying Supabase JWTs (`https://<ref>.supabase.co/auth/v1/.well-known/jwks.json`).
 - [ ] **`DATABASE_URL`** — asyncpg DSN to Supabase **PgBouncer** (port `6543`, transaction mode). *Supabase → Database → Connection string → "Connection pooling".*
-- [ ] **`REDIS_URL`** — Redis/Upstash connection URL (cache, rate-limit, ARQ queue). Free tier: Upstash. Defaults to `redis://localhost:6379/0` but a real one is required in deploy.
+- [x] **`REDIS_URL`** — Redis/Upstash connection URL (cache, rate-limit, ARQ queue). Free tier: Upstash. Defaults to `redis://localhost:6379/0` but a real one is required in deploy.
 
 ### AI providers (need ≥1 LLM key for anything useful; all three recommended for the failover chain)
 
