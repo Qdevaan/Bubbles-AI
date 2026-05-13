@@ -50,9 +50,42 @@ class EndSessionRequest(_Base):
     transcript: str | None = Field(default=None, max_length=200_000)
 
 
+class BatchLogEntry(_Base):
+    """One turn in a batched session upload. Matches the v2/Flutter shape
+    (``speaker`` + ``text``) so legacy clients don't need to change."""
+
+    speaker: Literal["user", "others", "llm"]
+    text: str = Field(..., min_length=1, max_length=8_000)
+    speaker_label: str | None = Field(default=None, max_length=120)
+    confidence: float | None = Field(default=None, ge=0.0, le=1.0)
+
+
 class SaveSessionRequest(_Base):
-    session_id: UUID
-    transcript: str = Field(..., min_length=1, max_length=200_000)
+    """Batch-upload a completed conversation in one shot.
+
+    - ``session_id`` present → attach the upload to that session, then end it.
+    - ``session_id`` absent → create a fresh session, persist the logs, end it.
+    - ``is_ephemeral`` short-circuits before any DB write (still 200).
+
+    ``logs`` populates ``session_logs`` row-by-row (turn indices auto-assigned);
+    ``transcript`` is a fallback only used when ``logs`` is empty/absent.
+    The authenticated user owns the resulting/attached session; the body's
+    ``user_id`` (legacy) is ignored.
+    """
+
+    session_id: UUID | None = None
+    transcript: str = Field(default="", max_length=200_000)
+    logs: list[BatchLogEntry] = Field(default_factory=list, max_length=500)
+    title: str | None = Field(default=None, max_length=200)
+    mode: str = "live_wingman"
+    idempotency_key: str | None = Field(default=None, max_length=128)
+    is_ephemeral: bool = False
+    user_id: str | None = None  # legacy/Flutter sends this; ignored server-side
+
+
+class SaveSessionResponse(_Base):
+    status: Literal["saved", "ephemeral_skipped"]
+    session: SessionOut | None = None
 
 
 class SessionContextRequest(_Base):

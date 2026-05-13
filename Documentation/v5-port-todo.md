@@ -24,7 +24,7 @@ Each item gets the usual spec → plan → subagent-driven execution cycle; spec
 - [x] Port `POST /v1/process_transcript_wingman` — advice via `LLMRouter` `wingman.*` tasks; persist each turn (H2(a)).
 - [x] Port `GET /v1/session_replay/{session_id}`.
 - [x] Worker fills per-turn `session_analytics` columns (`average_latency_ms`, `avg_advice_latency_ms`, `avg_sentiment_score`, `dominant_sentiment`) and `sentiment_trend`.
-- [ ] Make `save_session` actually persist (currently a no-op fetch) — or remove it if turns are logged live.
+- [x] `save_session` now actually persists (v2 parity, batch-upload path for the Flutter offline buffer). Schema: `{session_id?, transcript?, logs[], title?, mode?, idempotency_key?, is_ephemeral?, user_id?(legacy/ignored)}` → `{status: "saved"|"ephemeral_skipped", session: SessionOut|null}`. Logs in v2/Flutter shape (`speaker`+`text`); auto-creates a session when `session_id` is absent; ends the session in place when it's present; runs the same `_enqueue_post_session_jobs` as `end_session`. `is_ephemeral` short-circuits before any DB write.
 
 **Why:** v5 stores no per-turn content today. No `session_logs`/`sentiment_logs` writer; `process_transcript_wingman` (the actual live-wingman product feature) not ported; `suggest_reply` is only a one-shot stand-in.
 

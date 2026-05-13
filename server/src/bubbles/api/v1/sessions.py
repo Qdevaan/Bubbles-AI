@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from uuid import UUID
 
 from arq.connections import ArqRedis
@@ -11,6 +12,7 @@ from bubbles.api.v1._schemas import (
     EndSessionRequest,
     LogTurnRequest,
     SaveSessionRequest,
+    SaveSessionResponse,
     SessionContextRequest,
     SessionOut,
     SessionReplayResponse,
@@ -94,18 +96,75 @@ async def start_session(
     return _to_out(sess)
 
 
-@router.post("/save_session", response_model=SessionOut)
+@router.post("/save_session", response_model=SaveSessionResponse)
 async def save_session(
     body: SaveSessionRequest,
     user: CurrentUserDep,
     pool: PoolDep,
-) -> SessionOut:
+    arq: ArqDep,
+) -> SaveSessionResponse:
+    """Batch-upload a completed conversation in one shot (legacy/Flutter path).
+
+    Attaches ``logs`` to an existing or new session, ends the session, and
+    enqueues the same post-session jobs as ``end_session``. ``is_ephemeral``
+    short-circuits with a 200 *before* any DB write — matching v2's contract
+    so the Flutter client's offline buffer can be cheaply discarded.
+    """
+    if body.is_ephemeral:
+        return SaveSessionResponse(status="ephemeral_skipped", session=None)
+
+    user_id = UUID(user.id)
+
+    # 1. Resolve target session — attach to caller's existing one, or create.
+    if body.session_id is not None:
+        async with transaction(pool) as conn:
+            existing = await sessions_repo.get(conn, body.session_id)
+        if existing is None:
+            raise NotFound("session not found")
+        require_ownership(user, str(existing.user_id))
+        session = existing
+    else:
+        title = body.title or f"Live Session {datetime.now(UTC):%Y-%m-%d %H:%M}"
+        async with UnitOfWork(pool) as uow:
+            session = await sessions_repo.start(
+                uow.conn,
+                user_id=user_id,
+                title=title,
+                mode=body.mode,
+                idempotency_key=body.idempotency_key,
+            )
+
+    # 2. Persist batch turns (turn_index auto-assigned by append()).
+    if body.logs:
+        async with UnitOfWork(pool) as uow:
+            for entry in body.logs:
+                await session_logs_repo.append(
+                    uow.conn,
+                    session_id=session.id,
+                    role=entry.speaker,
+                    content=entry.text,
+                    speaker_label=entry.speaker_label,
+                    confidence=entry.confidence,
+                )
+
+    # 3. Mark the session ended (summary populated by extract_knowledge / digest jobs).
+    async with UnitOfWork(pool) as uow:
+        ended = await sessions_repo.end(uow.conn, session_id=session.id)
+
+    # 4. Stored turns are authoritative; fall back to body.transcript only if empty.
     async with transaction(pool) as conn:
-        sess = await sessions_repo.get(conn, body.session_id)
-    if sess is None:
-        raise NotFound("session not found")
-    require_ownership(user, str(sess.user_id))
-    return _to_out(sess)
+        row_transcript = await session_logs_repo.assemble_transcript(conn, session_id=session.id)
+    transcript = row_transcript or body.transcript
+
+    if arq is not None and transcript:
+        await _enqueue_post_session_jobs(
+            arq,
+            user_id=str(user_id),
+            session_id=str(session.id),
+            transcript=transcript,
+        )
+
+    return SaveSessionResponse(status="saved", session=_to_out(ended or session))
 
 
 @router.post("/end_session", response_model=SessionOut)

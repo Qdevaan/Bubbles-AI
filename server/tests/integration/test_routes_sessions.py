@@ -187,3 +187,101 @@ async def test_end_session_assembles_transcript_from_rows(
     ]
     sent_transcript = arq.calls[0][1]["transcript"]
     assert sent_transcript == "User: hi\nOthers: hello"
+
+
+async def test_save_session_ephemeral_skips_persist(
+    app: FastAPI, pool: asyncpg.Pool, user_id: UUID
+) -> None:
+    _override(app, pool, user_id)
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://t") as ac:
+        r = await ac.post(
+            "/v1/save_session",
+            json={"transcript": "should not persist", "is_ephemeral": True},
+        )
+    assert r.status_code == 200
+    body = r.json()
+    assert body["status"] == "ephemeral_skipped"
+    assert body["session"] is None
+    # No new session row created.
+    async with pool.acquire() as con:
+        rows = await con.fetch("SELECT id FROM sessions WHERE user_id = $1", user_id)
+    assert rows == []
+
+
+async def test_save_session_creates_session_from_logs(
+    app: FastAPI, pool: asyncpg.Pool, user_id: UUID
+) -> None:
+    _override(app, pool, user_id)
+    logs = [
+        {"speaker": "user", "text": "hello there"},
+        {"speaker": "others", "text": "hi back"},
+        {"speaker": "user", "text": "how are you"},
+    ]
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://t") as ac:
+        r = await ac.post(
+            "/v1/save_session",
+            json={"transcript": "ignored when logs present", "logs": logs, "title": "Test"},
+        )
+    assert r.status_code == 200
+    body = r.json()
+    assert body["status"] == "saved"
+    sess = body["session"]
+    assert sess is not None
+    sid = UUID(sess["id"])
+    async with pool.acquire() as con:
+        status = await con.fetchval("SELECT status FROM sessions WHERE id = $1", sid)
+        rows = await con.fetch(
+            "SELECT turn_index, role, content FROM session_logs "
+            "WHERE session_id = $1 ORDER BY turn_index",
+            sid,
+        )
+    assert status == "ended"
+    assert [(r["role"], r["content"]) for r in rows] == [
+        ("user", "hello there"),
+        ("others", "hi back"),
+        ("user", "how are you"),
+    ]
+
+
+async def test_save_session_attaches_to_existing(
+    app: FastAPI, pool: asyncpg.Pool, user_id: UUID
+) -> None:
+    _override(app, pool, user_id)
+    sid = await _make_session(pool, user_id)
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://t") as ac:
+        r = await ac.post(
+            "/v1/save_session",
+            json={
+                "session_id": str(sid),
+                "logs": [{"speaker": "user", "text": "late upload"}],
+            },
+        )
+    assert r.status_code == 200
+    body = r.json()
+    assert body["session"]["id"] == str(sid)  # same session, ended in place
+    async with pool.acquire() as con:
+        status = await con.fetchval("SELECT status FROM sessions WHERE id = $1", sid)
+        n = await con.fetchval("SELECT COUNT(*)::int FROM session_logs WHERE session_id = $1", sid)
+    assert status == "ended"
+    assert n == 1
+
+
+async def test_save_session_ignores_legacy_user_id_field(
+    app: FastAPI, pool: asyncpg.Pool, user_id: UUID
+) -> None:
+    """Flutter still posts ``user_id`` in the body; auth wins, body field is ignored."""
+    _override(app, pool, user_id)
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://t") as ac:
+        r = await ac.post(
+            "/v1/save_session",
+            json={
+                "user_id": str(uuid4()),  # bogus — must not influence ownership
+                "transcript": "User: hi",
+                "logs": [{"speaker": "user", "text": "hi"}],
+            },
+        )
+    assert r.status_code == 200
+    sid = UUID(r.json()["session"]["id"])
+    async with pool.acquire() as con:
+        owner = await con.fetchval("SELECT user_id FROM sessions WHERE id = $1", sid)
+    assert owner == user_id
