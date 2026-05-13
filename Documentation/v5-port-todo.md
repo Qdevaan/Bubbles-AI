@@ -77,21 +77,21 @@ Backend reads these from env (`env/.env`, fallback `server/.env`); see `server/s
 
 ### Required (app won't start without them)
 
-- [ ] **`SUPABASE_URL`** — Supabase project URL. *Supabase dashboard → Project Settings → API.*
-- [ ] **`SUPABASE_SERVICE_KEY`** — Supabase `service_role` secret key. *Same page. Server-side only — never ship to the Flutter client.*
+- [x] **`SUPABASE_URL`** — Supabase project URL. *Supabase dashboard → Project Settings → API.*
+- [x] **`SUPABASE_SERVICE_KEY`** — Supabase `service_role` secret key. *Same page. Server-side only — never ship to the Flutter client.*
 - [ ] **`SUPABASE_JWKS_URL`** — JWKS endpoint for verifying Supabase JWTs (`https://<ref>.supabase.co/auth/v1/.well-known/jwks.json`).
 - [ ] **`DATABASE_URL`** — asyncpg DSN to Supabase **PgBouncer** (port `6543`, transaction mode). *Supabase → Database → Connection string → "Connection pooling".*
 - [ ] **`REDIS_URL`** — Redis/Upstash connection URL (cache, rate-limit, ARQ queue). Free tier: Upstash. Defaults to `redis://localhost:6379/0` but a real one is required in deploy.
 
 ### AI providers (need ≥1 LLM key for anything useful; all three recommended for the failover chain)
 
-- [ ] **`GEMINI_API_KEY`** — Google AI Studio (`aistudio.google.com`). Used for the consultant model **and** `text-embedding-004` embeddings. Free tier. First in the LLM chain.
-- [ ] **`CEREBRAS_API_KEY`** — Cerebras Cloud (`cloud.cerebras.ai`). Wingman model. Free tier. Second in the chain.
-- [ ] **`GROQ_API_KEY`** — GroqCloud (`console.groq.com`). Wingman fallback model **and** Whisper STT (`whisper-large-v3-turbo`). Free tier. Third in the chain + STT.
+- [x] **`GEMINI_API_KEY`** — Google AI Studio (`aistudio.google.com`). Used for the consultant model **and** `text-embedding-004` embeddings. Free tier. First in the LLM chain.
+- [x] **`CEREBRAS_API_KEY`** — Cerebras Cloud (`cloud.cerebras.ai`). Wingman model. Free tier. Second in the chain.
+- [x] **`GROQ_API_KEY`** — GroqCloud (`console.groq.com`). Wingman fallback model **and** Whisper STT (`whisper-large-v3-turbo`). Free tier. Third in the chain + STT.
 
 ### Voice (only if using realtime audio / LiveKit)
 
-- [ ] **`LIVEKIT_URL`**, **`LIVEKIT_API_KEY`**, **`LIVEKIT_API_SECRET`** — LiveKit Cloud (`cloud.livekit.io`) or self-hosted. Needed for `getToken` / realtime sessions. (TTS = Edge-TTS, needs no key. STT = Groq Whisper, uses `GROQ_API_KEY`.)
+- [x] **`LIVEKIT_URL`**, **`LIVEKIT_API_KEY`**, **`LIVEKIT_API_SECRET`** — LiveKit Cloud (`cloud.livekit.io`) or self-hosted. Needed for `getToken` / realtime sessions. (TTS = Edge-TTS, needs no key. STT = Groq Whisper, uses `GROQ_API_KEY`.)
 - [ ] **`ELEVENLABS_API_KEY`** — ElevenLabs (`elevenlabs.io`). Optional. When set, the `premium` / `premium-male` TTS presets use ElevenLabs; falls back to Edge-TTS on any failure or when unset.
 
 ### Push notifications (optional)
@@ -100,14 +100,14 @@ Backend reads these from env (`env/.env`, fallback `server/.env`); see `server/s
 
 ### Observability (optional in dev; `SENTRY_DSN` **required when `APP_ENV=production`**)
 
-- [ ] **`SENTRY_DSN`** — Sentry project DSN. Hard requirement in prod (startup invariant).
+- [x] **`SENTRY_DSN`** — Sentry project DSN. Hard requirement in prod (startup invariant).
 - [ ] **`OTEL_EXPORTER_OTLP_ENDPOINT`** — OTLP traces collector endpoint (e.g. Grafana Tempo / Honeycomb). Optional.
 - [ ] **`LOGTAIL_SOURCE_TOKEN`** — Better Stack / Logtail source token for log shipping. Optional.
 
 ### Flutter client (separate from the backend keys above)
 
-- [ ] **`SUPABASE_URL`** + **`SUPABASE_ANON_KEY`** — the *anon* (publishable) key, not the service key. Loaded from `env/.env` in dev, `--dart-define` for release builds.
-- [ ] **`LIVEKIT_URL`** (+ token comes from the backend `getToken`) — if the client does realtime audio.
+- [x] **`SUPABASE_URL`** + **`SUPABASE_ANON_KEY`** — the *anon* (publishable) key, not the service key. Loaded from `env/.env` in dev, `--dart-define` for release builds.
+- [x] **`LIVEKIT_URL`** (+ token comes from the backend `getToken`) — if the client does realtime audio.
 
 > **Cost target:** Gemini (free) + Cerebras (free) + Groq (free) + Supabase (free) + Upstash Redis (free) + Edge-TTS (no key) → ~$0/mo. Only LiveKit and ElevenLabs are potential paid items, both optional.
 
