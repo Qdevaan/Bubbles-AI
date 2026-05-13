@@ -60,6 +60,24 @@ async def enqueue_sentiment_scan(arq: ArqRedis, *, user_id: str, session_id: str
     )
 
 
+async def enqueue_rolling_summarize(
+    arq: ArqRedis, *, user_id: str, session_id: str, turn_index: int
+) -> Any:
+    """Re-summarise the recent tail of a session. One job per (session, turn_index).
+
+    The ``turn_index`` is part of the job id so each 20-turn checkpoint enqueues a
+    distinct job; same checkpoint within a few seconds is deduped by ARQ.
+    """
+    return await arq.enqueue_job(
+        "run",
+        _job_name="rolling_summarize",
+        user_id=user_id,
+        session_id=session_id,
+        turn_index=turn_index,
+        _job_id=f"rollsum:{_hash_id((session_id, turn_index))}",
+    )
+
+
 async def enqueue_grammar_scan(
     arq: ArqRedis, *, user_id: str, session_id: str | None, text: str
 ) -> Any:

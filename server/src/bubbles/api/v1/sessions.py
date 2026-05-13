@@ -80,6 +80,7 @@ async def start_session(
             mode=body.mode,
             persona=body.persona,
             is_ephemeral=body.is_ephemeral,
+            is_multiplayer=body.is_multiplayer,
             idempotency_key=body.idempotency_key,
             session_context=body.session_context,
         )

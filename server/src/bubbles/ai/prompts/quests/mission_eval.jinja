@@ -1,0 +1,16 @@
+Evaluate whether the conversation transcript below satisfies the quest brief.
+
+QUEST BRIEF (criteria):
+{{ criteria }}
+
+The user spoke {{ user_turns }} turn(s); the brief requires at least {{ min_turns }}.
+
+Return JSON only:
+{"passed": true|false, "reason": "one short sentence"}
+
+Judge strictly against the criteria. If the user did not meet the spirit of the brief
+(e.g. didn't actually attempt the practice, the topic is off, or the engagement is
+too shallow), return passed=false with a short, concrete reason. Otherwise passed=true.
+
+TRANSCRIPT:
+{{ transcript }}

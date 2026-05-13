@@ -26,6 +26,7 @@ class StartSessionRequest(_Base):
     mode: str = "live_wingman"
     persona: str = "casual"
     is_ephemeral: bool = False
+    is_multiplayer: bool = False
     idempotency_key: str | None = Field(default=None, max_length=128)
     session_context: dict[str, Any] | None = None
 
@@ -37,6 +38,7 @@ class SessionOut(_Base):
     status: str
     persona: str
     mode: str
+    is_multiplayer: bool = False
 
 
 class EndSessionRequest(_Base):

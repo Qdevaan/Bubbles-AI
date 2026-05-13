@@ -137,6 +137,42 @@ async def generate_coaching_report(router: LLMRouter, transcript: str) -> dict[s
     return _parse_json(completion.text)
 
 
+async def evaluate_conversation_mission(
+    router: LLMRouter,
+    *,
+    criteria: str,
+    transcript: str,
+    min_turns: int,
+    user_turns: int,
+) -> tuple[bool | None, str | None]:
+    """Ask the LLM whether the transcript satisfies the quest's brief criteria.
+
+    Returns ``(passed, reason)``. ``passed`` is ``None`` when the call/parse
+    fails — the caller should treat that as "no signal" and not block on it.
+    """
+    prompt = render(
+        "quests/mission_eval.jinja",
+        criteria=criteria,
+        transcript=transcript,
+        min_turns=min_turns,
+        user_turns=user_turns,
+    )
+    try:
+        completion = await router.complete(
+            "analytics.mission_eval",
+            [ChatMessage(role=Role.user, content=prompt)],
+            response_format="json",
+        )
+        data = _parse_json(completion.text)
+    except UpstreamUnavailable:
+        return (None, None)
+    raw_passed = data.get("passed")
+    passed: bool | None = bool(raw_passed) if isinstance(raw_passed, bool) else None
+    raw_reason = data.get("reason")
+    reason = str(raw_reason).strip()[:280] if isinstance(raw_reason, str) else None
+    return (passed, reason)
+
+
 async def score_turn_sentiments(
     router: LLMRouter, turns: list[dict[str, Any]]
 ) -> dict[int, tuple[float | None, str | None]]:

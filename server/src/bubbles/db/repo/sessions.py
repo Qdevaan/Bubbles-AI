@@ -70,6 +70,7 @@ async def start(
     mode: str = "live_wingman",
     persona: str = "casual",
     is_ephemeral: bool = False,
+    is_multiplayer: bool = False,
     idempotency_key: str | None = None,
     session_context: dict[str, Any] | None = None,
 ) -> Session:
@@ -87,9 +88,9 @@ async def start(
         f"""
         INSERT INTO sessions (
             user_id, title, session_type, mode, persona,
-            is_ephemeral, idempotency_key, session_context, status
+            is_ephemeral, is_multiplayer, idempotency_key, session_context, status
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'active')
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'active')
         RETURNING {_COLUMNS}
         """,
         user_id,
@@ -98,6 +99,7 @@ async def start(
         mode,
         persona,
         is_ephemeral,
+        is_multiplayer,
         idempotency_key,
         json.dumps(session_context) if session_context is not None else None,
     )

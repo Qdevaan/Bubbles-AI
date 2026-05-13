@@ -14,9 +14,19 @@ from httpx import ASGITransport, AsyncClient
 from bubbles.auth.current_user import CurrentUser, current_user
 from bubbles.db.repo import gamification as gamification_repo
 from bubbles.db.repo import session_logs as session_logs_repo
-from bubbles.deps import get_pool
+from bubbles.deps import get_pool, get_router
 
 pytestmark = pytest.mark.integration
+
+
+class _NullRouter:
+    """Stand-in for ``RouterDep`` when the test path never actually calls the LLM
+    (e.g. attach_session without ``brief.criteria``)."""
+
+    last_fallback_depth = 0
+
+    async def complete(self, *_args: Any, **_kwargs: Any) -> Any:  # pragma: no cover
+        raise RuntimeError("LLM router should not be called in this test path")
 
 
 def _override(app: FastAPI, pool: asyncpg.Pool, uid: UUID) -> None:
@@ -24,6 +34,7 @@ def _override(app: FastAPI, pool: asyncpg.Pool, uid: UUID) -> None:
     app.dependency_overrides[current_user] = lambda: CurrentUser(
         id=str(uid), email=None, role="authenticated"
     )
+    app.dependency_overrides[get_router] = _NullRouter
 
 
 async def _client(app: FastAPI) -> AsyncClient:
@@ -231,3 +242,127 @@ async def test_bump_quest_progress_by_action(pool: asyncpg.Pool, user_id: UUID) 
         g = await gamification_repo.get_or_init_gamification(con, user_id)
     assert g.total_xp == 15
     _ = uq_id
+
+
+class _FakeCompletion:
+    def __init__(self, text: str) -> None:
+        self.text = text
+        self.raw: dict[str, Any] | None = None
+
+
+class _FakeRouter:
+    last_fallback_depth = 0
+
+    def __init__(self, *, passed: bool | None, reason: str | None) -> None:
+        payload: dict[str, Any] = {}
+        if passed is not None:
+            payload["passed"] = passed
+        if reason is not None:
+            payload["reason"] = reason
+        self._text = json.dumps(payload) if payload else "not json"
+
+    async def complete(self, *_args: Any, **_kwargs: Any) -> _FakeCompletion:
+        return _FakeCompletion(self._text)
+
+
+async def test_attach_session_llm_judge_blocks_completion(
+    app: FastAPI, pool: asyncpg.Pool, user_id: UUID
+) -> None:
+    _, uq_id = await _make_quest(
+        pool,
+        user_id=user_id,
+        mission_type="conversation",
+        action_type="have_conversation",
+        target=1,
+        xp_reward=60,
+        brief={"min_turns": 2, "criteria": "User must practise saying no politely."},
+    )
+    async with pool.acquire() as con:
+        sid = await con.fetchval(
+            "INSERT INTO sessions (user_id, title, status) VALUES ($1, 's', 'active') RETURNING id",
+            user_id,
+        )
+        await session_logs_repo.append(con, session_id=sid, role="user", content="random chat")
+        await session_logs_repo.append(con, session_id=sid, role="others", content="ok")
+        await session_logs_repo.append(con, session_id=sid, role="user", content="bye")
+    _override(app, pool, user_id)
+    app.dependency_overrides[get_router] = lambda: _FakeRouter(
+        passed=False, reason="Off-topic; user did not practise the skill."
+    )
+    async with await _client(app) as ac:
+        r = await ac.post(
+            f"/v1/quests/{user_id}/{uq_id}/attach_session", json={"session_id": str(sid)}
+        )
+    assert r.status_code == 200
+    body = r.json()
+    assert body["is_completed"] is False and body["newly_completed"] is False
+    async with pool.acquire() as con:
+        state = json.loads(
+            await con.fetchval("SELECT brief_state FROM user_quests WHERE id = $1", uq_id)
+        )
+    last = state["last_attach"]
+    assert last["eval_passed"] is False
+    assert "Off-topic" in last["eval_reason"]
+
+
+async def test_attach_session_llm_judge_passes(
+    app: FastAPI, pool: asyncpg.Pool, user_id: UUID
+) -> None:
+    _, uq_id = await _make_quest(
+        pool,
+        user_id=user_id,
+        mission_type="conversation",
+        action_type="have_conversation",
+        target=1,
+        xp_reward=80,
+        brief={"min_turns": 2, "criteria": "User asks for feedback at least once."},
+    )
+    async with pool.acquire() as con:
+        sid = await con.fetchval(
+            "INSERT INTO sessions (user_id, title, status) VALUES ($1, 's', 'active') RETURNING id",
+            user_id,
+        )
+        await session_logs_repo.append(con, session_id=sid, role="user", content="how did I do?")
+        await session_logs_repo.append(con, session_id=sid, role="others", content="great")
+        await session_logs_repo.append(
+            con, session_id=sid, role="user", content="any feedback for me?"
+        )
+    _override(app, pool, user_id)
+    app.dependency_overrides[get_router] = lambda: _FakeRouter(passed=True, reason="ok")
+    async with await _client(app) as ac:
+        r = await ac.post(
+            f"/v1/quests/{user_id}/{uq_id}/attach_session", json={"session_id": str(sid)}
+        )
+    body = r.json()
+    assert body["is_completed"] is True and body["newly_completed"] is True
+    async with pool.acquire() as con:
+        g = await gamification_repo.get_or_init_gamification(con, user_id)
+    assert g.total_xp == 80
+
+
+async def test_attach_session_llm_upstream_falls_back_to_turn_gate(
+    app: FastAPI, pool: asyncpg.Pool, user_id: UUID
+) -> None:
+    """Bad/empty JSON from the judge → eval_passed=None → turn-gate wins (passes)."""
+    _, uq_id = await _make_quest(
+        pool,
+        user_id=user_id,
+        mission_type="conversation",
+        action_type="have_conversation",
+        target=1,
+        xp_reward=20,
+        brief={"min_turns": 1, "criteria": "User says hello."},
+    )
+    async with pool.acquire() as con:
+        sid = await con.fetchval(
+            "INSERT INTO sessions (user_id, title, status) VALUES ($1, 's', 'active') RETURNING id",
+            user_id,
+        )
+        await session_logs_repo.append(con, session_id=sid, role="user", content="hello")
+    _override(app, pool, user_id)
+    app.dependency_overrides[get_router] = lambda: _FakeRouter(passed=None, reason=None)
+    async with await _client(app) as ac:
+        r = await ac.post(
+            f"/v1/quests/{user_id}/{uq_id}/attach_session", json={"session_id": str(sid)}
+        )
+    assert r.json()["is_completed"] is True

@@ -155,3 +155,52 @@ async def test_score_turn_sentiments_bad_json_returns_empty() -> None:
         )
         == {}
     )
+
+
+from bubbles.ai.extraction import evaluate_conversation_mission  # noqa: E402
+
+
+def _eval_router(text: str) -> LLMRouter:
+    return LLMRouter(
+        [_Stub(text)],
+        [TaskChain("analytics.mission_eval", ("stub",))],
+    )
+
+
+async def test_evaluate_mission_parses_pass() -> None:
+    r = _eval_router('{"passed": true, "reason": "User practised the skill."}')
+    passed, reason = await evaluate_conversation_mission(
+        r, criteria="practise X", transcript="User: hi", min_turns=1, user_turns=1
+    )
+    assert passed is True
+    assert reason == "User practised the skill."
+
+
+async def test_evaluate_mission_parses_fail_and_clips_reason() -> None:
+    long = "x" * 1000
+    r = _eval_router(f'{{"passed": false, "reason": "{long}"}}')
+    passed, reason = await evaluate_conversation_mission(
+        r, criteria="c", transcript="t", min_turns=1, user_turns=1
+    )
+    assert passed is False
+    assert reason is not None and len(reason) == 280
+
+
+async def test_evaluate_mission_bad_json_returns_none() -> None:
+    passed, reason = await evaluate_conversation_mission(
+        _eval_router("not json"),
+        criteria="c",
+        transcript="t",
+        min_turns=1,
+        user_turns=1,
+    )
+    assert passed is None and reason is None
+
+
+async def test_evaluate_mission_missing_passed_returns_none_passed() -> None:
+    r = _eval_router('{"reason": "ok"}')
+    passed, reason = await evaluate_conversation_mission(
+        r, criteria="c", transcript="t", min_turns=1, user_turns=1
+    )
+    assert passed is None
+    assert reason == "ok"

@@ -29,6 +29,7 @@ from bubbles.workers.jobs import (
     detect_achievements,
     extract_knowledge,
     grammar_scan,
+    rolling_summarize,
     seed_quests,
     send_reminders,
     sentiment_scan,
@@ -94,6 +95,7 @@ _JOB_REGISTRY: dict[str, Any] = {
     "detect_achievements": detect_achievements.run,
     "backfill_session_entities": backfill_session_entities.run,
     "sentiment_scan": sentiment_scan.run,
+    "rolling_summarize": rolling_summarize.run,
 }
 
 

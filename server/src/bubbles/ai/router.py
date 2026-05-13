@@ -199,4 +199,7 @@ DEFAULT_CHAINS: tuple[TaskChain, ...] = (
     TaskChain(
         "analytics.sentiment", ("cerebras", "groq", "gemini"), temperature=0.0, max_tokens=800
     ),
+    TaskChain(
+        "analytics.mission_eval", ("cerebras", "groq", "gemini"), temperature=0.0, max_tokens=300
+    ),
 )

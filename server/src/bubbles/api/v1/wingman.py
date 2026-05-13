@@ -34,7 +34,11 @@ from bubbles.db.repo import session_logs as session_logs_repo
 from bubbles.db.repo import sessions as sessions_repo
 from bubbles.db.uow import UnitOfWork, transaction
 from bubbles.deps import ArqDep, EmbeddingsDep, PoolDep, RouterDep
-from bubbles.workers.enqueue import enqueue_compute_embeddings, enqueue_extract_knowledge
+from bubbles.workers.enqueue import (
+    enqueue_compute_embeddings,
+    enqueue_extract_knowledge,
+    enqueue_rolling_summarize,
+)
 
 if TYPE_CHECKING:
     import asyncpg
@@ -47,6 +51,7 @@ router = APIRouter(tags=["wingman"])
 
 _CONTEXT_BUDGET_S = 0.5
 _EXTRACT_EVERY_N_TURNS = 5
+_ROLLING_SUMMARY_EVERY_N_TURNS = 20
 
 
 async def _build_context(
@@ -138,6 +143,10 @@ async def _persist_advice_and_followups(
             if n % _EXTRACT_EVERY_N_TURNS == 0 and transcript:
                 await enqueue_extract_knowledge(
                     arq, user_id=str(user_id), session_id=str(session_id), transcript=transcript
+                )
+            if n > 0 and n % _ROLLING_SUMMARY_EVERY_N_TURNS == 0:
+                await enqueue_rolling_summarize(
+                    arq, user_id=str(user_id), session_id=str(session_id), turn_index=n
                 )
             await enqueue_compute_embeddings(arq, user_id=str(user_id))
     except Exception as exc:

@@ -65,3 +65,8 @@ async def test_no_dead_letter_before_final_try(monkeypatch: pytest.MonkeyPatch) 
     with pytest.raises(RuntimeError, match="kaboom"):
         await arq_settings.run(ctx, _job_name="extract_knowledge")
     assert redis.pushes == []
+
+
+async def test_rolling_summarize_registered() -> None:
+    """The new rolling_summarize job is wired into the worker registry."""
+    assert "rolling_summarize" in arq_settings._JOB_REGISTRY

@@ -50,3 +50,21 @@ async def test_end_and_soft_delete(pool: asyncpg.Pool, user_id: UUID) -> None:
     async with pool.acquire() as con:
         gone = await repo.get(con, sess.id)
     assert gone is None
+
+
+async def test_start_is_multiplayer_persists(pool: asyncpg.Pool, user_id: UUID) -> None:
+    async with UnitOfWork(pool) as uow:
+        solo = await repo.start(uow.conn, user_id=user_id, title="solo")
+        party = await repo.start(uow.conn, user_id=user_id, title="party", is_multiplayer=True)
+    async with pool.acquire() as con:
+        rows = {
+            r["id"]: r["is_multiplayer"]
+            for r in await con.fetch(
+                "SELECT id, is_multiplayer FROM sessions WHERE id = ANY($1::uuid[])",
+                [solo.id, party.id],
+            )
+        }
+    assert rows[solo.id] is False
+    assert rows[party.id] is True
+    assert solo.is_multiplayer is False
+    assert party.is_multiplayer is True

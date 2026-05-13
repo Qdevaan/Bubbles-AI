@@ -1,8 +1,9 @@
 """Gamification HTTP routes — XP profile, daily quests, rewards, leaderboard.
 
 All ``{user_id}``-path routes verify the path id matches the authenticated
-user via ``require_ownership`` (no peeking at other users' data). No upstream
-(LLM/Redis) calls here, so no ``UpstreamUnavailable`` paths.
+user via ``require_ownership`` (no peeking at other users' data). The only
+upstream-touching path is ``attach_quest_session`` for conversation quests
+that ship a ``brief.criteria`` — it runs an LLM judge, treated best-effort.
 """
 
 from __future__ import annotations
@@ -13,6 +14,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Query
 
+from bubbles.ai.extraction import evaluate_conversation_mission
 from bubbles.api.v1._schemas import (
     AchievementOut,
     DailyQuestsResponse,
@@ -41,7 +43,7 @@ from bubbles.db.repo import session_logs as session_logs_repo
 from bubbles.db.repo import sessions as sessions_repo
 from bubbles.db.repo import xp as xp_repo
 from bubbles.db.uow import UnitOfWork, transaction
-from bubbles.deps import PoolDep
+from bubbles.deps import PoolDep, RouterDep
 
 router = APIRouter(tags=["gamification"])
 
@@ -315,9 +317,17 @@ async def attach_quest_session(
     body: QuestAttachSessionRequest,
     user: CurrentUserDep,
     pool: PoolDep,
+    llm_router: RouterDep,
 ) -> QuestMissionResult:
-    """Attach a session to a ``conversation`` mission. Completes iff it has ≥ ``brief.min_turns`` user turns."""
+    """Attach a session to a ``conversation`` mission. Completes iff it has ≥ ``brief.min_turns``
+    user turns *and*, when ``brief.criteria`` is set, the LLM judge says the transcript
+    actually satisfies the brief. A failed/unavailable judge is treated as "no signal" and
+    falls back to the turn-count gate only."""
     require_ownership(user, str(user_id))
+
+    # First UoW: validate the assignment, fetch the brief, count turns, and pull the
+    # transcript for the LLM judge. We close it before the LLM call so the connection
+    # isn't held across a network round-trip; the second UoW does the actual write.
     async with UnitOfWork(pool) as uow:
         uq = await gamification_repo.get_user_quest(uow.conn, user_quest_id)
         if uq is None or uq.user_id != user_id:
@@ -335,13 +345,38 @@ async def attach_quest_session(
         user_turns = await session_logs_repo.role_count(
             uow.conn, session_id=body.session_id, role="user"
         )
-        min_turns = max(1, int((qd.brief or {}).get("min_turns", 1)))
+        brief = qd.brief or {}
+        min_turns = max(1, int(brief.get("min_turns", 1)))
+        criteria_raw = brief.get("criteria")
+        criteria = (
+            criteria_raw.strip() if isinstance(criteria_raw, str) and criteria_raw.strip() else None
+        )
+        transcript = (
+            await session_logs_repo.assemble_transcript(uow.conn, session_id=body.session_id)
+            if criteria and user_turns >= min_turns
+            else ""
+        )
+
+    eval_passed: bool | None = None
+    eval_reason: str | None = None
+    if criteria and user_turns >= min_turns and transcript:
+        eval_passed, eval_reason = await evaluate_conversation_mission(
+            llm_router,
+            criteria=criteria,
+            transcript=transcript,
+            min_turns=min_turns,
+            user_turns=user_turns,
+        )
+
+    async with UnitOfWork(pool) as uow:
         updated, newly = await gamification_repo.complete_conversation_quest(
             uow.conn,
             quest=uq,
             session_id=body.session_id,
             user_turns=user_turns,
             min_turns=min_turns,
+            eval_passed=eval_passed,
+            eval_reason=eval_reason,
         )
         if newly:
             await gamification_repo.award_quest_xp_once(

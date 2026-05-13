@@ -8,6 +8,7 @@ from bubbles.workers.enqueue import (
     enqueue_compute_embeddings,
     enqueue_extract_knowledge,
     enqueue_grammar_scan,
+    enqueue_rolling_summarize,
     enqueue_session_analytics,
 )
 
@@ -67,3 +68,15 @@ async def test_enqueue_compute_embeddings_job_id_is_per_user() -> None:
     (_, kwargs) = arq.calls[0]
     assert kwargs["_job_name"] == "compute_embeddings"
     assert kwargs["_job_id"] == "embed:u1"
+
+
+async def test_enqueue_rolling_summarize_per_turn_unique_id() -> None:
+    arq = FakeArq()
+    await enqueue_rolling_summarize(arq, user_id="u1", session_id="s1", turn_index=20)  # type: ignore[arg-type]
+    await enqueue_rolling_summarize(arq, user_id="u1", session_id="s1", turn_index=40)  # type: ignore[arg-type]
+    a = arq.calls[0][1]
+    b = arq.calls[1][1]
+    assert a["_job_name"] == "rolling_summarize"
+    assert a["turn_index"] == 20 and b["turn_index"] == 40
+    assert a["_job_id"].startswith("rollsum:")
+    assert a["_job_id"] != b["_job_id"]  # different checkpoint -> different job

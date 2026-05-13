@@ -650,20 +650,29 @@ async def complete_conversation_quest(
     session_id: UUID,
     user_turns: int,
     min_turns: int,
+    eval_passed: bool | None = None,
+    eval_reason: str | None = None,
 ) -> tuple[UserQuest, bool]:
-    """Attach a session to a conversation mission. Completes iff ``user_turns >= min_turns``.
+    """Attach a session to a conversation mission. Completes iff ``user_turns >= min_turns``
+    and, when a brief LLM evaluator runs, ``eval_passed`` is not ``False``.
 
     Returns (updated_user_quest, newly_completed). On failure the attempt is
     recorded in ``brief_state`` so the client can show why and try another session.
     """
     state = await _brief_state(conn, quest.id)
-    passed = user_turns >= min_turns
-    state["last_attach"] = {
+    turns_ok = user_turns >= min_turns
+    passed = turns_ok and (eval_passed is not False)
+    attempt: dict[str, Any] = {
         "session_id": str(session_id),
         "user_turns": user_turns,
         "min_turns": min_turns,
         "passed": passed,
     }
+    if eval_passed is not None:
+        attempt["eval_passed"] = eval_passed
+        if eval_reason:
+            attempt["eval_reason"] = eval_reason
+    state["last_attach"] = attempt
     if passed:
         state["attached_session_id"] = str(session_id)
     newly_completed = (not quest.is_completed) and passed
