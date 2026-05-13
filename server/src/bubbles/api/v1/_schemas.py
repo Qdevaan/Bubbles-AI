@@ -93,13 +93,18 @@ class SessionContextRequest(_Base):
 
 
 class SuggestReplyRequest(_Base):
-    session_id: UUID
-    last_user_text: str = Field(..., min_length=1, max_length=4_000)
+    session_id: UUID | None = None
+    partner_utterance: str | None = Field(default=None, max_length=4_000)
+    tone: Literal["formal", "semi-formal", "casual"] = "casual"
+    is_draft: bool = False
+    # Backward-compat: older clients send ``last_user_text`` instead.
+    last_user_text: str | None = Field(default=None, max_length=4_000)
 
 
 class SuggestReplyResponse(_Base):
-    suggestion: str
+    suggestions: list[str]
     provider: str
+    latency_ms: int = 0
 
 
 # --- per-turn store + wingman ---------------------------------------------
@@ -143,6 +148,7 @@ class WingmanTurnRequest(_Base):
     confidence: float | None = Field(default=None, ge=0.0, le=1.0)
     mode: str = "live_wingman"
     persona: str = "casual"
+    target_entity_id: UUID | None = None
 
 
 class WingmanTurnResponse(_Base):

@@ -35,10 +35,12 @@ async def run(
         payload = await extract_entities(bub.ai.router, prepared)
     except UpstreamUnavailable as exc:
         log.warning("extract_knowledge_upstream", error=str(exc))
-        return {"entities": 0, "relations": 0, "links": 0}
+        return {"entities": 0, "relations": 0, "links": 0, "events": 0, "tasks": 0}
 
     raw_entities = payload.get("entities") or []
     raw_relations = payload.get("relations") or []
+    raw_events = payload.get("events") or []
+    raw_tasks = payload.get("tasks") or []
     user_uuid = UUID(user_id)
     session_uuid = UUID(session_id)
 
@@ -46,6 +48,8 @@ async def run(
     saved_entities = 0
     saved_relations = 0
     saved_links = 0
+    saved_events = 0
+    saved_tasks = 0
 
     async with UnitOfWork(bub.pool) as uow:
         for item in raw_entities:
@@ -86,6 +90,41 @@ async def run(
             )
             saved_relations += 1
 
+        for ev in raw_events:
+            title = (ev.get("title") or "").strip()
+            if not title:
+                continue
+            inserted = await entities_repo.insert_event(
+                uow.conn,
+                user_id=user_uuid,
+                session_id=session_uuid,
+                title=title,
+                description=(ev.get("description") or None),
+                due_text=(ev.get("due_text") or None),
+                location=(ev.get("location") or None),
+            )
+            if inserted is not None:
+                saved_events += 1
+
+        for tsk in raw_tasks:
+            title = (tsk.get("title") or "").strip()
+            if not title:
+                continue
+            priority = (tsk.get("priority") or "medium").strip().lower()
+            if priority not in {"low", "medium", "high"}:
+                priority = "medium"
+            inserted = await entities_repo.insert_task(
+                uow.conn,
+                user_id=user_uuid,
+                session_id=session_uuid,
+                title=title,
+                description=(tsk.get("description") or None),
+                priority=priority,
+                category=(tsk.get("category") or None),
+            )
+            if inserted is not None:
+                saved_tasks += 1
+
     log.info(
         "extract_knowledge_done",
         user=user_id,
@@ -93,5 +132,13 @@ async def run(
         entities=saved_entities,
         relations=saved_relations,
         links=saved_links,
+        events=saved_events,
+        tasks=saved_tasks,
     )
-    return {"entities": saved_entities, "relations": saved_relations, "links": saved_links}
+    return {
+        "entities": saved_entities,
+        "relations": saved_relations,
+        "links": saved_links,
+        "events": saved_events,
+        "tasks": saved_tasks,
+    }

@@ -274,6 +274,81 @@ async def tasks_mentioning(
     )
 
 
+async def insert_event(
+    conn: asyncpg.Connection,
+    *,
+    user_id: UUID,
+    session_id: UUID | None,
+    title: str,
+    description: str | None = None,
+    due_text: str | None = None,
+    location: str | None = None,
+) -> UUID | None:
+    """Insert a calendar-style event extracted from the transcript.
+
+    Idempotent on ``(user_id, session_id, lower(title))`` — duplicates
+    re-extracted on subsequent turns won't pile up.
+    """
+    row = await conn.fetchrow(
+        """
+        INSERT INTO events (user_id, session_id, title, description, due_text, location)
+        SELECT $1, $2, $3, $4, $5, $6
+        WHERE NOT EXISTS (
+            SELECT 1 FROM events
+            WHERE user_id = $1
+              AND COALESCE(session_id::text, '') = COALESCE($2::text, '')
+              AND lower(title) = lower($3)
+        )
+        RETURNING id
+        """,
+        user_id,
+        session_id,
+        title,
+        description,
+        due_text,
+        location,
+    )
+    return row["id"] if row is not None else None
+
+
+async def insert_task(
+    conn: asyncpg.Connection,
+    *,
+    user_id: UUID,
+    session_id: UUID | None,
+    title: str,
+    description: str | None = None,
+    priority: str = "medium",
+    category: str | None = None,
+) -> UUID | None:
+    """Insert an action-item task extracted from the transcript.
+
+    Idempotent on ``(user_id, source_session_id, lower(title))``.
+    """
+    row = await conn.fetchrow(
+        """
+        INSERT INTO tasks (
+            user_id, source_session_id, title, description, priority, category
+        )
+        SELECT $1, $2, $3, $4, $5, $6
+        WHERE NOT EXISTS (
+            SELECT 1 FROM tasks
+            WHERE user_id = $1
+              AND COALESCE(source_session_id::text, '') = COALESCE($2::text, '')
+              AND lower(title) = lower($3)
+        )
+        RETURNING id
+        """,
+        user_id,
+        session_id,
+        title,
+        description,
+        priority,
+        category,
+    )
+    return row["id"] if row is not None else None
+
+
 async def list_all_relations(
     conn: asyncpg.Connection, *, user_id: UUID, limit: int = 2000
 ) -> list[EntityRelation]:

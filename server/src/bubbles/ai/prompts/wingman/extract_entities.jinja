@@ -8,12 +8,24 @@ Return JSON of the form:
   ],
   "relations": [
     {"source": "...", "target": "...", "relation": "..."}
+  ],
+  "events": [
+    {"title": "...", "description": "", "due_text": "tomorrow at 3pm",
+     "location": ""}
+  ],
+  "tasks": [
+    {"title": "...", "description": "", "priority": "low|medium|high",
+     "category": ""}
   ]
 }
 
 Rules:
 - ``canonical_name`` is lowercase, singular, no honorifics.
 - Drop entities that aren't named or specific.
+- ``events`` are concrete things happening at a time/place (meetings,
+  appointments, deadlines). Skip if no time anchor is implied.
+- ``tasks`` are action items the user must do. ``title`` starts with a verb.
+- Omit any list that has no extractable items — do not invent.
 - Output strictly valid JSON, nothing else.
 
 Transcript:

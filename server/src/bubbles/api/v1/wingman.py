@@ -1,18 +1,21 @@
 """Real-time wingman advice loop (``process_transcript_wingman``).
 
 Per turn: persist the incoming turn, and — for a turn from the *other* party —
-build a small amount of context (recent memories + known entities, hard
-time-capped), ask the wingman model for one short piece of advice, return it,
-and persist the advice + queue follow-up work (knowledge extraction, memory
-embeddings) in the background.
+build a small amount of context (recent memories + known entities + walked
+graph relations + persona + per-meeting scenario, hard time-capped), ask the
+wingman model for one short piece of advice, return it, and persist the
+advice + queue follow-up work (knowledge extraction, memory embeddings,
+rolling summarisation) in the background.
 
 A ``user``-role turn is the fast path: persist it and return ``WAITING`` (the
 client only wants advice on what the *other* side said), matching ``server_v2``.
+
+Roleplay mode (``mode == "roleplay"``): when ``target_entity_id`` is set, the
+prompt switches to first-person embodiment of that entity (legacy parity).
 """
 
 from __future__ import annotations
 
-import asyncio
 from collections.abc import Coroutine
 from time import perf_counter
 from typing import TYPE_CHECKING, Any
@@ -21,15 +24,15 @@ from uuid import UUID
 from arq.connections import ArqRedis
 from fastapi import APIRouter, Request
 
+from bubbles.ai import wingman_context
 from bubbles.ai.prompts.loader import render
 from bubbles.ai.providers.base import ChatMessage, Role
+from bubbles.ai.sanitize import sanitize_ai_disclaimer
 from bubbles.api.v1._schemas import WingmanTurnRequest, WingmanTurnResponse
 from bubbles.auth.current_user import CurrentUserDep, require_ownership
 from bubbles.core.errors import NotFound
 from bubbles.core.logging import get_logger
-from bubbles.db.repo import entities as entities_repo
 from bubbles.db.repo import gamification as gamification_repo
-from bubbles.db.repo import memories as memories_repo
 from bubbles.db.repo import session_logs as session_logs_repo
 from bubbles.db.repo import sessions as sessions_repo
 from bubbles.db.uow import UnitOfWork, transaction
@@ -43,59 +46,42 @@ from bubbles.workers.enqueue import (
 if TYPE_CHECKING:
     import asyncpg
 
-    from bubbles.ai.embeddings import EmbeddingService
     from bubbles.core.concurrency import FireAndForget
 
 log = get_logger(__name__)
 router = APIRouter(tags=["wingman"])
 
-_CONTEXT_BUDGET_S = 0.5
 _EXTRACT_EVERY_N_TURNS = 5
 _ROLLING_SUMMARY_EVERY_N_TURNS = 20
 
 
-async def _build_context(
-    pool: asyncpg.Pool, embeddings: EmbeddingService, *, user_id: UUID, text: str
-) -> tuple[str, str]:
-    """(memory_context, entity_context) — best effort, hard-capped, never raises."""
-    try:
-        return await asyncio.wait_for(
-            _gather_context(pool, embeddings, user_id=user_id, text=text),
-            timeout=_CONTEXT_BUDGET_S,
-        )
-    except Exception as exc:
-        log.info("wingman_context_skipped", error=str(exc))
-        return "", ""
-
-
-async def _gather_context(
-    pool: asyncpg.Pool, embeddings: EmbeddingService, *, user_id: UUID, text: str
-) -> tuple[str, str]:
-    async with transaction(pool) as conn:
-        try:
-            vec = await embeddings.embed(text)
-            mems = await memories_repo.similar(conn, user_id=user_id, query_vector=vec, limit=5)
-        except Exception:
-            mems = await memories_repo.list_for_user(conn, user_id=user_id, limit=5)
-        ents = await entities_repo.list_for_user(conn, user_id=user_id, limit=8)
-    mem_ctx = "\n".join(f"- {m.content.strip()}" for m in mems if m.content.strip())
-    ent_ctx = "\n".join(f"- {e.display_name or e.canonical_name} ({e.entity_type})" for e in ents)
-    return mem_ctx, ent_ctx
-
-
 def _advice_messages(
-    transcript: str, *, mode: str, persona: str, memory_ctx: str, entity_ctx: str
+    transcript: str,
+    *,
+    mode: str,
+    persona_hint: str,
+    ctx: wingman_context.WingmanContext,
 ) -> list[ChatMessage]:
     system = render(
         "wingman/advice.jinja",
         mode=mode,
-        persona_hint=persona or "",
-        memory_context=memory_ctx,
-        entity_context=entity_ctx,
+        is_roleplay=ctx.is_roleplay,
+        persona_hint=persona_hint or "",
+        persona_block=ctx.persona_block,
+        scenario_block=ctx.scenario_block,
+        entity_block=ctx.entity_block,
+        memory_context=ctx.memory_context,
+        entity_context=ctx.entity_context,
+        graph_facts=ctx.graph_facts,
+    )
+    user_prompt = (
+        transcript
+        if ctx.is_roleplay
+        else f"The other person just said: {transcript}"
     )
     return [
         ChatMessage(role=Role.system, content=system),
-        ChatMessage(role=Role.user, content=transcript),
+        ChatMessage(role=Role.user, content=user_prompt),
     ]
 
 
@@ -205,21 +191,27 @@ async def process_transcript_wingman(
                 log.warning("wingman_embed_enqueue_failed", error=str(exc))
         return WingmanTurnResponse(advice="WAITING", provider="", turn_index=turn_index)
 
-    memory_ctx, entity_ctx = await _build_context(
-        pool, embeddings, user_id=user_id, text=body.transcript
+    ctx = await wingman_context.build(
+        pool,
+        embeddings,
+        user_id=user_id,
+        transcript=body.transcript,
+        session_id=session_id,
+        mode=body.mode,
+        target_entity_id=body.target_entity_id,
     )
     messages = _advice_messages(
         body.transcript,
         mode=body.mode,
-        persona=body.persona,
-        memory_ctx=memory_ctx,
-        entity_ctx=entity_ctx,
+        persona_hint=body.persona,
+        ctx=ctx,
     )
     t0 = perf_counter()
     completion = await llm_router.complete("wingman.advice", messages)
     latency_ms = int((perf_counter() - t0) * 1000)
     provider = completion.raw.get("model", "") if isinstance(completion.raw, dict) else ""
     advice_text = completion.text.strip() or "WAITING"
+    advice_text = sanitize_ai_disclaimer(advice_text, is_roleplay=ctx.is_roleplay)
 
     if session_id is not None and advice_text != "WAITING":
         await _run_bg(

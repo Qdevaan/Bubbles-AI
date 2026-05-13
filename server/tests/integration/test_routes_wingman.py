@@ -182,3 +182,89 @@ async def test_wingman_ok_when_queue_down(app: FastAPI, pool: asyncpg.Pool, user
         )
     assert r.status_code == 200
     assert r.json()["advice"] == _ADVICE
+
+
+async def test_wingman_roleplay_uses_target_entity(
+    app: FastAPI, pool: asyncpg.Pool, user_id: UUID
+) -> None:
+    """Roleplay mode with ``target_entity_id`` should embody the entity."""
+
+    in_character = "haha sure, when I was at the office last Tuesday I—"
+
+    class _RoleplayStub(_Stub):
+        async def complete(self, *a: Any, **kw: Any) -> Completion:
+            return Completion(
+                text=in_character,
+                finish_reason="stop",
+                usage=Usage(3, 5, 8),
+                raw={"model": "stub-m"},
+            )
+
+    def _rp_router() -> LLMRouter:
+        return LLMRouter([_RoleplayStub()], [TaskChain("wingman.advice", ("stub",))])
+
+    _override(app, pool, user_id)
+    app.dependency_overrides[get_router] = _rp_router
+    sid = await _make_session(pool, user_id)
+    async with pool.acquire() as con:
+        row = await con.fetchrow(
+            """
+            INSERT INTO entities (user_id, canonical_name, entity_type, display_name, description)
+            VALUES ($1, 'jordan', 'person', 'Jordan', 'A wry coworker who loves coffee.')
+            RETURNING id
+            """,
+            user_id,
+        )
+    assert row is not None
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://t") as ac:
+        r = await ac.post(
+            "/v1/process_transcript_wingman",
+            json={
+                "session_id": str(sid),
+                "transcript": "tell me a story from work",
+                "speaker_role": "others",
+                "mode": "roleplay",
+                "target_entity_id": str(row["id"]),
+            },
+        )
+    assert r.status_code == 200
+    assert r.json()["advice"] == in_character
+
+
+async def test_wingman_sanitizes_ai_disclaimer_in_roleplay(
+    app: FastAPI, pool: asyncpg.Pool, user_id: UUID
+) -> None:
+    """AI self-disclosure sentences are stripped in roleplay mode."""
+
+    leak_text = "Sure thing. As an AI, I cannot have feelings. But I'd say yes."
+
+    class _LeakStub(_Stub):
+        async def complete(self, *a: Any, **kw: Any) -> Completion:
+            return Completion(
+                text=leak_text,
+                finish_reason="stop",
+                usage=Usage(3, 5, 8),
+                raw={"model": "stub-m"},
+            )
+
+    def _leak_router() -> LLMRouter:
+        return LLMRouter([_LeakStub()], [TaskChain("wingman.advice", ("stub",))])
+
+    _override(app, pool, user_id)
+    app.dependency_overrides[get_router] = _leak_router
+    sid = await _make_session(pool, user_id)
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://t") as ac:
+        r = await ac.post(
+            "/v1/process_transcript_wingman",
+            json={
+                "session_id": str(sid),
+                "transcript": "how do you feel?",
+                "speaker_role": "others",
+                "mode": "roleplay",
+            },
+        )
+    assert r.status_code == 200
+    advice = r.json()["advice"]
+    assert "as an ai" not in advice.lower()
+    assert "I'd say yes." in advice

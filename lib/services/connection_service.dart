@@ -136,10 +136,10 @@ class ConnectionService with ChangeNotifier {
     if (notifyResult) _updateStatus(ConnectionStatus.connecting);
 
     try {
-      debugPrint('Pinging $_serverUrl/health ...');
+      debugPrint('Pinging $_serverUrl/health/live ...');
       final response = await http
           .get(
-            Uri.parse('$_serverUrl/health'),
+            Uri.parse('$_serverUrl/health/live'),
             headers: {"ngrok-skip-browser-warning": "true"},
           )
           .timeout(const Duration(seconds: 5));

@@ -28,7 +28,7 @@ from bubbles.db.repo import gamification as gamification_repo
 from bubbles.db.repo import session_logs as session_logs_repo
 from bubbles.db.repo import sessions as sessions_repo
 from bubbles.db.uow import UnitOfWork, transaction
-from bubbles.deps import ArqDep, PoolDep, RouterDep
+from bubbles.deps import ArqDep, EmbeddingsDep, PoolDep, RouterDep
 from bubbles.workers.enqueue import (
     enqueue_compute_embeddings,
     enqueue_detect_achievements,
@@ -267,33 +267,90 @@ async def post_session_context(
     return _to_out(updated)
 
 
+_TONE_LABELS = {
+    "formal": "formal and polished",
+    "semi-formal": "professional but warm",
+    "casual": "casual and friendly",
+}
+
+
 @router.post("/suggest_reply", response_model=SuggestReplyResponse)
 async def suggest_reply(
     body: SuggestReplyRequest,
     user: CurrentUserDep,
     pool: PoolDep,
     llm_router: RouterDep,
+    embeddings: EmbeddingsDep,
 ) -> SuggestReplyResponse:
-    async with transaction(pool) as conn:
-        sess = await sessions_repo.get(conn, body.session_id)
-    if sess is None:
-        raise NotFound("session not found")
-    require_ownership(user, str(sess.user_id))
+    # session_id is optional — ephemeral sessions/draft mode skip ownership check.
+    if body.session_id is not None:
+        async with transaction(pool) as conn:
+            sess = await sessions_repo.get(conn, body.session_id)
+        if sess is None:
+            raise NotFound("session not found")
+        require_ownership(user, str(sess.user_id))
 
+    utterance = (body.partner_utterance or body.last_user_text or "").strip()
+    if not utterance:
+        return SuggestReplyResponse(suggestions=[], provider="")
+
+    from bubbles.ai import wingman_context
+    from bubbles.ai.prompts.loader import render
     from bubbles.ai.providers.base import ChatMessage, Role
 
-    completion = await llm_router.complete(
-        "wingman.short",
-        [
-            ChatMessage(
-                role=Role.system,
-                content="Suggest one short empathetic reply (one sentence).",
-            ),
-            ChatMessage(role=Role.user, content=body.last_user_text),
-        ],
+    ctx = await wingman_context.build(
+        pool,
+        embeddings,
+        user_id=UUID(user.id),
+        transcript=utterance,
+        session_id=body.session_id,
+        mode="live_wingman",
     )
+
+    system = render(
+        "wingman/suggestions.jinja",
+        tone_label=_TONE_LABELS.get(body.tone, "casual and friendly"),
+        is_draft=body.is_draft,
+        persona_block=ctx.persona_block,
+        scenario_block=ctx.scenario_block,
+        graph_facts=ctx.graph_facts,
+        memory_context=ctx.memory_context,
+    )
+    user_prompt = f'Partner just said: "{utterance}"'
+
+    from time import perf_counter
+
+    t0 = perf_counter()
+    try:
+        completion = await llm_router.complete(
+            "wingman.json",
+            [
+                ChatMessage(role=Role.system, content=system),
+                ChatMessage(role=Role.user, content=user_prompt),
+            ],
+            response_format="json",
+        )
+    except Exception as exc:
+        log.warning("suggest_reply_upstream", error=str(exc))
+        return SuggestReplyResponse(suggestions=[], provider="", latency_ms=0)
+
+    latency_ms = int((perf_counter() - t0) * 1000)
     provider = completion.raw.get("model", "") if isinstance(completion.raw, dict) else ""
-    return SuggestReplyResponse(suggestion=completion.text.strip(), provider=str(provider))
+
+    import json as _json
+
+    suggestions: list[str] = []
+    try:
+        data = _json.loads(completion.text or "{}")
+        raw = data.get("suggestions", [])
+        if isinstance(raw, list):
+            suggestions = [str(s).strip() for s in raw if str(s).strip()][:3]
+    except (ValueError, TypeError):
+        suggestions = []
+
+    return SuggestReplyResponse(
+        suggestions=suggestions, provider=str(provider), latency_ms=latency_ms
+    )
 
 
 @router.delete("/sessions/{session_id}", status_code=204, response_class=Response)

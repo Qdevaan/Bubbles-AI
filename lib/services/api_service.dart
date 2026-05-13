@@ -381,7 +381,7 @@ class ApiService {
     try {
       final request = http.Request(
         'POST',
-        Uri.parse("$_baseUrl/v1/ask_consultant_stream"),
+        Uri.parse("$_baseUrl/v1/ask_consultant?stream=true"),
       );
 
       // Inject Bearer token on SSE request too
