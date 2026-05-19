@@ -88,7 +88,7 @@ class ChatBubble extends StatelessWidget {
                       : (isUser
                           ? (isDark
                               ? AppColors.glassWhite.withAlpha(20)
-                              : Colors.blue.withAlpha(15))
+                              : AppColors.chartUser.withAlpha(15))
                           : (isAI
                               ? Theme.of(context).colorScheme.primary.withAlpha(isDark ? 50 : 30)
                               : (isDark ? AppColors.glassWhite : AppColors.slate100))),
@@ -104,7 +104,7 @@ class ChatBubble extends StatelessWidget {
                         : (isUser
                             ? (isDark
                                 ? AppColors.glassBorder
-                                : Colors.blue.withAlpha(100))
+                                : AppColors.chartUser.withAlpha(100))
                             : (isAI
                                 ? Theme.of(context).colorScheme.primary.withAlpha(120)
                                 : (isDark
@@ -153,7 +153,7 @@ class ChatBubble extends StatelessWidget {
                     width: 20,
                     height: 20,
                     decoration: const BoxDecoration(
-                      color: Colors.amber,
+                      color: AppColors.amber,
                       shape: BoxShape.circle,
                     ),
                     child: const Center(

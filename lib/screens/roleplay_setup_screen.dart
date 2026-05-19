@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../theme/design_tokens.dart';
 import '../widgets/skeleton_loader.dart';
 
+import '../widgets/app_snack_bar.dart';
 class RoleplaySetupScreen extends StatefulWidget {
   const RoleplaySetupScreen({super.key});
 
@@ -48,9 +49,7 @@ class _RoleplaySetupScreenState extends State<RoleplaySetupScreen> {
           displayMsg = 'Network is unreachable. Please check your internet connection.';
         }
         
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(displayMsg)),
-        );
+        AppSnackBar.show(context, message: displayMsg);
       }
     }
   }

@@ -28,6 +28,30 @@ class TaskEventService {
     }
   }
 
+  Future<void> setEventCompleted(String eventId, bool isCompleted) async {
+    try {
+      await _supabase
+          .from('events')
+          .update({
+            'is_completed': isCompleted,
+            'updated_at': DateTime.now().toUtc().toIso8601String(),
+          })
+          .eq('id', eventId);
+    } catch (e) {
+      print('Error updating event: $e');
+      rethrow;
+    }
+  }
+
+  Future<void> deleteEvent(String eventId) async {
+    try {
+      await _supabase.from('events').delete().eq('id', eventId);
+    } catch (e) {
+      print('Error deleting event: $e');
+      rethrow;
+    }
+  }
+
   Future<List<AppNotification>> getNotifications(String userId) async {
     try {
       final response = await _supabase

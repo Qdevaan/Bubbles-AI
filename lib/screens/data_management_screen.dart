@@ -67,9 +67,11 @@ class _DataManagementScreenState extends State<DataManagementScreen> {
           '${dir.path}/bubbles_export_${DateTime.now().millisecondsSinceEpoch}.json');
       await file.writeAsString(export);
 
-      await Share.shareXFiles(
-        [XFile(file.path)],
-        subject: 'Bubbles AI — My Data Export',
+      await SharePlus.instance.share(
+        ShareParams(
+          files: [XFile(file.path)],
+          subject: 'Bubbles AI — My Data Export',
+        ),
       );
     } catch (e) {
       if (mounted) setState(() => _exportError = 'Export failed: $e');

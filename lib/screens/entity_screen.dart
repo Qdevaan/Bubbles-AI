@@ -14,6 +14,7 @@ import '../widgets/tags_bottom_sheet.dart';
 import '../widgets/skeleton_loader.dart';
 import '../providers/tags_provider.dart';
 
+import '../widgets/app_snack_bar.dart';
 /// Displays the user's knowledge graph entities (people, places, orgs, etc.)
 /// backed by the `entities`, `entity_attributes`, and `entity_relations` tables.
 /// This is the structured entity viewer described in Section 3.6.
@@ -164,21 +165,11 @@ class _EntityScreenState extends State<EntityScreen> {
       });
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Entity deleted.'),
-            backgroundColor: AppColors.error,
-          ),
-        );
+        AppSnackBar.error(context, 'Entity deleted.');
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Delete failed: $e'),
-            backgroundColor: AppColors.error,
-          ),
-        );
+        AppSnackBar.error(context, 'Delete failed: $e');
       }
     }
   }
@@ -591,23 +582,12 @@ class _EntityCardState extends State<_EntityCard> {
           descCtrl.text.trim().isEmpty ? null : descCtrl.text.trim();
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Entity updated.'),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+        AppSnackBar.show(context, message: 'Entity updated.');
         widget.onRefresh();
       }
     } catch (err) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Save failed: $err'),
-            backgroundColor: AppColors.error,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+        AppSnackBar.error(context, 'Save failed: $err');
       }
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -694,12 +674,7 @@ class _EntityCardState extends State<_EntityCard> {
       );
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('AI query failed: $e'),
-            backgroundColor: AppColors.error,
-          ),
-        );
+        AppSnackBar.error(context, 'AI query failed: $e');
       }
     } finally {
       if (mounted) setState(() => _askingAi = false);
@@ -937,7 +912,7 @@ class _EntityCardState extends State<_EntityCard> {
                                           text: r['relation'],
                                           style: TextStyle(
                                             fontStyle: FontStyle.italic,
-                                            color: color.withOpacity(0.8),
+                                            color: color.withValues(alpha: 0.8),
                                           ),
                                         ),
                                         const TextSpan(text: '  →  '),

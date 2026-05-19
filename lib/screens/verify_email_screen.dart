@@ -5,6 +5,7 @@ import '../services/auth_service.dart';
 import '../theme/design_tokens.dart';
 import '../widgets/app_button.dart';
 
+import '../widgets/app_snack_bar.dart';
 class VerifyEmailScreen extends StatefulWidget {
   const VerifyEmailScreen({super.key});
 
@@ -28,15 +29,7 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
           context,
         ).pushNamedAndRemoveUntil('/profile-completion', (route) => false);
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text(
-              'Email not verified yet. Please check your inbox.',
-            ),
-            backgroundColor: Theme.of(context).colorScheme.error,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+        AppSnackBar.show(context, message: 'Email not verified yet. Please check your inbox.');
       }
     } catch (e) {
       // handle error
@@ -50,24 +43,12 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
       if (user != null && user.email != null) {
         await _authService.resendVerificationEmail(user.email!);
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: const Text('Verification email sent!'),
-              backgroundColor: Theme.of(context).colorScheme.primary,
-              behavior: SnackBarBehavior.floating,
-            ),
-          );
+          AppSnackBar.show(context, message: 'Verification email sent!');
         }
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: $e'),
-            backgroundColor: Theme.of(context).colorScheme.error,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+        AppSnackBar.show(context, message: 'Error: $e');
       }
     } finally {
       if (mounted) setState(() => _loading = false);

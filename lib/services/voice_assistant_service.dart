@@ -291,10 +291,12 @@ class VoiceAssistantService extends ChangeNotifier {
 
     _stt.listen(
       onResult: _onCommandResult,
-      listenMode: ListenMode.confirmation,
       pauseFor: const Duration(seconds: 3),
-      cancelOnError: false,
-      partialResults: true,
+      listenOptions: SpeechListenOptions(
+        listenMode: ListenMode.confirmation,
+        cancelOnError: false,
+        partialResults: true,
+      ),
     );
   }
 

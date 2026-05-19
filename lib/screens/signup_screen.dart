@@ -10,6 +10,7 @@ import '../widgets/app_input.dart';
 import '../widgets/social_button.dart';
 import '../widgets/app_logo.dart';
 
+import '../widgets/app_snack_bar.dart';
 class SignupScreen extends StatefulWidget {
   const SignupScreen({super.key});
 
@@ -94,13 +95,7 @@ class _SignupScreenState extends State<SignupScreen> {
       if (!mounted) return;
       Navigator.pushNamed(context, '/verify-email');
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(e.toString().replaceAll('Exception:', '').trim()),
-          backgroundColor: Theme.of(context).colorScheme.error,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      AppSnackBar.show(context, message: e.toString().replaceAll('Exception:', '').trim());
     } finally {
       if (mounted) setState(() => _isEmailLoading = false);
     }
@@ -113,9 +108,7 @@ class _SignupScreenState extends State<SignupScreen> {
       if (mounted) setState(() => _isGoogleLoading = false);
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Google Sign up failed: $e')));
+        AppSnackBar.show(context, message: 'Google Sign up failed: $e');
         setState(() => _isGoogleLoading = false);
       }
     }

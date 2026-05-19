@@ -8,16 +8,6 @@ import '../../services/voice_assistant_service.dart';
 import '../glass_morphism.dart';
 import 'settings_widgets.dart';
 
-/// Shows a "coming soon" snackbar for a feature.
-void showComingSoon(BuildContext context, String feature) {
-  ScaffoldMessenger.of(context).showSnackBar(
-    SnackBar(
-      content: Text('$feature is coming soon!'),
-      behavior: SnackBarBehavior.floating,
-    ),
-  );
-}
-
 /// Shows a contact-us bottom sheet.
 void showContactSheet(BuildContext context, bool isDark) {
   showModalBottomSheet(
@@ -299,7 +289,7 @@ void showColorPicker(BuildContext context, ThemeProvider themeProvider) {
                   Colors.indigoAccent,
                 ].map((color) {
                   final isSelected =
-                      themeProvider.seedColor.value == color.value;
+                      themeProvider.seedColor.toARGB32() == color.toARGB32();
                   return GestureDetector(
                     onTap: () {
                       themeProvider.setThemeColor(color);

@@ -66,6 +66,12 @@ class AppColors {
   static const Color levelBadge = Color(0xFF7C3AED);
   static const Color achievementGlow = Color(0xFFFBBF24);
 
+  // Chart / role palette (transcript speaker bars, analytics legends)
+  static const Color chartUser = Color(0xFF60A5FA);   // blue-400 — "You"
+  static const Color chartAI = purple;                // alias — AI / LLM
+  static const Color chartOther = orange;             // alias — others / 3rd party
+  static const Color chartInfo = Color(0xFF3B82F6);   // blue-500 — system info / topic chips
+
   // Mood colors
   static const Color moodGreat = Color(0xFF22C55E);
   static const Color moodGood = Color(0xFF86EFAC);

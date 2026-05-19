@@ -19,6 +19,7 @@ import '../routes/app_routes.dart';
 import '../services/auth_service.dart';
 import '../repositories/sessions_repository.dart';
 
+import '../widgets/app_snack_bar.dart';
 enum _SortOrder { newestFirst, oldestFirst }
 
 class SessionsScreen extends StatefulWidget {
@@ -647,12 +648,12 @@ class _ConsultantHistoryListState extends State<ConsultantHistoryList> {
                     width: 42,
                     height: 42,
                     decoration: BoxDecoration(
-                      color: Colors.purple.withAlpha(38),
+                      color: AppColors.chartAI.withAlpha(38),
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: const Icon(
                       Icons.psychology_outlined,
-                      color: Colors.purple,
+                      color: AppColors.chartAI,
                       size: 22,
                     ),
                   ),
@@ -680,7 +681,7 @@ class _ConsultantHistoryListState extends State<ConsultantHistoryList> {
                                 vertical: 2,
                               ),
                               decoration: BoxDecoration(
-                                color: Colors.purple.withAlpha(38),
+                                color: AppColors.chartAI.withAlpha(38),
                                 borderRadius: BorderRadius.circular(6),
                               ),
                               child: Text(
@@ -688,7 +689,7 @@ class _ConsultantHistoryListState extends State<ConsultantHistoryList> {
                                 style: GoogleFonts.manrope(
                                   fontSize: 11,
                                   fontWeight: FontWeight.w600,
-                                  color: Colors.purple,
+                                  color: AppColors.chartAI,
                                 ),
                               ),
                             ),
@@ -911,7 +912,7 @@ class _GenericSessionDetailState extends State<GenericSessionDetail> {
                             child: Container(
                               width: 8, height: 8,
                               decoration: const BoxDecoration(
-                                color: Colors.blue,
+                                color: AppColors.chartUser,
                                 shape: BoxShape.circle,
                               ),
                             ),
@@ -1060,9 +1061,7 @@ class _GenericSessionDetailState extends State<GenericSessionDetail> {
                                           feedbackType: 'star',
                                           value: val,
                                         );
-                                        ScaffoldMessenger.of(context).showSnackBar(
-                                          const SnackBar(content: Text('Feedback saved'), duration: Duration(seconds: 1)),
-                                        );
+                                        AppSnackBar.show(context, message: 'Feedback saved');
                                       },
                                     ),
                                   ),
@@ -1120,9 +1119,7 @@ class _GenericSessionDetailState extends State<GenericSessionDetail> {
                                         feedbackType: 'thumbs',
                                         value: val,
                                       );
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        const SnackBar(content: Text('Feedback saved'), duration: Duration(seconds: 1)),
-                                      );
+                                      AppSnackBar.show(context, message: 'Feedback saved');
                                     },
                                   ),
                                 ),
@@ -1205,7 +1202,7 @@ class _GenericSessionDetailState extends State<GenericSessionDetail> {
               children: keyTopics.map((t) => Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                  color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Text(
@@ -1250,7 +1247,7 @@ class _StarRating extends StatelessWidget {
           child: Icon(
             isSelected ? Icons.star : Icons.star_border,
             size: 20,
-            color: isSelected ? Colors.amber : Colors.grey,
+            color: isSelected ? AppColors.amber : Colors.grey,
           ),
         );
       }),
@@ -1278,7 +1275,7 @@ class _ThumbsFeedback extends StatelessWidget {
           icon: Icon(
             currentValue == 1 ? Icons.thumb_up : Icons.thumb_up_outlined,
             size: 18,
-            color: currentValue == 1 ? Colors.green : Colors.grey,
+            color: currentValue == 1 ? AppColors.success : Colors.grey,
           ),
           onPressed: () => onFeedback(1),
           constraints: const BoxConstraints(),
@@ -1289,7 +1286,7 @@ class _ThumbsFeedback extends StatelessWidget {
           icon: Icon(
             currentValue == -1 ? Icons.thumb_down : Icons.thumb_down_outlined,
             size: 18,
-            color: currentValue == -1 ? Colors.red : Colors.grey,
+            color: currentValue == -1 ? AppColors.error : Colors.grey,
           ),
           onPressed: () => onFeedback(-1),
           constraints: const BoxConstraints(),

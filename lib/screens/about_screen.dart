@@ -8,6 +8,7 @@ import '../widgets/glass_morphism.dart';
 import '../widgets/settings/settings_dialogs.dart';
 import '../theme/design_tokens.dart';
 
+import '../widgets/app_snack_bar.dart';
 class AboutScreen extends StatelessWidget {
   const AboutScreen({super.key});
 
@@ -101,21 +102,11 @@ class AboutScreen extends StatelessWidget {
         details: {'rating': rating},
       );
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Thank you for your feedback!'),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+        AppSnackBar.show(context, message: 'Thank you for your feedback!');
       }
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to submit: $e'),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+        AppSnackBar.show(context, message: 'Failed to submit: $e');
       }
     }
   }

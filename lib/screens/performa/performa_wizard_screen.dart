@@ -12,6 +12,7 @@ import 'widgets/step1_identity.dart';
 import 'widgets/step2_language.dart';
 import 'widgets/step3_goals.dart';
 
+import '../../widgets/app_snack_bar.dart';
 /// Three-step persona wizard ("Performa"). Collects identity, language,
 /// and goal information then upserts via [PersonaProvider]. In setup mode
 /// it hard-blocks back navigation; in edit mode it pre-fills from the
@@ -81,9 +82,7 @@ class _PerformaWizardScreenState extends State<PerformaWizardScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Save failed: $e')),
-        );
+        AppSnackBar.show(context, message: 'Save failed: $e');
       }
     } finally {
       if (mounted) setState(() => _submitting = false);

@@ -1,6 +1,8 @@
 ﻿import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 
+import '../theme/design_tokens.dart';
+
 class TeleprompterPanel extends StatefulWidget {
   final List<String> hints;
   final double initialHeightFraction;
@@ -161,7 +163,7 @@ class _TeleprompterPanelState extends State<TeleprompterPanel> {
           if (widget.hasUncertainSpeaker)
             Container(
               width: 8, height: 8, margin: const EdgeInsets.only(right: 8),
-              decoration: const BoxDecoration(color: Colors.amber, shape: BoxShape.circle),
+              decoration: const BoxDecoration(color: AppColors.amber, shape: BoxShape.circle),
             ).animate(onPlay: (c) => c.repeat()).shimmer(duration: const Duration(seconds: 1)),
           GestureDetector(
             onTap: _cycleSnap,

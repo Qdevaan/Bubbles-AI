@@ -326,7 +326,7 @@ class _PermissionTile extends StatelessWidget {
                         child: Switch.adaptive(
                           value: isGranted,
                           onChanged: (_) => onToggle(),
-                          activeColor: primary,
+                          activeThumbColor: primary,
                         ),
                       ),
                   ],
@@ -365,7 +365,7 @@ class _NotificationSubSettings extends StatelessWidget {
               value: sp.pushEvents,
               onChanged: (val) => sp.setPushEvents(val),
               isDark: isDark,
-              color: Colors.orange,
+              color: AppColors.warning,
             ),
             const SizedBox(height: 12),
             _subToggle(
@@ -375,7 +375,7 @@ class _NotificationSubSettings extends StatelessWidget {
               value: sp.pushHighlights,
               onChanged: (val) => sp.setPushHighlights(val),
               isDark: isDark,
-              color: Colors.blue,
+              color: AppColors.chartInfo,
             ),
             const SizedBox(height: 12),
             _subToggle(
@@ -385,7 +385,7 @@ class _NotificationSubSettings extends StatelessWidget {
               value: sp.pushAnnouncements,
               onChanged: (val) => sp.setPushAnnouncements(val),
               isDark: isDark,
-              color: Colors.purple,
+              color: AppColors.purple,
             ),
             const SizedBox(height: 12),
             _subToggle(
@@ -438,7 +438,7 @@ class _NotificationSubSettings extends StatelessWidget {
           child: Switch.adaptive(
             value: value,
             onChanged: onChanged,
-            activeColor: Theme.of(context).colorScheme.primary,
+            activeThumbColor: Theme.of(context).colorScheme.primary,
           ),
         ),
       ],

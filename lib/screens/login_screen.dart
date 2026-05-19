@@ -14,6 +14,7 @@ import '../widgets/social_button.dart';
 import '../widgets/app_logo.dart';
 import '../widgets/glass_morphism.dart';
 
+import '../widgets/app_snack_bar.dart';
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
@@ -263,12 +264,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       await _authService.resetPasswordForEmail(email);
                       if (ctx.mounted) {
                         Navigator.pop(ctx);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Password reset link sent — check your inbox.'),
-                            behavior: SnackBarBehavior.floating,
-                          ),
-                        );
+                        AppSnackBar.show(context, message: 'Password reset link sent — check your inbox.');
                       }
                     } catch (e) {
                       final msg = e.toString().toLowerCase();
@@ -306,13 +302,7 @@ class _LoginScreenState extends State<LoginScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(e.toString().replaceAll('Exception:', '').trim()),
-            backgroundColor: AppColors.error,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+        AppSnackBar.error(context, e.toString().replaceAll('Exception:', '').trim());
         setState(() => _isEmailLoading = false);
       }
     }
@@ -326,9 +316,7 @@ class _LoginScreenState extends State<LoginScreen> {
       if (mounted) setState(() => _isGoogleLoading = false);
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Google Sign in failed: $e')));
+        AppSnackBar.show(context, message: 'Google Sign in failed: $e');
         setState(() => _isGoogleLoading = false);
       }
     }

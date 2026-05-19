@@ -12,6 +12,8 @@ import '../theme/design_tokens.dart';
 import '../widgets/animated_background.dart';
 import '../widgets/skeleton_loader.dart';
 
+import '../widgets/app_dialog.dart';
+import '../widgets/app_snack_bar.dart';
 /// Full Game Center — replaces the old QuestsScreen.
 /// Shows XP ring, streak, daily quests, achievements, AI coach, and XP feed.
 class GameCenterScreen extends StatefulWidget {
@@ -1591,9 +1593,7 @@ class _QuestionSetSheetState extends State<_QuestionSetSheet> {
       _submittingId = null;
     });
     if (!ok) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Could not submit answer. Try again.')),
-      );
+      AppSnackBar.show(context, message: 'Could not submit answer. Try again.');
     }
   }
 
@@ -1805,9 +1805,7 @@ class _ConversationMissionSheetState
     });
 
     if (!ok) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Could not attach session.')),
-      );
+      AppSnackBar.show(context, message: 'Could not attach session.');
       return;
     }
 
@@ -1815,17 +1813,9 @@ class _ConversationMissionSheetState
     final score = (state['score'] as num?)?.toDouble() ?? 0.0;
     if (passed) {
       Navigator.of(context).pop();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Mission complete! Score ${score.toStringAsFixed(1)}/10')),
-      );
+      AppSnackBar.show(context, message: 'Mission complete! Score ${score.toStringAsFixed(1)}/10');
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Session didn\'t meet the brief (score ${score.toStringAsFixed(1)}/10). Try another.',
-          ),
-        ),
-      );
+      AppSnackBar.show(context, message: 'Session didn\'t meet the brief (score ${score.toStringAsFixed(1)}/10). Try another.',);
     }
   }
 
@@ -2300,35 +2290,21 @@ class _RewardCardState extends State<_RewardCard> {
     final cost = (widget.reward['cost_xp'] as num?)?.toInt() ?? 0;
     final title = widget.reward['title'] as String? ?? 'reward';
 
-    final confirmed = await showDialog<bool>(
+    final confirmed = await AppDialog.confirm(
       context: context,
-      builder: (dCtx) => AlertDialog(
-        title: const Text('Redeem reward?'),
-        content: Text('Spend $cost XP to unlock "$title"?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dCtx, false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(dCtx, true),
-            child: const Text('Redeem'),
-          ),
-        ],
-      ),
+      title: 'Redeem reward?',
+      message: 'Spend $cost XP to unlock "$title"?',
+      confirmLabel: 'Redeem',
+      tone: AppDialogTone.info,
     );
-    if (confirmed != true || !mounted) return;
+    if (!confirmed || !mounted) return;
 
     setState(() => _busy = true);
     final err = await context.read<GamificationProvider>().redeemReward(id);
     if (!mounted) return;
     setState(() => _busy = false);
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(err == null ? 'Unlocked "$title"!' : 'Failed: $err'),
-      ),
-    );
+    AppSnackBar.show(context, message: err == null ? 'Unlocked "$title"!' : 'Failed: $err');
   }
 
   @override

@@ -270,9 +270,9 @@ class _SessionPlaybackSheetState extends State<SessionPlaybackSheet> {
                 // Legend
                 _LegendDot(color: Theme.of(context).colorScheme.primary, label: 'You'),
                 const SizedBox(width: 10),
-                const _LegendDot(color: Colors.orange, label: 'Other'),
+                const _LegendDot(color: AppColors.chartOther, label: 'Other'),
                 const SizedBox(width: 10),
-                const _LegendDot(color: Colors.purple, label: 'AI'),
+                const _LegendDot(color: AppColors.chartAI, label: 'AI'),
               ],
             ),
           ),
@@ -395,10 +395,10 @@ class _SessionPlaybackSheetState extends State<SessionPlaybackSheet> {
         roleColor = Theme.of(context).colorScheme.primary;
         label = 'You';
       case 'llm':
-        roleColor = Colors.purple;
+        roleColor = AppColors.chartAI;
         label = 'AI';
       default:
-        roleColor = Colors.orange;
+        roleColor = AppColors.chartOther;
         label = 'Other';
     }
 
@@ -452,7 +452,7 @@ class _SessionPlaybackSheetState extends State<SessionPlaybackSheet> {
             Padding(
               padding: const EdgeInsets.only(left: 6, top: 2),
               child: Icon(Icons.auto_awesome_rounded,
-                  size: 13, color: Colors.purple.withAlpha(160)),
+                  size: 13, color: AppColors.chartAI.withAlpha(160)),
             ),
         ],
       ),

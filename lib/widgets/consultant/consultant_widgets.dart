@@ -35,7 +35,7 @@ class ChatHistoryTile extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           decoration: BoxDecoration(
             color: isActive
-                ? primary.withOpacity(isDark ? 0.15 : 0.08)
+                ? primary.withValues(alpha: isDark ? 0.15 : 0.08)
                 : Colors.transparent,
             borderRadius: BorderRadius.circular(AppRadius.lg),
             border: isActive
@@ -88,7 +88,7 @@ class ChatHistoryTile extends StatelessWidget {
                         style: GoogleFonts.manrope(
                           fontSize: 10,
                           color: isActive
-                              ? primary.withOpacity(0.7)
+                              ? primary.withValues(alpha: 0.7)
                               : (isDark
                                   ? AppColors.slate500
                                   : Colors.grey.shade400),
@@ -156,13 +156,13 @@ class UserBubble extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(Icons.account_tree_rounded,
-                    size: 10, color: primary.withOpacity(0.6)),
+                    size: 10, color: primary.withValues(alpha: 0.6)),
                 const SizedBox(width: 3),
                 Text(
                   'Asked on Graph Screen',
                   style: GoogleFonts.manrope(
                     fontSize: 10,
-                    color: primary.withOpacity(0.6),
+                    color: primary.withValues(alpha: 0.6),
                     fontWeight: FontWeight.w500,
                   ),
                 ),

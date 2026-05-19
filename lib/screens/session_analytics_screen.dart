@@ -116,7 +116,7 @@ class _SessionAnalyticsScreenState extends State<SessionAnalyticsScreen>
                 widget.sessionTitle,
                 style: GoogleFonts.manrope(
                   fontSize: 12,
-                  color: (isDark ? Colors.white : AppColors.slate900).withOpacity(0.6),
+                  color: (isDark ? Colors.white : AppColors.slate900).withValues(alpha: 0.6),
                 ),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
@@ -342,7 +342,7 @@ class _CoachingTab extends StatelessWidget {
         ],
         const SizedBox(height: 12),
         if (_hasList(r, 'key_topics'))
-          _ChipSection(title: '🏷️ Key Topics', items: _castList(r['key_topics']), color: Colors.blue),
+          _ChipSection(title: '🏷️ Key Topics', items: _castList(r['key_topics']), color: AppColors.chartUser),
         if (_hasList(r, 'action_items')) ...[
           const SizedBox(height: 12),
           _BulletSection(title: '✅ Action Items', items: _castList(r['action_items'])),
@@ -353,11 +353,11 @@ class _CoachingTab extends StatelessWidget {
         ],
         if (_hasList(r, 'strengths')) ...[
           const SizedBox(height: 12),
-          _ChipSection(title: '💪 Strengths', items: _castList(r['strengths']), color: Colors.green),
+          _ChipSection(title: '💪 Strengths', items: _castList(r['strengths']), color: AppColors.success),
         ],
         if (_hasList(r, 'filler_words')) ...[
           const SizedBox(height: 12),
-          _ChipSection(title: '⚠️ Filler Words (${r['filler_word_count'] ?? 0})', items: _castList(r['filler_words']), color: Colors.orange),
+          _ChipSection(title: '⚠️ Filler Words (${r['filler_word_count'] ?? 0})', items: _castList(r['filler_words']), color: AppColors.chartOther),
         ],
         const SizedBox(height: 12),
         if (r['user_talk_pct'] != null)
@@ -585,9 +585,9 @@ class _PlaybackTabState extends State<_PlaybackTab>
             children: [
               _PLegend(color: primary, label: 'You'),
               const SizedBox(width: 12),
-              const _PLegend(color: Colors.orange, label: 'Other'),
+              const _PLegend(color: AppColors.chartOther, label: 'Other'),
               const SizedBox(width: 12),
-              const _PLegend(color: Colors.purple, label: 'AI'),
+              const _PLegend(color: AppColors.chartAI, label: 'AI'),
             ],
           ),
         ),
@@ -603,7 +603,7 @@ class _PlaybackTabState extends State<_PlaybackTab>
                     final line = _lines[i];
                     final cur = _isCurrent(i);
                     final Color rc = line.role == 'user' ? primary
-                        : line.role == 'llm' ? Colors.purple : Colors.orange;
+                        : line.role == 'llm' ? AppColors.chartAI : AppColors.chartOther;
                     final String lbl = line.role == 'user' ? 'You'
                         : line.role == 'llm' ? 'AI' : 'Other';
                     return AnimatedContainer(
@@ -645,7 +645,7 @@ class _PlaybackTabState extends State<_PlaybackTab>
                             Padding(
                               padding: const EdgeInsets.only(left: 4, top: 2),
                               child: Icon(Icons.auto_awesome_rounded,
-                                  size: 12, color: Colors.purple.withAlpha(150)),
+                                  size: 12, color: AppColors.chartAI.withAlpha(150)),
                             ),
                         ],
                       ),
@@ -811,9 +811,9 @@ class _ChipSection extends StatelessWidget {
         spacing: 8, runSpacing: 8,
         children: items.map((i) => Chip(
           label: Text(i),
-          backgroundColor: color.withOpacity(0.15),
+          backgroundColor: color.withValues(alpha: 0.15),
           labelStyle: GoogleFonts.manrope(fontSize: 12, color: color, fontWeight: FontWeight.w700),
-          side: BorderSide(color: color.withOpacity(0.3)),
+          side: BorderSide(color: color.withValues(alpha: 0.3)),
         )).toList(),
       ),
     ]);
@@ -846,15 +846,15 @@ class _TalkRatioBar extends StatelessWidget {
       ClipRRect(
         borderRadius: BorderRadius.circular(6),
         child: Row(children: [
-          Flexible(flex: userPct.round(), child: Container(height: 16, color: Colors.blue.withOpacity(0.7))),
-          Flexible(flex: othersPct.round(), child: Container(height: 16, color: Colors.purple.withOpacity(0.7))),
+          Flexible(flex: userPct.round(), child: Container(height: 16, color: AppColors.chartUser.withValues(alpha: 0.7))),
+          Flexible(flex: othersPct.round(), child: Container(height: 16, color: AppColors.chartAI.withValues(alpha: 0.7))),
         ]),
       ),
       const SizedBox(height: 6),
       Row(children: [
-        _LegendDot(color: Colors.blue, label: 'You ${userPct.toStringAsFixed(0)}%'),
+        _LegendDot(color: AppColors.chartUser, label: 'You ${userPct.toStringAsFixed(0)}%'),
         const SizedBox(width: 16),
-        _LegendDot(color: Colors.purple, label: 'Others ${othersPct.toStringAsFixed(0)}%'),
+        _LegendDot(color: AppColors.chartAI, label: 'Others ${othersPct.toStringAsFixed(0)}%'),
       ]),
     ]);
   }
@@ -915,16 +915,16 @@ class _SentimentLineChart extends StatelessWidget {
               show: true,
               getDotPainter: (spot, _, __, ___) {
                 final c = spot.y > 0.2
-                    ? Colors.green
+                    ? AppColors.success
                     : spot.y < -0.2
-                        ? Colors.red
+                        ? AppColors.error
                         : Colors.grey;
                 return FlDotCirclePainter(radius: 3, color: c, strokeWidth: 0);
               },
             ),
             belowBarData: BarAreaData(
               show: true,
-              color: Colors.blueAccent.withOpacity(0.1),
+              color: Colors.blueAccent.withValues(alpha: 0.1),
             ),
           ),
         ],
@@ -960,7 +960,7 @@ class _ToneRadarChart extends StatelessWidget {
             RadarChartData(
               dataSets: [
                 RadarDataSet(
-                  fillColor: colorScheme.primary.withOpacity(0.2),
+                  fillColor: colorScheme.primary.withValues(alpha: 0.2),
                   borderColor: colorScheme.primary,
                   borderWidth: 2,
                   entryRadius: 4,

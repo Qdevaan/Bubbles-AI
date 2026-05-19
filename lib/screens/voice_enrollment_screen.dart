@@ -12,6 +12,7 @@ import '../services/api_service.dart';
 import '../services/auth_service.dart';
 import '../theme/design_tokens.dart';
 
+import '../widgets/app_snack_bar.dart';
 class VoiceEnrollmentScreen extends StatefulWidget {
   const VoiceEnrollmentScreen({super.key});
 
@@ -143,9 +144,7 @@ class _VoiceEnrollmentScreenState extends State<VoiceEnrollmentScreen>
           _isUploading = false;
           _phraseIndex = (_phraseIndex + 1) % _phrases.length;
         });
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Voice sample saved!'), backgroundColor: Colors.green),
-        );
+        AppSnackBar.success(context, 'Voice sample saved!');
       }
     } catch (e) {
       if (mounted) {
@@ -234,7 +233,7 @@ class _VoiceEnrollmentScreenState extends State<VoiceEnrollmentScreen>
         borderRadius: BorderRadius.circular(AppRadius.lg),
         border: Border.all(
           color: enrolled
-              ? Colors.green.withAlpha(100)
+              ? AppColors.success.withAlpha(100)
               : (isDark ? AppColors.slate700 : AppColors.slate200),
         ),
       ),
@@ -245,13 +244,13 @@ class _VoiceEnrollmentScreenState extends State<VoiceEnrollmentScreen>
             height: 44,
             decoration: BoxDecoration(
               color: enrolled
-                  ? Colors.green.withAlpha(30)
+                  ? AppColors.success.withAlpha(30)
                   : (isDark ? AppColors.slate700 : AppColors.slate100),
               shape: BoxShape.circle,
             ),
             child: Icon(
               enrolled ? Icons.verified_rounded : Icons.mic_off_rounded,
-              color: enrolled ? Colors.green : AppColors.slate400,
+              color: enrolled ? AppColors.success : AppColors.slate400,
               size: 22,
             ),
           ),
@@ -352,11 +351,11 @@ class _VoiceEnrollmentScreenState extends State<VoiceEnrollmentScreen>
               width: 88,
               height: 88,
               decoration: BoxDecoration(
-                color: _isRecording ? Colors.red : Theme.of(context).colorScheme.primary,
+                color: _isRecording ? AppColors.error : Theme.of(context).colorScheme.primary,
                 shape: BoxShape.circle,
                 boxShadow: [
                   BoxShadow(
-                    color: (_isRecording ? Colors.red : Theme.of(context).colorScheme.primary)
+                    color: (_isRecording ? AppColors.error : Theme.of(context).colorScheme.primary)
                         .withAlpha(_isRecording ? 100 : 60),
                     blurRadius: _isRecording ? 24 : 12,
                     spreadRadius: _isRecording ? 4 : 0,
@@ -386,7 +385,7 @@ class _VoiceEnrollmentScreenState extends State<VoiceEnrollmentScreen>
       text,
       style: GoogleFonts.inter(
         fontSize: 14,
-        color: _isRecording ? Colors.red : AppColors.slate400,
+        color: _isRecording ? AppColors.error : AppColors.slate400,
         fontWeight: FontWeight.w500,
       ),
     );
@@ -396,18 +395,18 @@ class _VoiceEnrollmentScreenState extends State<VoiceEnrollmentScreen>
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: Colors.red.withAlpha(20),
+        color: AppColors.error.withAlpha(20),
         borderRadius: BorderRadius.circular(AppRadius.md),
-        border: Border.all(color: Colors.red.withAlpha(80)),
+        border: Border.all(color: AppColors.error.withAlpha(80)),
       ),
       child: Row(
         children: [
-          const Icon(Icons.error_outline_rounded, color: Colors.red, size: 18),
+          const Icon(Icons.error_outline_rounded, color: AppColors.error, size: 18),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
               _errorMessage!,
-              style: GoogleFonts.inter(fontSize: 13, color: Colors.red),
+              style: GoogleFonts.inter(fontSize: 13, color: AppColors.error),
             ),
           ),
         ],

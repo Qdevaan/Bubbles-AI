@@ -10,6 +10,7 @@ import '../services/auth_service.dart';
 import '../repositories/sessions_repository.dart';
 import 'package:provider/provider.dart';
 
+import '../widgets/app_snack_bar.dart';
 class ExportBottomSheet extends StatefulWidget {
   final String sessionId;
   final String sessionTitle;
@@ -108,20 +109,17 @@ class _ExportBottomSheetState extends State<ExportBottomSheet> {
       await file.writeAsString(dataStr);
 
       if (!mounted) return;
-      await Share.shareXFiles(
-        [XFile(file.path)],
-        text: 'Exported session: ${widget.sessionTitle}',
+      await SharePlus.instance.share(
+        ShareParams(
+          files: [XFile(file.path)],
+          text: 'Exported session: ${widget.sessionTitle}',
+        ),
       );
 
       Navigator.pop(context);
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Export failed: $e'),
-            backgroundColor: AppColors.error,
-          )
-        );
+        AppSnackBar.error(context, 'Export failed: $e');
       }
     } finally {
       if (mounted) setState(() => _exporting = false);

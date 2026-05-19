@@ -211,7 +211,7 @@ class _HomeScreenState extends State<HomeScreen>
                             IconData icon = Icons.notifications;
                             Color c = AppColors.primary;
                             if (type == 'alert') { icon = Icons.warning_rounded; c = AppColors.error; }
-                            else if (type == 'system') { icon = Icons.info_outline; c = Colors.blue; }
+                            else if (type == 'system') { icon = Icons.info_outline; c = AppColors.chartUser; }
 
                             return NotificationCard(
                               isDark: isDark,

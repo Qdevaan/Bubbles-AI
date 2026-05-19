@@ -28,6 +28,7 @@ import '../providers/persona_provider.dart';
 import '../services/voice_assistant_service.dart';
 import 'session/session_context_dialog.dart';
 
+import '../widgets/app_snack_bar.dart';
 // ============================================================================
 //  NEW SESSION SCREEN  (Live Wingman)
 //  Business logic managed by SessionProvider; animations stay local.
@@ -217,9 +218,7 @@ class _NewSessionScreenState extends State<NewSessionScreen>
 
     if (user == null) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("User not found. Please login again.")),
-        );
+        AppSnackBar.show(context, message: "User not found. Please login again.");
       }
       return;
     }
@@ -327,9 +326,7 @@ class _NewSessionScreenState extends State<NewSessionScreen>
       if (confirm != true) return;
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Saving Session to Memory...")),
-        );
+        AppSnackBar.show(context, message: "Saving Session to Memory...");
       }
 
       final completedSessionId = _session.sessionId;
@@ -347,26 +344,13 @@ class _NewSessionScreenState extends State<NewSessionScreen>
           if (mounted && savedPaths != null) {
             final hasAudio = savedPaths['audio'] != null;
             final hasTx = savedPaths['transcript'] != null;
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(
-                  hasAudio && hasTx
+            AppSnackBar.success(context, hasAudio && hasTx
                       ? 'Session saved â€” audio + transcript recorded to device'
                       : hasTx
                           ? 'Session saved â€” transcript recorded to device'
-                          : 'Session saved â€” audio recorded to device',
-                ),
-                backgroundColor: AppColors.success,
-                duration: const Duration(seconds: 4),
-              ),
-            );
+                          : 'Session saved â€” audio recorded to device');
           } else if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text("Session Saved!"),
-                backgroundColor: AppColors.success,
-              ),
-            );
+            AppSnackBar.success(context, "Session Saved!");
           }
 
           await FeedbackDialog.show(context, sessionId: completedSessionId);
@@ -387,12 +371,7 @@ class _NewSessionScreenState extends State<NewSessionScreen>
             }
           }
         } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text("Failed to save."),
-              backgroundColor: AppColors.error,
-            ),
-          );
+          AppSnackBar.error(context, "Failed to save.");
         }
       }
     } else {
@@ -515,7 +494,7 @@ class _NewSessionScreenState extends State<NewSessionScreen>
             height: 220,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: Colors.purple.withAlpha(isActive ? 10 : 20),
+              color: AppColors.chartAI.withAlpha(isActive ? 10 : 20),
             ),
           ),
         ),
@@ -554,7 +533,7 @@ class _NewSessionScreenState extends State<NewSessionScreen>
                   ),
                 ),
               ),
-              // TODO(persona-wizard): re-add settings entry once wizard exists
+              const SizedBox(width: 48),
             ],
           ),
         ),
@@ -661,15 +640,7 @@ class _NewSessionScreenState extends State<NewSessionScreen>
                     onTap: isServerOnline
                         ? _toggleSession
                         : () {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text(
-                                  'Server is offline. Connect to the server first.',
-                                ),
-                                backgroundColor: AppColors.error,
-                                behavior: SnackBarBehavior.floating,
-                              ),
-                            );
+                            AppSnackBar.error(context, 'Server is offline. Connect to the server first.');
                           },
                     child: AnimatedBuilder(
                       animation: _pulseController,
@@ -929,7 +900,7 @@ class _NewSessionScreenState extends State<NewSessionScreen>
                   ),
                 ),
               ),
-              // TODO(persona-wizard): re-add settings entry once wizard exists
+              const SizedBox(width: 48),
             ],
           ),
         ),
@@ -1086,15 +1057,9 @@ class _NewSessionScreenState extends State<NewSessionScreen>
                             onTap: deepgram.isConnected
                                 ? () {
                                     deepgram.toggleMute();
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: Text(deepgram.isMuted
+                                    AppSnackBar.show(context, message: deepgram.isMuted
                                             ? 'Mic muted'
-                                            : 'Mic active'),
-                                        duration:
-                                            const Duration(milliseconds: 800),
-                                      ),
-                                    );
+                                            : 'Mic active');
                                   }
                                 : null,
                             child: Container(
@@ -1160,12 +1125,7 @@ class _NewSessionScreenState extends State<NewSessionScreen>
                                 child: GestureDetector(
                                 onTap: () {
                                   context.read<SessionProvider>().toggleSwapSpeakers();
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text('Speakers swapped'),
-                                      duration: Duration(milliseconds: 800),
-                                    ),
-                                  );
+                                  AppSnackBar.show(context, message: 'Speakers swapped');
                                 },
                                 child: Container(
                                   width: 48,
@@ -1312,12 +1272,7 @@ class _NewSessionScreenState extends State<NewSessionScreen>
                       context.read<SessionProvider>().changeLiveTone(id);
                       _suggestionCtrl?.tone = id;
                       Navigator.pop(ctx);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text('Tone: $_selectedPersona'),
-                          duration: const Duration(milliseconds: 600),
-                        ),
-                      );
+                      AppSnackBar.show(context, message: 'Tone: $_selectedPersona');
                     },
                   );
                 }),
@@ -1462,7 +1417,7 @@ class _NewSessionScreenState extends State<NewSessionScreen>
                   Switch(
                     value: _isIncognito,
                     onChanged: (v) => setState(() => _isIncognito = v),
-                    activeColor: AppColors.warning,
+                    activeThumbColor: AppColors.warning,
                     materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   ),
                 ],

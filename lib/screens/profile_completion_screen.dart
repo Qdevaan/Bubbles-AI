@@ -14,6 +14,7 @@ import '../theme/design_tokens.dart';
 import '../widgets/glass_morphism.dart';
 import '../widgets/skeleton_loader.dart';
 
+import '../widgets/app_snack_bar.dart';
 class ProfileCompletionScreen extends StatefulWidget {
   const ProfileCompletionScreen({super.key});
 
@@ -352,26 +353,14 @@ class _ProfileCompletionScreenState extends State<ProfileCompletionScreen> {
         _countryCtrl.text.isEmpty ||
         _dob == null ||
         _gender == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Please fill all fields'),
-          backgroundColor: Theme.of(context).colorScheme.error,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      AppSnackBar.show(context, message: 'Please fill all fields');
       return;
     }
 
     // Age validation: user must be at least 13 years old
     final age = DateTime.now().difference(_dob!).inDays ~/ 365;
     if (age < 13) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('You must be at least 13 years old'),
-          backgroundColor: Theme.of(context).colorScheme.error,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      AppSnackBar.show(context, message: 'You must be at least 13 years old');
       return;
     }
 
@@ -406,9 +395,7 @@ class _ProfileCompletionScreenState extends State<ProfileCompletionScreen> {
       if (!mounted) return;
       Navigator.of(context).pushReplacementNamed('/auth-gate');
     } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Error: $e')));
+      AppSnackBar.show(context, message: 'Error: $e');
     } finally {
       if (mounted) setState(() => _loading = false);
     }

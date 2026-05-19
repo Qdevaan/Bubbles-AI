@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../widgets/app_snack_bar.dart';
 class SuggestionSheet extends StatelessWidget {
   final String text;
   final String tone;
@@ -41,9 +42,7 @@ class SuggestionSheet extends StatelessWidget {
               onPressed: () async {
                 await Clipboard.setData(ClipboardData(text: text));
                 if (!context.mounted) return;
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Copied')),
-                );
+                AppSnackBar.show(context, message: 'Copied');
                 Navigator.pop(context);
               },
               icon: const Icon(Icons.copy),

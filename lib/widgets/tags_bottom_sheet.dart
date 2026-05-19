@@ -111,7 +111,7 @@ class _TagsBottomSheetState extends State<TagsBottomSheet> {
                     margin: const EdgeInsets.symmetric(vertical: 10),
                     width: 40, height: 4,
                     decoration: BoxDecoration(
-                      color: colorScheme.onSurface.withOpacity(0.3),
+                      color: colorScheme.onSurface.withValues(alpha: 0.3),
                       borderRadius: BorderRadius.circular(2),
                     ),
                   ),
@@ -133,7 +133,7 @@ class _TagsBottomSheetState extends State<TagsBottomSheet> {
                 else if (provider.tags.isEmpty)
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                    child: Text('No tags yet. Create one below.', style: TextStyle(color: colorScheme.onSurface.withOpacity(0.5))),
+                    child: Text('No tags yet. Create one below.', style: TextStyle(color: colorScheme.onSurface.withValues(alpha: 0.5))),
                   )
                 else
                   ListView.builder(
@@ -161,7 +161,7 @@ class _TagsBottomSheetState extends State<TagsBottomSheet> {
                         secondary: IconButton(
                           icon: const Icon(Icons.delete_outline, size: 18),
                           onPressed: () => provider.deleteTag(tagId),
-                          color: colorScheme.error.withOpacity(0.6),
+                          color: colorScheme.error.withValues(alpha: 0.6),
                         ),
                         activeColor: tagColor,
                         dense: true,

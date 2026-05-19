@@ -14,6 +14,7 @@ import '../widgets/animated_background.dart';
 import '../widgets/skeleton_loader.dart';
 import '../widgets/insights/insights_widgets.dart';
 
+import '../widgets/app_snack_bar.dart';
 /// Full-screen insights viewer with edit, delete, and static caching.
 /// Navigated to from the home screen "See All" button.
 class InsightsScreen extends StatefulWidget {
@@ -111,24 +112,12 @@ class _InsightsScreenState extends State<InsightsScreen>
       });
       
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Deleted.'),
-            behavior: SnackBarBehavior.floating,
-            action: SnackBarAction(label: 'OK', onPressed: () {}),
-          ),
-        );
+        AppSnackBar.show(context, message: 'Deleted.');
       }
     } catch (e) {
       debugPrint('InsightsScreen._deleteItem error: $e');
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Couldn\'t delete that — check your connection and try again.'),
-            backgroundColor: AppColors.error,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+        AppSnackBar.error(context, 'Couldn\'t delete that — check your connection and try again.');
       }
     }
   }
@@ -333,23 +322,12 @@ class _InsightsScreenState extends State<InsightsScreen>
         }
       }
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Updated.'),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+        AppSnackBar.show(context, message: 'Updated.');
       }
     } catch (e) {
       debugPrint('InsightsScreen._editItem error: $e');
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Couldn\'t save your changes — please try again in a moment.'),
-            backgroundColor: AppColors.error,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+        AppSnackBar.error(context, 'Couldn\'t save your changes — please try again in a moment.');
       }
     }
   }
@@ -385,9 +363,7 @@ class _InsightsScreenState extends State<InsightsScreen>
     } catch (e) {
       debugPrint('Error toggling notification read: $e');
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Failed to update notification')),
-        );
+        AppSnackBar.show(context, message: 'Failed to update notification');
       }
     }
   }

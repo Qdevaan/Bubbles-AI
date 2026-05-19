@@ -7,6 +7,7 @@ import '../widgets/app_button.dart';
 import '../widgets/app_input.dart';
 import '../widgets/app_logo.dart';
 
+import '../widgets/app_snack_bar.dart';
 class UpdatePasswordScreen extends StatefulWidget {
   const UpdatePasswordScreen({super.key});
 
@@ -49,13 +50,7 @@ class _UpdatePasswordScreenState extends State<UpdatePasswordScreen> {
       await AuthService.instance.updatePassword(pass);
       
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Password updated successfully!'),
-            backgroundColor: Colors.green,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+        AppSnackBar.success(context, 'Password updated successfully!');
         // On success, we navigate home
         Navigator.of(context).pushNamedAndRemoveUntil('/home', (_) => false);
       }

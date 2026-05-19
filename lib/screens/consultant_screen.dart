@@ -26,6 +26,7 @@ import '../widgets/consultant/welcome_messages.dart';
 import '../widgets/glass_morphism.dart';
 import '../widgets/skeleton_loader.dart';
 
+import '../widgets/app_snack_bar.dart';
 // Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 //  CONSULTANT SCREEN  (ChatGPT-style multi-chat)
 //  State managed by ConsultantProvider; voice mode stays local.
@@ -215,26 +216,31 @@ class _ConsultantScreenState extends State<ConsultantScreen>
                   ),
                 ),
                 const SizedBox(height: 14),
-                ...const ['formal', 'semi-formal', 'casual'].map((tone) {
-                  final isSelected = selected == tone;
-                  return RadioListTile<String>(
-                    value: tone,
-                    groupValue: selected,
-                    onChanged: (value) {
-                      if (value == null) return;
-                      setModal(() => selected = value);
-                    },
-                    activeColor: Theme.of(context).colorScheme.primary,
-                    contentPadding: EdgeInsets.zero,
-                    title: Text(
-                      _toneLabel(tone),
-                      style: GoogleFonts.manrope(
-                        fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
-                        color: isDark ? Colors.white : AppColors.slate900,
-                      ),
-                    ),
-                  );
-                }),
+                RadioGroup<String>(
+                  groupValue: selected,
+                  onChanged: (value) {
+                    if (value == null) return;
+                    setModal(() => selected = value);
+                  },
+                  child: Column(
+                    children: [
+                      for (final tone in const ['formal', 'semi-formal', 'casual'])
+                        RadioListTile<String>(
+                          value: tone,
+                          contentPadding: EdgeInsets.zero,
+                          title: Text(
+                            _toneLabel(tone),
+                            style: GoogleFonts.manrope(
+                              fontWeight: selected == tone
+                                  ? FontWeight.w700
+                                  : FontWeight.w600,
+                              color: isDark ? Colors.white : AppColors.slate900,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
                 CheckboxListTile(
                   value: setAsDefault,
                   onChanged: (v) => setModal(() => setAsDefault = v ?? false),
@@ -404,12 +410,7 @@ class _ConsultantScreenState extends State<ConsultantScreen>
 
     final user = AuthService.instance.currentUser;
     if (user == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Not logged in."),
-          backgroundColor: AppColors.error,
-        ),
-      );
+      AppSnackBar.error(context, "Not logged in.");
       return;
     }
 
@@ -463,12 +464,7 @@ class _ConsultantScreenState extends State<ConsultantScreen>
 
   void _startVoiceMode() {
     if (!_sttReady) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Microphone not available.'),
-          backgroundColor: AppColors.error,
-        ),
-      );
+      AppSnackBar.error(context, 'Microphone not available.');
       return;
     }
     _voiceModeActive = true;
@@ -497,10 +493,12 @@ class _ConsultantScreenState extends State<ConsultantScreen>
     setState(() => _voicePartial = '');
     _stt.listen(
       onResult: _onSTTResult,
-      listenMode: ListenMode.dictation,
       pauseFor: const Duration(seconds: 2),
-      cancelOnError: false,
-      partialResults: true,
+      listenOptions: SpeechListenOptions(
+        listenMode: ListenMode.dictation,
+        cancelOnError: false,
+        partialResults: true,
+      ),
     );
   }
 
@@ -850,14 +848,7 @@ class _ConsultantScreenState extends State<ConsultantScreen>
                             onPressed: () async {
                               final selected = await _pickConversationMode(forceShow: true);
                               if (!selected || !mounted) return;
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(
-                                    'Mode set to ${_toneLabel(_conversationTone)}',
-                                  ),
-                                  duration: const Duration(milliseconds: 1200),
-                                ),
-                              );
+                              AppSnackBar.show(context, message: 'Mode set to ${_toneLabel(_conversationTone)}');
                             },
                             icon: Icon(
                               Icons.tune_rounded,

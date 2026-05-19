@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import '../theme/design_tokens.dart';
 import '../services/connection_service.dart';
 
+import '../widgets/app_snack_bar.dart';
 class ConnectionsScreen extends StatefulWidget {
   const ConnectionsScreen({super.key});
   @override
@@ -33,19 +34,9 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
 
     if (mounted) {
       if (service.isConnected) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text("✅ Connected to Brain!"),
-            backgroundColor: AppColors.success,
-          ),
-        );
+        AppSnackBar.success(context, "✅ Connected to Brain!");
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text("❌ Connection Failed. Check URL."),
-            backgroundColor: AppColors.error,
-          ),
-        );
+        AppSnackBar.error(context, "❌ Connection Failed. Check URL.");
       }
     }
   }

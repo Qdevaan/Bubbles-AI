@@ -14,6 +14,7 @@ import '../widgets/animated_background.dart';
 import '../widgets/skeleton_loader.dart';
 import '../theme/design_tokens.dart';
 
+import '../widgets/app_snack_bar.dart';
 Color _colorForType(String? type) {
   switch ((type ?? '').toLowerCase()) {
     case 'person': return const Color(0xFF6366F1);
@@ -415,9 +416,7 @@ class _GraphExplorerScreenState extends State<GraphExplorerScreen> {
     } catch (e) {
       if (!mounted) return;
       setState(() => _graphQueryLoading = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Could not get an answer: $e')),
-      );
+      AppSnackBar.show(context, message: 'Could not get an answer: $e');
     }
   }
 
@@ -461,7 +460,7 @@ class _GraphExplorerScreenState extends State<GraphExplorerScreen> {
                   Text(
                     'Loading your knowledge graph...',
                     style: TextStyle(
-                      color: cs.onSurface.withOpacity(0.6),
+                      color: cs.onSurface.withValues(alpha: 0.6),
                     ),
                   ),
                 ],
@@ -490,13 +489,13 @@ class _GraphExplorerScreenState extends State<GraphExplorerScreen> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(Icons.hub_outlined,
-                        size: 64, color: cs.onSurface.withOpacity(0.3)),
+                        size: 64, color: cs.onSurface.withValues(alpha: 0.3)),
                     const SizedBox(height: 16),
                     Text(
                       _errorMessage ?? 'Your knowledge graph is empty. Start a session to build your memory.',
                       textAlign: TextAlign.center,
                       style: theme.textTheme.bodyMedium?.copyWith(
-                          color: cs.onSurface.withOpacity(0.6)),
+                          color: cs.onSurface.withValues(alpha: 0.6)),
                     ),
                     const SizedBox(height: 24),
                     FilledButton.icon(
@@ -580,9 +579,9 @@ class _EntityTypeLegend extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: cs.surfaceContainerHigh.withOpacity(0.92),
+        color: cs.surfaceContainerHigh.withValues(alpha: 0.92),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: cs.outline.withOpacity(0.2)),
+        border: Border.all(color: cs.outline.withValues(alpha: 0.2)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -603,7 +602,7 @@ class _EntityTypeLegend extends StatelessWidget {
                 Text(t.$2,
                     style: TextStyle(
                         fontSize: 11,
-                        color: cs.onSurface.withOpacity(0.8))),
+                        color: cs.onSurface.withValues(alpha: 0.8))),
               ],
             ),
           );
@@ -920,13 +919,13 @@ class _GraphQueryResultSheetState extends State<_GraphQueryResultSheet> {
         margin: EdgeInsets.fromLTRB(12, 0, 12, 12 + bottomInset),
         decoration: BoxDecoration(
           color: widget.isDark
-              ? const Color(0xFF0F172A).withOpacity(0.98)
-              : Colors.white.withOpacity(0.98),
+              ? const Color(0xFF0F172A).withValues(alpha: 0.98)
+              : Colors.white.withValues(alpha: 0.98),
           borderRadius: BorderRadius.circular(28),
-          border: Border.all(color: cs.primary.withOpacity(0.2), width: 1.5),
+          border: Border.all(color: cs.primary.withValues(alpha: 0.2), width: 1.5),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.2),
+              color: Colors.black.withValues(alpha: 0.2),
               blurRadius: 20,
               spreadRadius: 2,
             ),
@@ -991,13 +990,13 @@ class _GraphQueryResultSheetState extends State<_GraphQueryResultSheet> {
                               children: [
                                 Icon(Icons.account_tree_rounded,
                                     size: 10,
-                                    color: cs.primary.withOpacity(0.7)),
+                                    color: cs.primary.withValues(alpha: 0.7)),
                                 const SizedBox(width: 3),
                                 Text(
                                   'Asked on Graph Screen',
                                   style: TextStyle(
                                     fontSize: 10,
-                                    color: cs.primary.withOpacity(0.7),
+                                    color: cs.primary.withValues(alpha: 0.7),
                                     fontWeight: FontWeight.w500,
                                   ),
                                 ),
@@ -1031,7 +1030,7 @@ class _GraphQueryResultSheetState extends State<_GraphQueryResultSheet> {
                               color: isUser
                                   ? Colors.white
                                   : (widget.isDark
-                                      ? Colors.white.withOpacity(0.9)
+                                      ? Colors.white.withValues(alpha: 0.9)
                                       : const Color(0xFF334155)),
                             ),
                           ),
@@ -1059,7 +1058,7 @@ class _GraphQueryResultSheetState extends State<_GraphQueryResultSheet> {
             Container(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
               decoration: BoxDecoration(
-                border: Border(top: BorderSide(color: Theme.of(context).dividerColor.withOpacity(0.1))),
+                border: Border(top: BorderSide(color: Theme.of(context).dividerColor.withValues(alpha: 0.1))),
               ),
               child: Row(
                 children: [
@@ -1069,7 +1068,7 @@ class _GraphQueryResultSheetState extends State<_GraphQueryResultSheet> {
                         color: widget.isDark ? const Color(0xFF1E293B) : const Color(0xFFF8FAFC),
                         borderRadius: BorderRadius.circular(24),
                         border: Border.all(
-                          color: cs.primary.withOpacity(0.1),
+                          color: cs.primary.withValues(alpha: 0.1),
                         ),
                       ),
                       padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -1180,10 +1179,10 @@ class _EntityQuickReferenceSheetState
         margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
         decoration: BoxDecoration(
           color: isDark
-              ? const Color(0xFF192B33).withOpacity(0.97)
-              : Colors.white.withOpacity(0.97),
+              ? const Color(0xFF192B33).withValues(alpha: 0.97)
+              : Colors.white.withValues(alpha: 0.97),
           borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: widget.color.withOpacity(0.3)),
+          border: Border.all(color: widget.color.withValues(alpha: 0.3)),
         ),
         child: ListView(
           controller: scrollController,
@@ -1208,9 +1207,9 @@ class _EntityQuickReferenceSheetState
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: widget.color.withOpacity(0.15),
+                    color: widget.color.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: widget.color.withOpacity(0.3)),
+                    border: Border.all(color: widget.color.withValues(alpha: 0.3)),
                   ),
                   child: Icon(widget.icon, color: widget.color, size: 22),
                 ),
@@ -1231,7 +1230,7 @@ class _EntityQuickReferenceSheetState
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                         decoration: BoxDecoration(
-                          color: widget.color.withOpacity(0.15),
+                          color: widget.color.withValues(alpha: 0.15),
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: Text(
@@ -1281,9 +1280,9 @@ class _EntityQuickReferenceSheetState
               Container(
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
-                  color: widget.color.withOpacity(0.06),
+                  color: widget.color.withValues(alpha: 0.06),
                   borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: widget.color.withOpacity(0.12)),
+                  border: Border.all(color: widget.color.withValues(alpha: 0.12)),
                 ),
                 child: Text(
                   widget.description,
@@ -1404,9 +1403,9 @@ class _EntityQuickReferenceSheetState
               Container(
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
-                  color: cs.primary.withOpacity(0.06),
+                  color: cs.primary.withValues(alpha: 0.06),
                   borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: cs.primary.withOpacity(0.12)),
+                  border: Border.all(color: cs.primary.withValues(alpha: 0.12)),
                 ),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -1433,7 +1432,7 @@ class _EntityQuickReferenceSheetState
               icon: Icon(Icons.open_in_new_rounded, size: 16, color: cs.primary),
               label: Text('View in Entities', style: TextStyle(color: cs.primary)),
               style: OutlinedButton.styleFrom(
-                side: BorderSide(color: cs.primary.withOpacity(0.4)),
+                side: BorderSide(color: cs.primary.withValues(alpha: 0.4)),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
@@ -1466,14 +1465,14 @@ class _StatChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.08),
+        color: color.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: color.withOpacity(0.15)),
+        border: Border.all(color: color.withValues(alpha: 0.15)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 13, color: color.withOpacity(0.7)),
+          Icon(icon, size: 13, color: color.withValues(alpha: 0.7)),
           const SizedBox(width: 5),
           Text(
             label,

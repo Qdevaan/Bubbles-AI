@@ -33,4 +33,50 @@ class TaskEventProvider with ChangeNotifier {
     _events.insert(0, event);
     notifyListeners();
   }
+
+  Future<void> toggleEventCompleted(String eventId) async {
+    final idx = _events.indexWhere((e) => e.id == eventId);
+    if (idx == -1) return;
+    final cur = _events[idx];
+    final newVal = !cur.isCompleted;
+    _events[idx] = EventItem(
+      id: cur.id,
+      userId: cur.userId,
+      sessionId: cur.sessionId,
+      title: cur.title,
+      description: cur.description,
+      dueText: cur.dueText,
+      startTime: cur.startTime,
+      endTime: cur.endTime,
+      location: cur.location,
+      isAllDay: cur.isAllDay,
+      isCompleted: newVal,
+      externalEventId: cur.externalEventId,
+      syncProvider: cur.syncProvider,
+      createdAt: cur.createdAt,
+      updatedAt: DateTime.now().toUtc(),
+    );
+    notifyListeners();
+    try {
+      await _service.setEventCompleted(eventId, newVal);
+    } catch (_) {
+      _events[idx] = cur;
+      notifyListeners();
+      rethrow;
+    }
+  }
+
+  Future<void> deleteEvent(String eventId) async {
+    final idx = _events.indexWhere((e) => e.id == eventId);
+    if (idx == -1) return;
+    final removed = _events.removeAt(idx);
+    notifyListeners();
+    try {
+      await _service.deleteEvent(eventId);
+    } catch (_) {
+      _events.insert(idx, removed);
+      notifyListeners();
+      rethrow;
+    }
+  }
 }
