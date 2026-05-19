@@ -11,6 +11,7 @@ import '../services/api_service.dart';
 import '../services/connection_service.dart';
 import '../repositories/graph_repository.dart';
 import '../widgets/animated_background.dart';
+import '../widgets/skeleton_loader.dart';
 import '../theme/design_tokens.dart';
 
 Color _colorForType(String? type) {
@@ -1388,17 +1389,15 @@ class _EntityQuickReferenceSheetState
             ),
             const SizedBox(height: 8),
             if (_loading)
-              Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: SizedBox(
-                    width: 24,
-                    height: 24,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: widget.color,
-                    ),
-                  ),
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 6),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SkeletonLoader.line(width: 140),
+                    SkeletonLoader.line(width: 200),
+                    SkeletonLoader.line(width: 160),
+                  ],
                 ),
               )
             else

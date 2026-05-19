@@ -8,6 +8,7 @@ import '../theme/design_tokens.dart';
 import '../utils/permissions_util.dart';
 import '../widgets/animated_background.dart';
 import '../providers/settings_provider.dart';
+import '../widgets/skeleton_loader.dart';
 
 class PermissionsScreen extends StatefulWidget {
   const PermissionsScreen({super.key});
@@ -143,8 +144,17 @@ class _PermissionsScreenState extends State<PermissionsScreen> {
                 const SliverToBoxAdapter(child: SizedBox(height: 32)),
 
                 if (_loading)
-                  const SliverFillRemaining(
-                    child: Center(child: CircularProgressIndicator()),
+                  SliverPadding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    sliver: SliverList(
+                      delegate: SliverChildBuilderDelegate(
+                        (_, __) => const Padding(
+                          padding: EdgeInsets.only(bottom: 16),
+                          child: SkeletonLoader(height: 72, borderRadius: 16),
+                        ),
+                        childCount: 6,
+                      ),
+                    ),
                   )
                 else
                   SliverPadding(

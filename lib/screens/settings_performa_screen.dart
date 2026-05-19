@@ -7,6 +7,7 @@ import 'package:bubbles/providers/persona_provider.dart';
 
 import '../theme/design_tokens.dart';
 import '../widgets/animated_background.dart';
+import '../widgets/skeleton_loader.dart';
 import 'performa/performa_wizard_screen.dart';
 
 class SettingsPerformaScreen extends StatefulWidget {
@@ -101,7 +102,10 @@ class _SettingsPerformaScreenState extends State<SettingsPerformaScreen> {
                 ),
                 Expanded(
                   child: provider.loading
-                      ? const Center(child: CircularProgressIndicator())
+                      ? const Padding(
+                          padding: EdgeInsets.all(16),
+                          child: SkeletonCardGroup(count: 4),
+                        )
                       : persona == null
                           ? _EmptyState(
                               isDark: isDark,

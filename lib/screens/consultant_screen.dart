@@ -24,6 +24,7 @@ import '../widgets/consultant/voice_mode.dart';
 import '../widgets/consultant/consultant_widgets.dart';
 import '../widgets/consultant/welcome_messages.dart';
 import '../widgets/glass_morphism.dart';
+import '../widgets/skeleton_loader.dart';
 
 // Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 //  CONSULTANT SCREEN  (ChatGPT-style multi-chat)
@@ -699,8 +700,15 @@ class _ConsultantScreenState extends State<ConsultantScreen>
             ),
             if (chat.drawerLoading)
               const Padding(
-                padding: EdgeInsets.all(24),
-                child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+                padding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                child: Column(
+                  children: [
+                    SkeletonListTile(showTrailing: false),
+                    SkeletonListTile(showTrailing: false),
+                    SkeletonListTile(showTrailing: false),
+                    SkeletonListTile(showTrailing: false),
+                  ],
+                ),
               )
             else if (chat.drawerLoaded && chat.pastChats.isEmpty)
               Padding(
@@ -940,7 +948,7 @@ class _ConsultantScreenState extends State<ConsultantScreen>
                         return Stack(
                           children: [
                             if (data.loadingChat)
-                              const Center(child: CircularProgressIndicator())
+                              const SkeletonChatBubbles(count: 6)
                             else if (_voiceModeActive && lastAiMsg != null)
                               TeleprompterBubble(
                                 text: lastAiMsg['text'] ?? '',

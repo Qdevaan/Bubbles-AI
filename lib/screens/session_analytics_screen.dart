@@ -13,6 +13,7 @@ import '../services/connection_service.dart';
 import '../services/mistake_service.dart';
 import '../repositories/sessions_repository.dart';
 import '../widgets/glass_morphism.dart';
+import '../widgets/skeleton_loader.dart';
 import '../theme/design_tokens.dart';
 
 /// Displays post-session analytics (session_analytics) and coaching report
@@ -200,7 +201,7 @@ class _AnalyticsTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    if (loading) return Center(child: Column(mainAxisSize: MainAxisSize.min, children: [const CircularProgressIndicator(), const SizedBox(height: 12), Text('Computing analytics…', style: GoogleFonts.manrope())]));
+    if (loading) return const SkeletonAnalyticsView();
     if (error != null || analytics == null) return Center(child: Column(mainAxisSize: MainAxisSize.min, children: [Icon(Icons.bar_chart_outlined, size: 48, color: AppColors.slate500), const SizedBox(height: 12), Text(error ?? 'No data yet', style: GoogleFonts.manrope(color: AppColors.slate500))]));
     final a = analytics!;
     return ListView(
@@ -303,7 +304,7 @@ class _CoachingTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    if (loading) return Center(child: Column(mainAxisSize: MainAxisSize.min, children: [const CircularProgressIndicator(), const SizedBox(height: 12), Text('Generating coaching report…', style: GoogleFonts.manrope())]));
+    if (loading) return const Padding(padding: EdgeInsets.all(16), child: SkeletonCardGroup(count: 5));
     if (error != null || report == null) return Center(child: Column(mainAxisSize: MainAxisSize.min, children: [Icon(Icons.school_outlined, size: 48, color: AppColors.slate500), const SizedBox(height: 12), Text(error ?? 'Not available', style: GoogleFonts.manrope(color: AppColors.slate500))]));
     final r = report!;
     return ListView(
@@ -540,7 +541,17 @@ class _PlaybackTabState extends State<_PlaybackTab>
     final primary = Theme.of(context).colorScheme.primary;
 
     if (!_checked) {
-      return const Center(child: CircularProgressIndicator());
+      return const Padding(
+        padding: EdgeInsets.all(16),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            SkeletonLoader(height: 80, borderRadius: 20),
+            SizedBox(height: 16),
+            SkeletonLoader(height: 48, borderRadius: 14),
+          ],
+        ),
+      );
     }
 
     if (_audioPath == null) {

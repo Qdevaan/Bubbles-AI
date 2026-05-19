@@ -12,6 +12,7 @@ import '../widgets/app_input.dart';
 import '../widgets/app_logo.dart';
 import '../theme/design_tokens.dart';
 import '../widgets/glass_morphism.dart';
+import '../widgets/skeleton_loader.dart';
 
 class ProfileCompletionScreen extends StatefulWidget {
   const ProfileCompletionScreen({super.key});
@@ -428,7 +429,7 @@ class _ProfileCompletionScreenState extends State<ProfileCompletionScreen> {
     if (_initialLoading) {
       return Scaffold(
         backgroundColor: theme.scaffoldBackgroundColor,
-        body: const Center(child: CircularProgressIndicator()),
+        body: const SafeArea(child: SkeletonProfileForm()),
       );
     }
 

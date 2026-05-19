@@ -912,13 +912,9 @@ class _GameCenterScreenState extends State<GameCenterScreen>
   Widget _buildRewardsSection(
       BuildContext context, GamificationProvider gp, bool isDark) {
     if (gp.rewardsLoading && gp.rewards.isEmpty) {
-      return Padding(
-        padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
-        child: Container(
-          height: 80,
-          alignment: Alignment.center,
-          child: const CircularProgressIndicator(),
-        ),
+      return const Padding(
+        padding: EdgeInsets.fromLTRB(20, 20, 20, 0),
+        child: SkeletonHorizontalCards(count: 4, cardWidth: 140, height: 168),
       );
     }
     if (gp.rewards.isEmpty) {
@@ -1059,11 +1055,18 @@ class _GameCenterScreenState extends State<GameCenterScreen>
           ),
           const SizedBox(height: 12),
           if (gp.leaderboardLoading && gp.leaderboardRows.isEmpty)
-            const Center(
-                child: Padding(
-              padding: EdgeInsets.all(20),
-              child: CircularProgressIndicator(),
-            ))
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 8),
+              child: Column(
+                children: [
+                  SkeletonListTile(),
+                  SkeletonListTile(),
+                  SkeletonListTile(),
+                  SkeletonListTile(),
+                  SkeletonListTile(),
+                ],
+              ),
+            )
           else if (gp.leaderboardRows.isEmpty)
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 18),
@@ -2016,8 +2019,8 @@ class _ConversationMissionSheetState
                     builder: (_, snap) {
                       if (snap.connectionState == ConnectionState.waiting) {
                         return const Padding(
-                          padding: EdgeInsets.all(24),
-                          child: Center(child: CircularProgressIndicator()),
+                          padding: EdgeInsets.all(16),
+                          child: SkeletonCardGroup(count: 3),
                         );
                       }
                       if (snap.hasError) {

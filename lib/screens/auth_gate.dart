@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../providers/persona_provider.dart';
+import '../widgets/skeleton_loader.dart';
 
 /// Post-login routing gate.
 ///
@@ -54,7 +55,7 @@ class _AuthGateState extends State<AuthGate> {
   @override
   Widget build(BuildContext context) {
     return const Scaffold(
-      body: Center(child: CircularProgressIndicator()),
+      body: SafeArea(child: SkeletonSplash()),
     );
   }
 }

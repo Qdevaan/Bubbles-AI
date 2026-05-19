@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../theme/design_tokens.dart';
+import '../widgets/skeleton_loader.dart';
 
 class RoleplaySetupScreen extends StatefulWidget {
   const RoleplaySetupScreen({super.key});
@@ -88,7 +89,7 @@ class _RoleplaySetupScreenState extends State<RoleplaySetupScreen> {
       ),
       body: SafeArea(
         child: _isLoading
-            ? const Center(child: CircularProgressIndicator())
+            ? const SkeletonDropdownForm()
             : Padding(
                 padding: const EdgeInsets.all(24.0),
                 child: Column(

@@ -12,6 +12,7 @@ import '../widgets/glass_morphism.dart';
 import '../widgets/tags_bottom_sheet.dart';
 import '../widgets/export_bottom_sheet.dart';
 import '../widgets/session_playback_sheet.dart';
+import '../widgets/skeleton_loader.dart';
 import '../providers/tags_provider.dart';
 import '../services/api_service.dart';
 import '../routes/app_routes.dart';
@@ -369,7 +370,7 @@ class _LiveSessionsListState extends State<LiveSessionsList> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     if (_loading && _sessions.isEmpty) {
-      return const Center(child: CircularProgressIndicator());
+      return const SkeletonList(count: 6);
     }
 
     var sessions = _sessions;
@@ -576,7 +577,7 @@ class _ConsultantHistoryListState extends State<ConsultantHistoryList> {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    if (_loading && _sessions.isEmpty) return const Center(child: CircularProgressIndicator());
+    if (_loading && _sessions.isEmpty) return const SkeletonList(count: 6);
     var sessions = _sessions;
 
     // Apply search
@@ -979,7 +980,10 @@ class _GenericSessionDetailState extends State<GenericSessionDetail> {
               child: Builder(
                 builder: (context) {
                   if (_loading) {
-                    return const Center(child: CircularProgressIndicator());
+                    return const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 16),
+                      child: SkeletonCardGroup(count: 4),
+                    );
                   }
                   final logs = _logs;
 
