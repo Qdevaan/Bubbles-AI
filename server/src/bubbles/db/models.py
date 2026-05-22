@@ -312,24 +312,3 @@ class WeeklyTrend:
     ai_words: int
     avg_sentiment_score: float | None
     total_duration_seconds: float
-
-
-@dataclass(frozen=True, slots=True)
-class Scenario:
-    id: UUID
-    user_id: UUID
-    target_entity_id: UUID | None
-    title: str
-    situation: str
-    goal: str
-    success_criteria: str
-    difficulty: str
-    role_mode: str
-    opening_line: str
-    source: dict[str, Any]
-    status: str
-    session_id: UUID | None
-    passed: bool | None
-    score_feedback: str | None
-    created_at: datetime
-    updated_at: datetime
