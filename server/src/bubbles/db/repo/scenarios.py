@@ -65,6 +65,8 @@ def _row(r: asyncpg.Record) -> Scenario:
 async def create_many(
     conn: asyncpg.Connection, *, user_id: UUID, rows: list[NewScenario]
 ) -> list[Scenario]:
+    # The feed worker generates at most 5 scenarios per call (target feed size),
+    # so a per-row INSERT loop is acceptable here — no bulk insert needed.
     out: list[Scenario] = []
     for r in rows:
         row = await conn.fetchrow(
@@ -192,11 +194,12 @@ async def mark_completed(
     passed: bool | None,
     feedback: str | None,
 ) -> Scenario | None:
+    """Complete a started scenario. Returns ``None`` if it was not ``started``."""
     row = await conn.fetchrow(
         f"""
         UPDATE scenarios
         SET status = 'completed', passed = $2, score_feedback = $3, updated_at = now()
-        WHERE id = $1
+        WHERE id = $1 AND status = 'started'
         RETURNING {_COLS}
         """,
         scenario_id,

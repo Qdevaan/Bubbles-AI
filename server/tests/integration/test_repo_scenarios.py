@@ -119,3 +119,24 @@ async def test_mark_completed_and_get_by_session(pool: asyncpg.Pool, user_id: UU
     assert completed is not None and completed.status == "completed"
     assert completed.passed is True
     assert by_session is not None and by_session.id == created[0].id
+
+
+async def test_mark_completed_rejects_non_started(pool: asyncpg.Pool, user_id: UUID) -> None:
+    eid = await _entity(pool, user_id)
+    async with UnitOfWork(pool) as uow:
+        created = await repo.create_many(uow.conn, user_id=user_id, rows=[_draft(eid)])
+        # still 'suggested' — never started — must not complete
+        bad = await repo.mark_completed(
+            uow.conn, scenario_id=created[0].id, passed=True, feedback="x"
+        )
+    assert bad is None
+
+
+async def test_get_returns_row_and_none(pool: asyncpg.Pool, user_id: UUID) -> None:
+    eid = await _entity(pool, user_id)
+    async with UnitOfWork(pool) as uow:
+        created = await repo.create_many(uow.conn, user_id=user_id, rows=[_draft(eid)])
+        found = await repo.get(uow.conn, created[0].id)
+        missing = await repo.get(uow.conn, uuid4())
+    assert found is not None and found.id == created[0].id
+    assert missing is None
