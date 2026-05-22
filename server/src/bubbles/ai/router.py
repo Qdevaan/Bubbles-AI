@@ -202,4 +202,7 @@ DEFAULT_CHAINS: tuple[TaskChain, ...] = (
     TaskChain(
         "analytics.mission_eval", ("cerebras", "groq", "gemini"), temperature=0.0, max_tokens=300
     ),
+    TaskChain(
+        "scenario.generate", ("cerebras", "groq", "gemini"), temperature=0.8, max_tokens=2000
+    ),
 )
