@@ -11,6 +11,7 @@ from bubbles.api.v1.gamification import router as gamification_router
 from bubbles.api.v1.grammar import router as grammar_router
 from bubbles.api.v1.memories import router as memories_router
 from bubbles.api.v1.persona import router as persona_router
+from bubbles.api.v1.scenarios import router as scenarios_router
 from bubbles.api.v1.sessions import router as sessions_router
 from bubbles.api.v1.speaker import router as speaker_router
 from bubbles.api.v1.stt import router as stt_router
@@ -27,6 +28,7 @@ v1_router.include_router(entities_router)
 v1_router.include_router(gamification_router)
 v1_router.include_router(memories_router)
 v1_router.include_router(persona_router)
+v1_router.include_router(scenarios_router)
 v1_router.include_router(grammar_router)
 v1_router.include_router(voice_router)
 v1_router.include_router(stt_router)
