@@ -79,3 +79,66 @@ async def test_openapi_includes_v1_routes(app: FastAPI) -> None:
     assert "/v1/start_session" in paths
     assert "/v1/me/persona" in paths
     assert "/v1/ask_entity" in paths
+
+
+# ---- F4: confidence-meter request validation -----------------------------
+
+
+async def _confidence_endpoint_returns(
+    app: FastAPI, body: dict[str, object], expected_status: int
+) -> int:
+    """POST the confidence body to a dummy session id; return status code.
+
+    The route requires auth + ownership. For pure body-shape validation the
+    only thing under test is the 422 path returned by FastAPI's Pydantic
+    layer BEFORE the auth dep runs. We don't override deps here — a 422 is
+    what we expect for a malformed body regardless of auth.
+    """
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://t") as ac:
+        r = await ac.post(
+            "/v1/sessions/00000000-0000-0000-0000-000000000000/confidence",
+            json=body,
+        )
+    return r.status_code
+
+
+@pytest.mark.asyncio
+async def test_set_turn_confidence_rejects_empty_list(app: FastAPI) -> None:
+    code = await _confidence_endpoint_returns(
+        app, {"confidence_by_turn": []}, expected_status=422
+    )
+    assert code == 422
+
+
+@pytest.mark.asyncio
+async def test_set_turn_confidence_rejects_score_above_one(app: FastAPI) -> None:
+    code = await _confidence_endpoint_returns(
+        app, {"confidence_by_turn": [{"turn_index": 0, "score": 1.5}]}, expected_status=422
+    )
+    assert code == 422
+
+
+@pytest.mark.asyncio
+async def test_set_turn_confidence_rejects_negative_score(app: FastAPI) -> None:
+    code = await _confidence_endpoint_returns(
+        app, {"confidence_by_turn": [{"turn_index": 0, "score": -0.1}]}, expected_status=422
+    )
+    assert code == 422
+
+
+@pytest.mark.asyncio
+async def test_set_turn_confidence_rejects_negative_turn_index(app: FastAPI) -> None:
+    code = await _confidence_endpoint_returns(
+        app, {"confidence_by_turn": [{"turn_index": -1, "score": 0.5}]}, expected_status=422
+    )
+    assert code == 422
+
+
+@pytest.mark.asyncio
+async def test_set_turn_confidence_rejects_unknown_field(app: FastAPI) -> None:
+    code = await _confidence_endpoint_returns(
+        app,
+        {"confidence_by_turn": [{"turn_index": 0, "score": 0.5, "extra": 1}]},
+        expected_status=422,
+    )
+    assert code == 422
