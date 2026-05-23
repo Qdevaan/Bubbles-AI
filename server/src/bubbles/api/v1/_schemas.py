@@ -735,3 +735,25 @@ class DashboardResponse(_Base):
     window: DashboardWindow
     summary: DashboardSummary
     series: DashboardSeries
+
+
+# ---- live confidence meter (F4) ------------------------------------------
+
+
+class TurnConfidenceItem(_Base):
+    """Per-turn confidence score posted by the app at session end."""
+
+    turn_index: int = Field(ge=0)
+    score: float = Field(ge=0.0, le=1.0)
+
+
+class SetTurnConfidenceRequest(_Base):
+    """Bulk array of per-turn confidence scores for one session."""
+
+    confidence_by_turn: list[TurnConfidenceItem] = Field(min_length=1, max_length=500)
+
+
+class SetTurnConfidenceResponse(_Base):
+    """Reports how many session_logs rows were actually updated."""
+
+    updated: int = Field(ge=0)

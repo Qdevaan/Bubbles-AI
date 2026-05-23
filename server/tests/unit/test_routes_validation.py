@@ -6,6 +6,9 @@ import pytest
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
+from bubbles.auth.current_user import CurrentUser, current_user
+from bubbles.deps import get_pool, get_ratelimiter
+
 
 async def test_unknown_field_rejected(app: FastAPI) -> None:
     transport = ASGITransport(app=app)
@@ -79,3 +82,82 @@ async def test_openapi_includes_v1_routes(app: FastAPI) -> None:
     assert "/v1/start_session" in paths
     assert "/v1/me/persona" in paths
     assert "/v1/ask_entity" in paths
+
+
+# ---- F4: confidence-meter request validation -----------------------------
+
+
+async def _confidence_endpoint_returns(
+    app: FastAPI, body: dict[str, object], expected_status: int
+) -> int:
+    """POST the confidence body to a dummy session id; return status code.
+
+    Auth is bypassed via dependency override so that Pydantic body validation
+    fires and the response reflects schema errors (422) rather than auth
+    errors (401).
+    """
+    class _NoOpLimiter:
+        async def check(self, key: str, *, capacity: int, refill_per_s: float) -> object:
+            class _R:
+                allowed = True
+                retry_after_s = 0.0
+            return _R()
+
+    app.dependency_overrides[current_user] = lambda: CurrentUser(
+        id="test-user", email="t@t.com", role="authenticated"
+    )
+    app.dependency_overrides[get_pool] = lambda: None
+    app.dependency_overrides[get_ratelimiter] = lambda: _NoOpLimiter()
+    try:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://t") as ac:
+            r = await ac.post(
+                "/v1/sessions/00000000-0000-0000-0000-000000000000/confidence",
+                json=body,
+            )
+    finally:
+        app.dependency_overrides.pop(current_user, None)
+        app.dependency_overrides.pop(get_pool, None)
+        app.dependency_overrides.pop(get_ratelimiter, None)
+    return r.status_code
+
+
+@pytest.mark.asyncio
+async def test_set_turn_confidence_rejects_empty_list(app: FastAPI) -> None:
+    code = await _confidence_endpoint_returns(
+        app, {"confidence_by_turn": []}, expected_status=422
+    )
+    assert code == 422
+
+
+@pytest.mark.asyncio
+async def test_set_turn_confidence_rejects_score_above_one(app: FastAPI) -> None:
+    code = await _confidence_endpoint_returns(
+        app, {"confidence_by_turn": [{"turn_index": 0, "score": 1.5}]}, expected_status=422
+    )
+    assert code == 422
+
+
+@pytest.mark.asyncio
+async def test_set_turn_confidence_rejects_negative_score(app: FastAPI) -> None:
+    code = await _confidence_endpoint_returns(
+        app, {"confidence_by_turn": [{"turn_index": 0, "score": -0.1}]}, expected_status=422
+    )
+    assert code == 422
+
+
+@pytest.mark.asyncio
+async def test_set_turn_confidence_rejects_negative_turn_index(app: FastAPI) -> None:
+    code = await _confidence_endpoint_returns(
+        app, {"confidence_by_turn": [{"turn_index": -1, "score": 0.5}]}, expected_status=422
+    )
+    assert code == 422
+
+
+@pytest.mark.asyncio
+async def test_set_turn_confidence_rejects_unknown_field(app: FastAPI) -> None:
+    code = await _confidence_endpoint_returns(
+        app,
+        {"confidence_by_turn": [{"turn_index": 0, "score": 0.5, "extra": 1}]},
+        expected_status=422,
+    )
+    assert code == 422
