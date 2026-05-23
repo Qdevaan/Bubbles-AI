@@ -98,6 +98,10 @@ async def test_end_session_with_transcript_enqueues_jobs(
         "sentiment_scan",
         "generate_scenarios",
     ]
+    # Every job in this fan-out carries a ``user_id`` kwarg; assert each call's
+    # user_id is the caller's. ``score_scenario`` is the only job that lacks
+    # ``user_id`` (keyed by ``scenario_id``); it does not fire here.
+    assert all(kw.get("user_id") == str(user_id) for (_, kw) in arq.calls if "user_id" in kw)
 
 
 async def test_end_session_without_transcript_enqueues_nothing(
@@ -330,6 +334,8 @@ async def test_end_session_scenario_linked_enqueues_score(
         )
     assert r.status_code == 200
     names = [kw["_job_name"] for (_, kw) in arq.calls]
+    # Scenario-linked sessions still trigger the feed top-up alongside the score.
+    assert "generate_scenarios" in names
     assert "score_scenario" in names
     score_call = next(kw for (_, kw) in arq.calls if kw["_job_name"] == "score_scenario")
     assert score_call["scenario_id"] == str(scn["id"])
