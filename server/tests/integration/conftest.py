@@ -98,3 +98,27 @@ async def other_user_id(pool: asyncpg.Pool) -> UUID:
     async with pool.acquire() as con:
         await con.execute("INSERT INTO auth.users (id) VALUES ($1)", new_id)
     return new_id
+
+
+@pytest.fixture
+async def session_id(pool: asyncpg.Pool, user_id: UUID) -> UUID:
+    new_id = uuid4()
+    async with pool.acquire() as con:
+        await con.execute(
+            "INSERT INTO sessions (id, user_id) VALUES ($1, $2)",
+            new_id,
+            user_id,
+        )
+    return new_id
+
+
+@pytest.fixture
+async def other_session_id(pool: asyncpg.Pool, user_id: UUID) -> UUID:
+    new_id = uuid4()
+    async with pool.acquire() as con:
+        await con.execute(
+            "INSERT INTO sessions (id, user_id) VALUES ($1, $2)",
+            new_id,
+            user_id,
+        )
+    return new_id
