@@ -25,6 +25,7 @@ from bubbles.auth.current_user import CurrentUserDep, require_ownership
 from bubbles.core.errors import NotFound
 from bubbles.core.logging import get_logger
 from bubbles.db.repo import gamification as gamification_repo
+from bubbles.db.repo import scenarios as scenarios_repo
 from bubbles.db.repo import session_logs as session_logs_repo
 from bubbles.db.repo import sessions as sessions_repo
 from bubbles.db.uow import UnitOfWork, transaction
@@ -33,6 +34,8 @@ from bubbles.workers.enqueue import (
     enqueue_compute_embeddings,
     enqueue_detect_achievements,
     enqueue_extract_knowledge,
+    enqueue_generate_scenarios,
+    enqueue_score_scenario,
     enqueue_sentiment_scan,
     enqueue_session_analytics,
 )
@@ -42,7 +45,12 @@ router = APIRouter(tags=["sessions"])
 
 
 async def _enqueue_post_session_jobs(
-    arq: ArqRedis, *, user_id: str, session_id: str, transcript: str
+    arq: ArqRedis,
+    *,
+    user_id: str,
+    session_id: str,
+    transcript: str,
+    scenario_id: str | None = None,
 ) -> None:
     """Best-effort: a queue hiccup must not fail the ``end_session`` write."""
     try:
@@ -57,6 +65,11 @@ async def _enqueue_post_session_jobs(
         # Score per-turn sentiment, then it re-runs compute_session_analytics so
         # the metrics row picks up avg_sentiment_score / dominant_sentiment.
         await enqueue_sentiment_scan(arq, user_id=user_id, session_id=session_id)
+        # Top up the user's personalized roleplay scenario feed.
+        await enqueue_generate_scenarios(arq, user_id=user_id)
+        # If this session was a roleplay started from a scenario, grade it.
+        if scenario_id is not None:
+            await enqueue_score_scenario(arq, scenario_id=scenario_id)
     except Exception as exc:
         log.warning("post_session_enqueue_failed", error=str(exc), session_id=session_id)
 
@@ -190,11 +203,14 @@ async def end_session(
         )
     transcript = row_transcript or (body.transcript or "")
     if arq is not None and transcript:
+        async with transaction(pool) as conn:
+            linked = await scenarios_repo.get_by_session(conn, session_id=body.session_id)
         await _enqueue_post_session_jobs(
             arq,
             user_id=str(existing.user_id),
             session_id=str(body.session_id),
             transcript=transcript,
+            scenario_id=str(linked.id) if linked is not None else None,
         )
     return _to_out(ended)
 

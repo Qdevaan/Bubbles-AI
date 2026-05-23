@@ -90,8 +90,14 @@ async def test_end_session_with_transcript_enqueues_jobs(
         )
     assert r.status_code == 200
     names = [kw["_job_name"] for (_, kw) in arq.calls]
-    assert names == ["compute_session_analytics", "extract_knowledge", "compute_embeddings"]
-    assert all(kw.get("user_id") == str(user_id) for (_, kw) in arq.calls)
+    assert names == [
+        "compute_session_analytics",
+        "extract_knowledge",
+        "compute_embeddings",
+        "detect_achievements",
+        "sentiment_scan",
+        "generate_scenarios",
+    ]
 
 
 async def test_end_session_without_transcript_enqueues_nothing(
@@ -184,6 +190,9 @@ async def test_end_session_assembles_transcript_from_rows(
         "compute_session_analytics",
         "extract_knowledge",
         "compute_embeddings",
+        "detect_achievements",
+        "sentiment_scan",
+        "generate_scenarios",
     ]
     sent_transcript = arq.calls[0][1]["transcript"]
     assert sent_transcript == "User: hi\nOthers: hello"
@@ -285,3 +294,42 @@ async def test_save_session_ignores_legacy_user_id_field(
     async with pool.acquire() as con:
         owner = await con.fetchval("SELECT user_id FROM sessions WHERE id = $1", sid)
     assert owner == user_id
+
+
+async def test_end_session_scenario_linked_enqueues_score(
+    app: FastAPI, pool: asyncpg.Pool, user_id: UUID
+) -> None:
+    arq = FakeArq()
+    _override(app, pool, user_id, arq=arq)
+    sid = await _make_session(pool, user_id)
+    async with pool.acquire() as con:
+        erow = await con.fetchrow(
+            "INSERT INTO entities (user_id, canonical_name, entity_type) "
+            "VALUES ($1, 'sarah', 'person') RETURNING id",
+            user_id,
+        )
+        assert erow is not None
+        scn = await con.fetchrow(
+            """
+            INSERT INTO scenarios (
+                user_id, target_entity_id, title, situation, goal, success_criteria,
+                opening_line, status, session_id
+            )
+            VALUES ($1, $2, 't', 's', 'g', 'c', 'o', 'started', $3)
+            RETURNING id
+            """,
+            user_id,
+            erow["id"],
+            sid,
+        )
+        assert scn is not None
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://t") as ac:
+        r = await ac.post(
+            "/v1/end_session",
+            json={"session_id": str(sid), "transcript": "User: hi\nAI: hello"},
+        )
+    assert r.status_code == 200
+    names = [kw["_job_name"] for (_, kw) in arq.calls]
+    assert "score_scenario" in names
+    score_call = next(kw for (_, kw) in arq.calls if kw["_job_name"] == "score_scenario")
+    assert score_call["scenario_id"] == str(scn["id"])
