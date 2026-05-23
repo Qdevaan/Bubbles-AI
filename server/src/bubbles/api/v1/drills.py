@@ -87,6 +87,7 @@ async def get_queue(
 ) -> DrillQueueResponse:
     uid = UUID(user.id)
     capped = max(1, min(limit, 100))
+    offset = max(0, offset)
     async with transaction(pool) as conn:
         due = await drill_repo.list_due(conn, user_id=uid, limit=capped, offset=offset)
         total = await drill_repo.count_due(conn, user_id=uid)
