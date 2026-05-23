@@ -72,7 +72,7 @@ async def pool(pg_dsn: str) -> AsyncIterator[asyncpg.Pool]:
             await con.execute(
                 """
                 DROP SCHEMA IF EXISTS auth CASCADE;
-                DROP TABLE IF EXISTS scenarios, feedback, session_analytics, coaching_reports,
+                DROP TABLE IF EXISTS scenarios, drill_cards, feedback, session_analytics, coaching_reports,
                     highlights,
                     voice_enrollments, session_entities, session_logs, events, tasks,
                     user_rewards, rewards, user_achievements, achievements, xp_transactions,
@@ -89,4 +89,36 @@ async def user_id(pool: asyncpg.Pool) -> UUID:
     new_id = uuid4()
     async with pool.acquire() as con:
         await con.execute("INSERT INTO auth.users (id) VALUES ($1)", new_id)
+    return new_id
+
+
+@pytest.fixture
+async def other_user_id(pool: asyncpg.Pool) -> UUID:
+    new_id = uuid4()
+    async with pool.acquire() as con:
+        await con.execute("INSERT INTO auth.users (id) VALUES ($1)", new_id)
+    return new_id
+
+
+@pytest.fixture
+async def session_id(pool: asyncpg.Pool, user_id: UUID) -> UUID:
+    new_id = uuid4()
+    async with pool.acquire() as con:
+        await con.execute(
+            "INSERT INTO sessions (id, user_id) VALUES ($1, $2)",
+            new_id,
+            user_id,
+        )
+    return new_id
+
+
+@pytest.fixture
+async def other_session_id(pool: asyncpg.Pool, user_id: UUID) -> UUID:
+    new_id = uuid4()
+    async with pool.acquire() as con:
+        await con.execute(
+            "INSERT INTO sessions (id, user_id) VALUES ($1, $2)",
+            new_id,
+            user_id,
+        )
     return new_id

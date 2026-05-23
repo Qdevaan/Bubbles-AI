@@ -30,6 +30,7 @@ from bubbles.workers.jobs import (
     extract_knowledge,
     generate_scenarios,
     grammar_scan,
+    materialize_drill_cards,
     rolling_summarize,
     score_scenario,
     seed_quests,
@@ -88,18 +89,19 @@ async def _on_shutdown(ctx: dict[str, Any]) -> None:
 # the ``workers.enqueue`` helpers pass. Cron jobs use their own wrappers below.
 
 _JOB_REGISTRY: dict[str, Any] = {
+    "backfill_session_entities": backfill_session_entities.run,
     "compute_embeddings": compute_embeddings.run,
+    "compute_session_analytics": compute_session_analytics.run,
+    "detect_achievements": detect_achievements.run,
     "extract_knowledge": extract_knowledge.run,
     "generate_scenarios": generate_scenarios.run,
-    "compute_session_analytics": compute_session_analytics.run,
     "grammar_scan": grammar_scan.run,
-    "speaker_enroll": speaker_enroll.run,
-    "speaker_identify": speaker_identify.run,
-    "detect_achievements": detect_achievements.run,
-    "backfill_session_entities": backfill_session_entities.run,
-    "sentiment_scan": sentiment_scan.run,
+    "materialize_drill_cards": materialize_drill_cards.run,
     "rolling_summarize": rolling_summarize.run,
     "score_scenario": score_scenario.run,
+    "sentiment_scan": sentiment_scan.run,
+    "speaker_enroll": speaker_enroll.run,
+    "speaker_identify": speaker_identify.run,
 }
 
 

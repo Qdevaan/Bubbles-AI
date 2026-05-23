@@ -35,6 +35,7 @@ from bubbles.workers.enqueue import (
     enqueue_detect_achievements,
     enqueue_extract_knowledge,
     enqueue_generate_scenarios,
+    enqueue_materialize_drill_cards,
     enqueue_score_scenario,
     enqueue_sentiment_scan,
     enqueue_session_analytics,
@@ -67,6 +68,8 @@ async def _enqueue_post_session_jobs(
         await enqueue_sentiment_scan(arq, user_id=user_id, session_id=session_id)
         # Top up the user's personalized roleplay scenario feed.
         await enqueue_generate_scenarios(arq, user_id=user_id)
+        # Turn this session's grammar mistakes into spaced-repetition drill cards.
+        await enqueue_materialize_drill_cards(arq, user_id=user_id, session_id=session_id)
         # If this session was a roleplay started from a scenario, grade it.
         if scenario_id is not None:
             await enqueue_score_scenario(arq, scenario_id=scenario_id)

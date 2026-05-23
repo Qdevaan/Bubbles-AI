@@ -114,3 +114,19 @@ async def category_counts(
         since,
     )
     return {r["category"]: r["n"] for r in rows}
+
+
+async def list_for_session(
+    conn: asyncpg.Connection, *, session_id: UUID
+) -> list[UserMistake]:
+    """Return every mistake row tagged with ``session_id`` (chronological)."""
+    rows = await conn.fetch(
+        f"""
+        SELECT {_COLS}
+        FROM user_mistakes
+        WHERE session_id = $1
+        ORDER BY created_at ASC
+        """,
+        session_id,
+    )
+    return [_row(r) for r in rows]
