@@ -677,3 +677,61 @@ class ReviewDrillResponse(_Base):
 class DrillQueueResponse(_Base):
     items: list[DrillCardOut]
     total_due: int = Field(ge=0)
+
+
+# ---- progress dashboard (F3) ---------------------------------------------
+
+
+class BucketPointOut(_Base):
+    """A single time-bucket with an integer value."""
+
+    bucket: date
+    value: int = Field(ge=0)
+
+
+class BucketPointFOut(_Base):
+    """A single time-bucket with a nullable float (sentiment)."""
+
+    bucket: date
+    value: float | None = None
+
+
+class MetricDelta(_Base):
+    """Current/previous window pair with rounded percentage delta."""
+
+    current: float
+    previous: float
+    delta_pct: float | None = None
+
+
+class DashboardSummary(_Base):
+    total_xp: MetricDelta
+    sessions: MetricDelta
+    mistakes: MetricDelta
+    avg_sentiment: MetricDelta
+    talk_time_minutes: MetricDelta
+    drill_mastery_pct: int | None = None
+    current_streak: int = Field(ge=0)
+    level: int = Field(ge=1)
+    due_drill_count: int = Field(ge=0)
+
+
+class DashboardSeries(_Base):
+    xp_per_bucket: list[BucketPointOut]
+    sessions_per_bucket: list[BucketPointOut]
+    mistakes_per_bucket: list[BucketPointOut]
+    avg_sentiment_per_bucket: list[BucketPointFOut]
+    talk_time_minutes_per_bucket: list[BucketPointOut]
+
+
+class DashboardWindow(_Base):
+    start: datetime
+    end: datetime
+
+
+class DashboardResponse(_Base):
+    range: Literal["30d", "90d", "365d"]
+    granularity: Literal["daily", "weekly", "monthly"]
+    window: DashboardWindow
+    summary: DashboardSummary
+    series: DashboardSeries
