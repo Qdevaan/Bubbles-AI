@@ -633,3 +633,47 @@ class GenerateScenarioRequest(_Base):
 class StartScenarioResponse(_Base):
     session_id: UUID
     scenario: ScenarioOut
+
+
+# ---- drill cards (F2) -----------------------------------------------------
+
+
+class DrillCardOut(_Base):
+    """Read-side projection of a ``drill_cards`` row.
+
+    ``front`` and ``back`` are server-derived convenience fields pulled from
+    ``examples[0]`` (the most recent example for this card). Clients show
+    ``front`` on the question side and ``back`` after the user taps to
+    reveal the suggestion.
+    """
+
+    id: UUID
+    rule_id: str
+    category: str
+    front: str
+    back: str
+    examples_count: int = Field(ge=0)
+    box: int = Field(ge=1, le=5)
+    due_at: datetime
+    last_reviewed_at: datetime | None = None
+    correct_streak: int = Field(ge=0)
+    total_reviews: int = Field(ge=0)
+    total_correct: int = Field(ge=0)
+    retired_at: datetime | None = None
+    created_at: datetime
+    updated_at: datetime
+
+
+class ReviewDrillRequest(_Base):
+    result: Literal["correct", "wrong"]
+
+
+class ReviewDrillResponse(_Base):
+    card: DrillCardOut
+    xp_awarded: int = Field(ge=0)
+    transition: str = Field(min_length=4, max_length=8)  # e.g. "3->4"
+
+
+class DrillQueueResponse(_Base):
+    items: list[DrillCardOut]
+    total_due: int = Field(ge=0)
