@@ -12,7 +12,7 @@ from httpx import ASGITransport, AsyncClient
 from bubbles.auth.current_user import CurrentUser, current_user
 from bubbles.db.repo import sessions as sessions_repo
 from bubbles.db.uow import UnitOfWork
-from bubbles.deps import RateLimiterDep, get_pool
+from bubbles.deps import get_pool, get_ratelimiter
 
 pytestmark = pytest.mark.integration
 
@@ -42,7 +42,7 @@ def _override(
         id=str(uid), email="t@t", role="authenticated"
     )
     app.dependency_overrides[get_pool] = lambda: pool
-    app.dependency_overrides[RateLimiterDep] = lambda: limiter or _FakeLimiter()
+    app.dependency_overrides[get_ratelimiter] = lambda: limiter or _FakeLimiter()
 
 
 async def _seed_session(pool: asyncpg.Pool, *, user_id: UUID) -> UUID:
