@@ -6,6 +6,9 @@ import pytest
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
+from bubbles.auth.current_user import CurrentUser, current_user
+from bubbles.deps import get_pool, get_ratelimiter
+
 
 async def test_unknown_field_rejected(app: FastAPI) -> None:
     transport = ASGITransport(app=app)
@@ -89,16 +92,32 @@ async def _confidence_endpoint_returns(
 ) -> int:
     """POST the confidence body to a dummy session id; return status code.
 
-    The route requires auth + ownership. For pure body-shape validation the
-    only thing under test is the 422 path returned by FastAPI's Pydantic
-    layer BEFORE the auth dep runs. We don't override deps here — a 422 is
-    what we expect for a malformed body regardless of auth.
+    Auth is bypassed via dependency override so that Pydantic body validation
+    fires and the response reflects schema errors (422) rather than auth
+    errors (401).
     """
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://t") as ac:
-        r = await ac.post(
-            "/v1/sessions/00000000-0000-0000-0000-000000000000/confidence",
-            json=body,
-        )
+    class _NoOpLimiter:
+        async def check(self, key: str, *, capacity: int, refill_per_s: float) -> object:
+            class _R:
+                allowed = True
+                retry_after_s = 0.0
+            return _R()
+
+    app.dependency_overrides[current_user] = lambda: CurrentUser(
+        id="test-user", email="t@t.com", role="authenticated"
+    )
+    app.dependency_overrides[get_pool] = lambda: None
+    app.dependency_overrides[get_ratelimiter] = lambda: _NoOpLimiter()
+    try:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://t") as ac:
+            r = await ac.post(
+                "/v1/sessions/00000000-0000-0000-0000-000000000000/confidence",
+                json=body,
+            )
+    finally:
+        app.dependency_overrides.pop(current_user, None)
+        app.dependency_overrides.pop(get_pool, None)
+        app.dependency_overrides.pop(get_ratelimiter, None)
     return r.status_code
 
 

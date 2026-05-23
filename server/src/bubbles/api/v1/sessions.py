@@ -16,20 +16,22 @@ from bubbles.api.v1._schemas import (
     SessionContextRequest,
     SessionOut,
     SessionReplayResponse,
+    SetTurnConfidenceRequest,
+    SetTurnConfidenceResponse,
     StartSessionRequest,
     SuggestReplyRequest,
     SuggestReplyResponse,
     TurnOut,
 )
 from bubbles.auth.current_user import CurrentUserDep, require_ownership
-from bubbles.core.errors import NotFound
+from bubbles.core.errors import NotFound, RateLimited
 from bubbles.core.logging import get_logger
 from bubbles.db.repo import gamification as gamification_repo
 from bubbles.db.repo import scenarios as scenarios_repo
 from bubbles.db.repo import session_logs as session_logs_repo
 from bubbles.db.repo import sessions as sessions_repo
 from bubbles.db.uow import UnitOfWork, transaction
-from bubbles.deps import ArqDep, EmbeddingsDep, PoolDep, RouterDep
+from bubbles.deps import ArqDep, EmbeddingsDep, PoolDep, RateLimiterDep, RouterDep
 from bubbles.workers.enqueue import (
     enqueue_compute_embeddings,
     enqueue_detect_achievements,
@@ -388,3 +390,48 @@ async def delete_session(
     if not ok:
         raise NotFound("session not found")
     return Response(status_code=204)
+
+
+_CONFIDENCE_CAPACITY = 10
+_CONFIDENCE_REFILL_PER_S = 10 / 60  # ~10 calls per minute per user
+
+
+@router.post(
+    "/sessions/{session_id}/confidence",
+    response_model=SetTurnConfidenceResponse,
+)
+async def set_turn_confidence(
+    session_id: UUID,
+    body: SetTurnConfidenceRequest,
+    user: CurrentUserDep,
+    pool: PoolDep,
+    limiter: RateLimiterDep,
+) -> SetTurnConfidenceResponse:
+    rl = await limiter.check(
+        f"confidence:{user.id}",
+        capacity=_CONFIDENCE_CAPACITY,
+        refill_per_s=_CONFIDENCE_REFILL_PER_S,
+    )
+    if not rl.allowed:
+        raise RateLimited(rl.retry_after_s)
+
+    async with transaction(pool) as conn:
+        existing = await sessions_repo.get(conn, session_id)
+    if existing is None:
+        raise NotFound("session not found")
+    require_ownership(user, str(existing.user_id))
+
+    items = [(item.turn_index, item.score) for item in body.confidence_by_turn]
+    async with UnitOfWork(pool) as uow:
+        updated = await session_logs_repo.update_confidence_bulk(
+            uow.conn, session_id=session_id, items=items
+        )
+
+    log.info(
+        "set_turn_confidence_done",
+        user=user.id,
+        session=str(session_id),
+        sent=len(items),
+        updated=updated,
+    )
+    return SetTurnConfidenceResponse(updated=updated)
