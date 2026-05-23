@@ -246,3 +246,35 @@ def to_out_dict(log: SessionLog) -> dict[str, Any]:
         "sentiment_label": log.sentiment_label,
         "created_at": log.created_at,
     }
+
+
+async def update_confidence_bulk(
+    conn: asyncpg.Connection,
+    *,
+    session_id: UUID,
+    items: list[tuple[int, float]],
+) -> int:
+    """Bulk-update ``session_logs.confidence`` keyed by ``(session_id, turn_index)``.
+
+    Rows whose ``turn_index`` does not match an existing log entry for
+    this session are silently ignored. Returns the count of rows
+    actually updated.
+    """
+    if not items:
+        return 0
+    turn_indexes = [t for t, _ in items]
+    scores = [s for _, s in items]
+    rows = await conn.fetch(
+        """
+        UPDATE session_logs sl
+        SET confidence = data.score
+        FROM unnest($1::int[], $2::numeric[]) AS data(turn_index, score)
+        WHERE sl.session_id = $3
+          AND sl.turn_index = data.turn_index
+        RETURNING 1
+        """,
+        turn_indexes,
+        scores,
+        session_id,
+    )
+    return len(rows)
