@@ -46,12 +46,12 @@ def test_wrong_review_resets_to_box_one(from_box: int) -> None:
 
 
 def test_invalid_box_raises() -> None:
-    with pytest.raises(ValueError, match="box must be 1..5"):
+    with pytest.raises(ValueError, match=r"box must be 1\.\.5"):
         next_state(0, "correct")
-    with pytest.raises(ValueError, match="box must be 1..5"):
+    with pytest.raises(ValueError, match=r"box must be 1\.\.5"):
         next_state(6, "correct")
 
 
 def test_invalid_result_raises() -> None:
-    with pytest.raises(ValueError, match="result must be 'correct' or 'wrong'"):
+    with pytest.raises(ValueError, match=r"result must be 'correct' or 'wrong'"):
         next_state(1, "ok")  # type: ignore[arg-type]
