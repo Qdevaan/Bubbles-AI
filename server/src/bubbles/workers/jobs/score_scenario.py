@@ -46,10 +46,18 @@ async def run(ctx: dict[str, Any], *, scenario_id: str) -> dict[str, Any]:
         min_turns=_MIN_TURNS,
         user_turns=user_turns,
     )
+    if passed is None:
+        # Upstream LLM failure: leave scenario in 'started' so ARQ can retry.
+        log.warning("score_scenario_eval_failed", scenario=scenario_id)
+        return {"scored": False, "reason": "eval_failed"}
+
     async with UnitOfWork(bub.pool) as uow:
-        await scenarios_repo.mark_completed(
+        updated = await scenarios_repo.mark_completed(
             uow.conn, scenario_id=sid, passed=passed, feedback=reason
         )
+        if updated is None:
+            log.info("score_scenario_already_completed", scenario=scenario_id)
+            return {"scored": False, "reason": "already_completed"}
         if passed:
             await xp_repo.record(
                 uow.conn,
