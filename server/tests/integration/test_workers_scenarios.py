@@ -103,3 +103,54 @@ async def test_generate_scenarios_partial_fill(
     }
     created = await generate_scenarios.run(ctx, user_id=str(user_id))
     assert created == 2
+
+
+async def test_score_scenario_writes_result_and_awards_xp(
+    pool: asyncpg.Pool, user_id: UUID, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from bubbles.ai import extraction
+    from bubbles.db.repo import session_logs as session_logs_repo
+    from bubbles.db.uow import UnitOfWork
+    from bubbles.workers.jobs import score_scenario
+
+    eid = await _entity(pool, user_id)
+    async with pool.acquire() as con:
+        srow = await con.fetchrow(
+            "INSERT INTO sessions (user_id, title, status) VALUES ($1, 's', 'ended') RETURNING id",
+            user_id,
+        )
+    assert srow is not None
+    sid: UUID = srow["id"]
+    async with pool.acquire() as con:
+        await session_logs_repo.append(con, session_id=sid, role="user", content="hi")
+        await session_logs_repo.append(con, session_id=sid, role="others", content="hello")
+    async with UnitOfWork(pool) as uow:
+        created = await scenarios_repo.create_many(uow.conn, user_id=user_id, rows=[_draft(eid)])
+        await scenarios_repo.mark_started(uow.conn, scenario_id=created[0].id, session_id=sid)
+
+    async def _pass(*_a: Any, **_kw: Any) -> tuple[bool | None, str | None]:
+        return (True, "well done")
+
+    monkeypatch.setattr(extraction, "evaluate_conversation_mission", _pass)
+    monkeypatch.setattr(score_scenario, "evaluate_conversation_mission", _pass)
+    ctx: dict[str, Any] = {
+        "bubbles": SimpleNamespace(ai=SimpleNamespace(router=object()), pool=pool)
+    }
+    result = await score_scenario.run(ctx, scenario_id=str(created[0].id))
+    # Re-run must not double-award XP.
+    await score_scenario.run(ctx, scenario_id=str(created[0].id))
+
+    assert result["scored"] is True
+    async with pool.acquire() as con:
+        row = await con.fetchrow(
+            "SELECT status, passed, score_feedback FROM scenarios WHERE id = $1", created[0].id
+        )
+        xp_n = await con.fetchval(
+            "SELECT COUNT(*)::int FROM xp_transactions WHERE user_id = $1 AND source_type = 'scenario'",
+            user_id,
+        )
+    assert row is not None
+    assert row["status"] == "completed"
+    assert row["passed"] is True
+    assert row["score_feedback"] == "well done"
+    assert xp_n == 1  # idempotent — second run deduped
