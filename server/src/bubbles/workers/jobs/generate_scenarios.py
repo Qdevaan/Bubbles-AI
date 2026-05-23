@@ -14,6 +14,7 @@ from bubbles.core.logging import get_logger
 from bubbles.db.repo import scenarios as scenarios_repo
 from bubbles.db.uow import UnitOfWork, transaction
 
+# ``scenario_gen`` is exposed so tests can monkeypatch ``generate``.
 __all__ = ["run", "scenario_gen"]
 
 log = get_logger(__name__)

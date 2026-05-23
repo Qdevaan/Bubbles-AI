@@ -81,3 +81,25 @@ async def test_generate_scenarios_fills_gap(
     async with pool.acquire() as con:
         n = await con.fetchval("SELECT COUNT(*)::int FROM scenarios WHERE user_id = $1", user_id)
     assert n == 5
+
+
+async def test_generate_scenarios_partial_fill(
+    pool: asyncpg.Pool, user_id: UUID, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    eid = await _entity(pool, user_id)
+    from bubbles.db.uow import UnitOfWork
+
+    async with UnitOfWork(pool) as uow:
+        await scenarios_repo.create_many(
+            uow.conn, user_id=user_id, rows=[_draft(eid) for _ in range(3)]
+        )
+
+    async def _n(*_a: Any, **kw: Any) -> list[scenarios_repo.NewScenario]:
+        return [_draft(eid) for _ in range(kw["count"])]
+
+    monkeypatch.setattr(generate_scenarios.scenario_gen, "generate", _n)
+    ctx: dict[str, Any] = {
+        "bubbles": SimpleNamespace(ai=SimpleNamespace(router=object()), pool=pool)
+    }
+    created = await generate_scenarios.run(ctx, user_id=str(user_id))
+    assert created == 2

@@ -140,10 +140,10 @@ async def enqueue_speaker_identify(arq: ArqRedis, *, user_id: str, audio_b64: st
     )
 
 
-async def enqueue_generate_scenarios(arq: ArqRedis, *, user_id: str, session_id: str) -> Any:
+async def enqueue_generate_scenarios(arq: ArqRedis, *, user_id: str) -> Any:
     return await arq.enqueue_job(
         "run",
         _job_name="generate_scenarios",
         user_id=user_id,
-        _job_id=f"genscenarios:{_hash_id((user_id, session_id))}",
+        _job_id=f"genscenarios:{user_id}",
     )
