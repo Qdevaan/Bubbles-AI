@@ -28,6 +28,7 @@ from bubbles.workers.jobs import (
     compute_session_analytics,
     detect_achievements,
     extract_knowledge,
+    generate_scenarios,
     grammar_scan,
     rolling_summarize,
     seed_quests,
@@ -88,6 +89,7 @@ async def _on_shutdown(ctx: dict[str, Any]) -> None:
 _JOB_REGISTRY: dict[str, Any] = {
     "compute_embeddings": compute_embeddings.run,
     "extract_knowledge": extract_knowledge.run,
+    "generate_scenarios": generate_scenarios.run,
     "compute_session_analytics": compute_session_analytics.run,
     "grammar_scan": grammar_scan.run,
     "speaker_enroll": speaker_enroll.run,
