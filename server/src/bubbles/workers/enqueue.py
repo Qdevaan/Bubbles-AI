@@ -156,3 +156,20 @@ async def enqueue_score_scenario(arq: ArqRedis, *, scenario_id: str) -> Any:
         scenario_id=scenario_id,
         _job_id=f"scorescenario:{scenario_id}",
     )
+
+
+async def enqueue_materialize_drill_cards(
+    arq: ArqRedis, *, user_id: str, session_id: str
+) -> Any:
+    """Materialize drill cards from session mistakes for a user.
+
+    One job per (user, session) pair ensures duplicate enqueues within ARQ's
+    dedup window are no-ops, preventing duplicate drill card creation.
+    """
+    return await arq.enqueue_job(
+        "run",
+        _job_name="materialize_drill_cards",
+        user_id=user_id,
+        session_id=session_id,
+        _job_id=f"materialize_drills:{user_id}:{session_id}",
+    )
