@@ -97,6 +97,7 @@ async def test_end_session_with_transcript_enqueues_jobs(
         "detect_achievements",
         "sentiment_scan",
         "generate_scenarios",
+        "materialize_drill_cards",
     ]
     # Every job in this fan-out carries a ``user_id`` kwarg; assert each call's
     # user_id is the caller's. ``score_scenario`` is the only job that lacks
@@ -197,6 +198,7 @@ async def test_end_session_assembles_transcript_from_rows(
         "detect_achievements",
         "sentiment_scan",
         "generate_scenarios",
+        "materialize_drill_cards",
     ]
     sent_transcript = arq.calls[0][1]["transcript"]
     assert sent_transcript == "User: hi\nOthers: hello"
