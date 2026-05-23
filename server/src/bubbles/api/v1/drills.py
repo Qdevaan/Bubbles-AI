@@ -27,6 +27,7 @@ from bubbles.api.v1._schemas import (
 from bubbles.auth.current_user import CurrentUserDep
 from bubbles.core.errors import RateLimited
 from bubbles.core.logging import get_logger
+from bubbles.db.models import DrillCard
 from bubbles.db.repo import drill_cards as drill_repo
 from bubbles.db.repo import xp as xp_repo
 from bubbles.db.uow import UnitOfWork, transaction
@@ -48,10 +49,9 @@ _SOURCE_TYPE = "drill_review"
 _ACTION_TYPE = "complete_drill_review"
 
 
-def _to_out(card: object) -> DrillCardOut:
-    # ``card`` is a ``DrillCard`` from the repo. Local import is avoided to
-    # keep the route module light; we duck-type the attributes we need.
-    examples = getattr(card, "examples", []) or []
+def _to_out(card: DrillCard) -> DrillCardOut:
+    """Project a DrillCard row into the API response shape."""
+    examples = card.examples or []
     front = ""
     back = ""
     if examples:
@@ -59,21 +59,21 @@ def _to_out(card: object) -> DrillCardOut:
         front = str(first.get("snippet", ""))
         back = str(first.get("suggestion", ""))
     return DrillCardOut(
-        id=card.id,  # type: ignore[attr-defined]
-        rule_id=card.rule_id,  # type: ignore[attr-defined]
-        category=card.category,  # type: ignore[attr-defined]
+        id=card.id,
+        rule_id=card.rule_id,
+        category=card.category,
         front=front,
         back=back,
         examples_count=len(examples),
-        box=card.box,  # type: ignore[attr-defined]
-        due_at=card.due_at,  # type: ignore[attr-defined]
-        last_reviewed_at=card.last_reviewed_at,  # type: ignore[attr-defined]
-        correct_streak=card.correct_streak,  # type: ignore[attr-defined]
-        total_reviews=card.total_reviews,  # type: ignore[attr-defined]
-        total_correct=card.total_correct,  # type: ignore[attr-defined]
-        retired_at=card.retired_at,  # type: ignore[attr-defined]
-        created_at=card.created_at,  # type: ignore[attr-defined]
-        updated_at=card.updated_at,  # type: ignore[attr-defined]
+        box=card.box,
+        due_at=card.due_at,
+        last_reviewed_at=card.last_reviewed_at,
+        correct_streak=card.correct_streak,
+        total_reviews=card.total_reviews,
+        total_correct=card.total_correct,
+        retired_at=card.retired_at,
+        created_at=card.created_at,
+        updated_at=card.updated_at,
     )
 
 
