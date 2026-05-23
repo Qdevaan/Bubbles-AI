@@ -333,3 +333,21 @@ class Scenario:
     score_feedback: str | None
     created_at: datetime
     updated_at: datetime
+
+
+@dataclass(frozen=True, slots=True)
+class DrillCard:
+    id: UUID
+    user_id: UUID
+    rule_id: str
+    category: str
+    examples: list[dict[str, Any]]
+    box: int
+    due_at: datetime
+    last_reviewed_at: datetime | None
+    correct_streak: int
+    total_reviews: int
+    total_correct: int
+    retired_at: datetime | None
+    created_at: datetime
+    updated_at: datetime
