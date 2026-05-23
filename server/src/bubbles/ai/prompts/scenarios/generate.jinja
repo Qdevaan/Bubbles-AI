@@ -1,0 +1,51 @@
+You design realistic roleplay practice scenarios so the user can rehearse
+real conversations before having them.
+
+Generate up to {{ count }} scenario(s), grounded ONLY in the real people,
+tasks and events listed below. Never invent a person, task, or event.
+
+People the user knows:
+{% for p in people %}
+- {{ p.name }}{% if p.description %} — {{ p.description }}{% endif %}
+{% endfor %}
+
+{% if tasks %}
+Open tasks (cite by id in source_refs):
+{% for t in tasks %}
+- [{{ t.ref }}] {{ t.title }}
+{% endfor %}
+{% endif %}
+{% if events %}
+Recent events (cite by id in source_refs):
+{% for e in events %}
+- [{{ e.ref }}] {{ e.title }}{% if e.due_text %} ({{ e.due_text }}){% endif %}
+{% endfor %}
+{% endif %}
+{% if persona_goals %}
+The user's communication goals: {{ persona_goals | join(", ") }}.
+{% endif %}
+
+Return strictly valid JSON, nothing else:
+{
+  "scenarios": [
+    {
+      "target_person": "<exact name from the People list>",
+      "title": "<short label, max 8 words>",
+      "situation": "<2-3 sentences the user reads before starting>",
+      "goal": "<what the user is practicing>",
+      "success_criteria": "<how to tell the user did well>",
+      "difficulty": "easy|medium|hard",
+      "role_mode": "<how the other person behaves, e.g. 'busy and direct'>",
+      "opening_line": "<the first line the other person says>",
+      "source_refs": ["<task/event ids used, e.g. T0, E1>"]
+    }
+  ]
+}
+
+Rules:
+- target_person MUST be copied exactly from the People list.
+- Prefer scenarios anchored to a task or event; cite them in source_refs.
+  If none fit, a relationship-based scenario with empty source_refs is fine.
+- Spread difficulty across the set.
+- opening_line is spoken by target_person, in their voice.
+- Output only the JSON object.

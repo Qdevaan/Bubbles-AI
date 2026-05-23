@@ -28,8 +28,10 @@ from bubbles.workers.jobs import (
     compute_session_analytics,
     detect_achievements,
     extract_knowledge,
+    generate_scenarios,
     grammar_scan,
     rolling_summarize,
+    score_scenario,
     seed_quests,
     send_reminders,
     sentiment_scan,
@@ -88,6 +90,7 @@ async def _on_shutdown(ctx: dict[str, Any]) -> None:
 _JOB_REGISTRY: dict[str, Any] = {
     "compute_embeddings": compute_embeddings.run,
     "extract_knowledge": extract_knowledge.run,
+    "generate_scenarios": generate_scenarios.run,
     "compute_session_analytics": compute_session_analytics.run,
     "grammar_scan": grammar_scan.run,
     "speaker_enroll": speaker_enroll.run,
@@ -96,6 +99,7 @@ _JOB_REGISTRY: dict[str, Any] = {
     "backfill_session_entities": backfill_session_entities.run,
     "sentiment_scan": sentiment_scan.run,
     "rolling_summarize": rolling_summarize.run,
+    "score_scenario": score_scenario.run,
 }
 
 

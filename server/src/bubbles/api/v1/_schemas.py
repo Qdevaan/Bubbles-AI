@@ -604,3 +604,32 @@ class CommunicationTrendsResponse(_Base):
     weeks_requested: int
     weeks_available: int
     trends: list[WeeklyTrendOut]
+
+
+# --- scenarios -------------------------------------------------------------
+
+
+class ScenarioOut(_Base):
+    id: UUID
+    target_entity_id: UUID | None
+    title: str
+    situation: str
+    goal: str
+    success_criteria: str
+    difficulty: str
+    role_mode: str
+    opening_line: str
+    status: str
+    session_id: UUID | None
+    passed: bool | None
+    score_feedback: str | None
+    created_at: datetime
+
+
+class GenerateScenarioRequest(_Base):
+    target_entity_id: UUID
+
+
+class StartScenarioResponse(_Base):
+    session_id: UUID
+    scenario: ScenarioOut

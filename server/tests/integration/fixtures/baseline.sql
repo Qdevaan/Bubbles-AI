@@ -385,3 +385,27 @@ CREATE TABLE voice_enrollments (
     updated_at timestamptz NOT NULL DEFAULT now()
 );
 CREATE INDEX idx_voice_enrollments_user ON voice_enrollments (user_id);
+
+CREATE TABLE scenarios (
+    id               uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id          uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    target_entity_id uuid REFERENCES entities(id) ON DELETE SET NULL,
+    title            text NOT NULL,
+    situation        text NOT NULL,
+    goal             text NOT NULL,
+    success_criteria text NOT NULL,
+    difficulty       text NOT NULL DEFAULT 'medium'
+                         CHECK (difficulty IN ('easy', 'medium', 'hard')),
+    role_mode        text NOT NULL DEFAULT 'default',
+    opening_line     text NOT NULL,
+    source           jsonb NOT NULL DEFAULT '{}'::jsonb,
+    status           text NOT NULL DEFAULT 'suggested'
+                         CHECK (status IN ('suggested','started','completed','dismissed')),
+    session_id       uuid REFERENCES sessions(id) ON DELETE SET NULL,
+    passed           boolean,
+    score_feedback   text,
+    created_at       timestamptz NOT NULL DEFAULT now(),
+    updated_at       timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX idx_scenarios_user_status ON scenarios (user_id, status);
+CREATE INDEX idx_scenarios_user_entity ON scenarios (user_id, target_entity_id);
