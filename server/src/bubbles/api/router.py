@@ -6,6 +6,7 @@ from fastapi import APIRouter
 
 from bubbles.api.v1.analytics import router as analytics_router
 from bubbles.api.v1.consultant import router as consultant_router
+from bubbles.api.v1.dashboard import router as dashboard_router
 from bubbles.api.v1.drills import router as drills_router
 from bubbles.api.v1.entities import router as entities_router
 from bubbles.api.v1.gamification import router as gamification_router
@@ -25,6 +26,7 @@ v1_router.include_router(wingman_router)
 v1_router.include_router(speaker_router)
 v1_router.include_router(consultant_router)
 v1_router.include_router(analytics_router)
+v1_router.include_router(dashboard_router)
 v1_router.include_router(entities_router)
 v1_router.include_router(gamification_router)
 v1_router.include_router(memories_router)
