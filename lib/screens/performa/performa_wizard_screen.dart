@@ -18,6 +18,7 @@ import 'widgets/step1_identity.dart';
 import 'widgets/step2_language.dart';
 import 'widgets/step3_goals.dart';
 
+import '../../widgets/app_dialog.dart';
 import '../../widgets/app_snack_bar.dart';
 /// Three-step persona wizard ("Performa"). Collects identity, language,
 /// and goal information then upserts via [PersonaProvider]. In setup mode
@@ -116,57 +117,18 @@ class _PerformaWizardScreenState extends State<PerformaWizardScreen> {
   }
 
   Future<void> _confirmSkip() async {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final confirmed = await showDialog<bool>(
+    final confirmed = await AppDialog.confirm(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: isDark ? AppColors.surfaceDark : Colors.white,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppRadius.lg),
-        ),
-        title: Text(
-          'Skip personalization?',
-          style: GoogleFonts.manrope(
-            fontWeight: FontWeight.w800,
-            color: isDark ? Colors.white : AppColors.slate900,
-          ),
-        ),
-        content: Text(
-          'Without a Performa profile, suggestions, scenarios, and your '
+      title: 'Skip personalization?',
+      message: 'Without a Performa profile, suggestions, scenarios, and your '
           'knowledge graph will use generic defaults — they will not be '
           'tailored to your role, language, or goals. You can fill it in '
           'any time from Settings → Performa.',
-          style: GoogleFonts.manrope(
-            fontSize: 14,
-            height: 1.5,
-            color: isDark ? AppColors.slate300 : AppColors.slate600,
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: Text(
-              'Personalize now',
-              style: GoogleFonts.manrope(
-                fontWeight: FontWeight.w700,
-                color: AppColors.primary,
-              ),
-            ),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(true),
-            child: Text(
-              'Skip anyway',
-              style: GoogleFonts.manrope(
-                fontWeight: FontWeight.w700,
-                color: isDark ? AppColors.slate300 : AppColors.slate600,
-              ),
-            ),
-          ),
-        ],
-      ),
+      cancelLabel: 'Personalize now',
+      confirmLabel: 'Skip anyway',
+      tone: AppDialogTone.warning,
     );
-    if (confirmed != true) return;
+    if (!confirmed) return;
     await PersonaSkipService.instance.markSkipped();
     if (!mounted) return;
     Navigator.of(context).pushReplacementNamed(AppRoutes.home);

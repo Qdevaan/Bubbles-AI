@@ -14,7 +14,7 @@ import '../providers/home_provider.dart';
 import '../providers/gamification_provider.dart';
 import '../providers/settings_provider.dart';
 import '../repositories/graph_repository.dart';
-import '../widgets/glass_morphism.dart';
+import '../widgets/app_dialog.dart';
 import '../widgets/animated_background.dart';
 import '../widgets/home/home_widgets.dart';
 import '../widgets/insights/insight_item.dart';
@@ -692,87 +692,27 @@ class _HomeScreenState extends State<HomeScreen>
     }
 
   void _showNotConnectedDialog(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    showDialog(
+    AppDialog.show<void>(
       context: context,
-      builder: (ctx) => GlassDialog(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
-              children: [
-                Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: AppColors.error.withAlpha(26),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: const Icon(Icons.wifi_off_rounded, color: AppColors.error, size: 20),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          'Not Connected',
-                          style: GoogleFonts.manrope(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w800,
-                            color: isDark ? Colors.white : AppColors.slate900,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    'Looks like you\'re not connected right now. Connect to start a new session.',
-                    style: GoogleFonts.manrope(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                      color: isDark ? AppColors.slate400 : AppColors.slate500,
-                      height: 1.5,
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      TextButton(
-                        onPressed: () => Navigator.pop(ctx),
-                        child: Text(
-                          'Cancel',
-                          style: GoogleFonts.manrope(
-                            fontWeight: FontWeight.w700,
-                            color: isDark ? AppColors.slate400 : AppColors.slate500,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      TextButton(
-                        onPressed: () {
-                          Navigator.pop(ctx);
-                          Navigator.pushNamed(context, '/connections');
-                        },
-                        style: TextButton.styleFrom(
-                          backgroundColor: Theme.of(context).colorScheme.primary.withAlpha(38),
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(AppRadius.full),
-                          ),
-                        ),
-                        child: Text(
-                          'Connect',
-                          style: GoogleFonts.manrope(
-                            fontWeight: FontWeight.w700,
-                            color: Theme.of(context).colorScheme.primary,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-      ),
+      title: 'Not Connected',
+      subtitle:
+          'Looks like you\'re not connected right now. Connect to start a new session.',
+      icon: Icons.wifi_off_rounded,
+      tone: AppDialogTone.danger,
+      actions: [
+        AppDialogAction(
+          label: 'Cancel',
+          onTap: () => Navigator.of(context).pop(),
+        ),
+        AppDialogAction(
+          label: 'Connect',
+          primary: true,
+          onTap: () {
+            Navigator.of(context).pop();
+            Navigator.pushNamed(context, '/connections');
+          },
+        ),
+      ],
     );
   }
 

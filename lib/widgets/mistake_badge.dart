@@ -13,12 +13,7 @@ class MistakeBadge extends StatelessWidget {
       builder: (context, p, _) {
         if (p.sessionTotal == 0) return const SizedBox.shrink();
         return InkWell(
-          onTap: () {
-            showModalBottomSheet(
-              context: context,
-              builder: (_) => MistakeListSheet(items: p.items),
-            );
-          },
+          onTap: () => MistakeListSheet.show(context, p.items),
           borderRadius: BorderRadius.circular(20),
           child: Container(
             padding:

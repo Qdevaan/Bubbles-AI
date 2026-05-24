@@ -5,168 +5,96 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../theme/design_tokens.dart';
 import '../../providers/theme_provider.dart';
 import '../../services/voice_assistant_service.dart';
-import '../glass_morphism.dart';
+import '../app_dialog.dart';
+import '../app_sheet.dart';
 import 'settings_widgets.dart';
 
 /// Shows a contact-us bottom sheet.
 void showContactSheet(BuildContext context, bool isDark) {
-  showModalBottomSheet(
+  final primary = Theme.of(context).colorScheme.primary;
+  AppSheet.show<void>(
     context: context,
-    backgroundColor: Colors.transparent,
-    builder: (_) {
-      final primary = Theme.of(context).colorScheme.primary;
-      return GlassBottomSheet(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(
-              child: Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: isDark ? AppColors.glassBorder : Colors.grey.shade300,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ),
-            const SizedBox(height: 20),
-            Text(
-              'Contact Us',
-              style: GoogleFonts.manrope(
-                fontSize: 20,
-                fontWeight: FontWeight.w800,
-                color: isDark ? Colors.white : AppColors.slate900,
-              ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              'Have questions, feedback, or need support? Reach out to the Bubbles team.',
-              style: GoogleFonts.manrope(
-                fontSize: 13,
-                color: isDark ? AppColors.slate400 : AppColors.slate500,
-                height: 1.5,
-              ),
-            ),
-            const SizedBox(height: 24),
-            ContactRow(
-              isDark: isDark,
-              icon: Icons.email_outlined,
-              iconColor: primary,
-              label: 'Email Support',
-              value: 'support@bubbles.ai',
-            ),
-            const SizedBox(height: 12),
-            ContactRow(
-              isDark: isDark,
-              icon: Icons.language_rounded,
-              iconColor: const Color(0xFF3B82F6),
-              label: 'Website',
-              value: 'www.bubbles.ai',
-            ),
-            const SizedBox(height: 12),
-            ContactRow(
-              isDark: isDark,
-              icon: Icons.bug_report_outlined,
-              iconColor: AppColors.warning,
-              label: 'Report a Bug',
-              value: 'bugs@bubbles.ai',
-            ),
-          ],
+    title: 'Contact Us',
+    subtitle:
+        'Have questions, feedback, or need support? Reach out to the Bubbles team.',
+    icon: Icons.support_agent_rounded,
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        ContactRow(
+          isDark: isDark,
+          icon: Icons.email_outlined,
+          iconColor: primary,
+          label: 'Email Support',
+          value: 'support@bubbles.ai',
         ),
-      );
-    },
+        const SizedBox(height: 12),
+        ContactRow(
+          isDark: isDark,
+          icon: Icons.language_rounded,
+          iconColor: const Color(0xFF3B82F6),
+          label: 'Website',
+          value: 'www.bubbles.ai',
+        ),
+        const SizedBox(height: 12),
+        ContactRow(
+          isDark: isDark,
+          icon: Icons.bug_report_outlined,
+          iconColor: AppColors.warning,
+          label: 'Report a Bug',
+          value: 'bugs@bubbles.ai',
+        ),
+      ],
+    ),
   );
 }
 
 /// Shows a theme mode picker dialog (System / Light / Dark).
 void showThemeModePicker(BuildContext context, ThemeProvider themeProvider) {
-  showDialog(
+  final isDark = Theme.of(context).brightness == Brightness.dark;
+  AppDialog.show<void>(
     context: context,
-    builder: (ctx) {
-      final isDark = Theme.of(context).brightness == Brightness.dark;
-      return GlassDialog(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.primary.withAlpha(26),
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(
-                      color: Theme.of(
-                        context,
-                      ).colorScheme.primary.withAlpha(51),
-                    ),
-                  ),
-                  child: Icon(
-                    Icons.palette_outlined,
-                    color: Theme.of(context).colorScheme.primary,
-                    size: 20,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    'Select Theme Mode',
-                    style: GoogleFonts.manrope(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w800,
-                      color: isDark ? Colors.white : AppColors.slate900,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 20),
-            _buildThemeOption(
-              context,
-              themeProvider,
-              title: 'System Default',
-              icon: Icons.brightness_auto,
-              mode: ThemeMode.system,
-              isDark: isDark,
-            ),
-            const SizedBox(height: 8),
-            _buildThemeOption(
-              context,
-              themeProvider,
-              title: 'Light',
-              icon: Icons.light_mode,
-              mode: ThemeMode.light,
-              isDark: isDark,
-            ),
-            const SizedBox(height: 8),
-            _buildThemeOption(
-              context,
-              themeProvider,
-              title: 'Dark',
-              icon: Icons.dark_mode,
-              mode: ThemeMode.dark,
-              isDark: isDark,
-            ),
-            const SizedBox(height: 16),
-            Align(
-              alignment: Alignment.centerRight,
-              child: TextButton(
-                onPressed: () => Navigator.pop(ctx),
-                child: Text(
-                  'Close',
-                  style: GoogleFonts.manrope(
-                    fontWeight: FontWeight.w700,
-                    color: Theme.of(context).colorScheme.primary,
-                  ),
-                ),
-              ),
-            ),
-          ],
+    title: 'Select Theme Mode',
+    icon: Icons.palette_outlined,
+    content: Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _buildThemeOption(
+          context,
+          themeProvider,
+          title: 'System Default',
+          icon: Icons.brightness_auto,
+          mode: ThemeMode.system,
+          isDark: isDark,
         ),
-      );
-    },
+        const SizedBox(height: 8),
+        _buildThemeOption(
+          context,
+          themeProvider,
+          title: 'Light',
+          icon: Icons.light_mode,
+          mode: ThemeMode.light,
+          isDark: isDark,
+        ),
+        const SizedBox(height: 8),
+        _buildThemeOption(
+          context,
+          themeProvider,
+          title: 'Dark',
+          icon: Icons.dark_mode,
+          mode: ThemeMode.dark,
+          isDark: isDark,
+        ),
+      ],
+    ),
+    actions: [
+      AppDialogAction(
+        label: 'Close',
+        onTap: () => Navigator.of(context).pop(),
+      ),
+    ],
   );
 }
 
@@ -234,125 +162,80 @@ Widget _buildThemeOption(
 
 /// Shows an accent color picker dialog.
 void showColorPicker(BuildContext context, ThemeProvider themeProvider) {
-  final isDark = Theme.of(context).brightness == Brightness.dark;
-  showDialog(
+  const swatches = <Color>[
+    AppColors.primary,           // slate-600 (new default)
+    Color(0xFF13BDEC),           // legacy Bubbles cyan
+    Colors.blueAccent,
+    Colors.redAccent,
+    Colors.greenAccent,
+    Colors.orangeAccent,
+    Colors.purpleAccent,
+    Colors.tealAccent,
+    Colors.pinkAccent,
+    Colors.amberAccent,
+    Colors.indigoAccent,
+  ];
+  AppDialog.show<void>(
     context: context,
-    builder: (ctx) => GlassDialog(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.primary.withAlpha(26),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(
-                    color: Theme.of(context).colorScheme.primary.withAlpha(51),
-                  ),
-                ),
-                child: Icon(
-                  Icons.color_lens_outlined,
-                  color: Theme.of(context).colorScheme.primary,
-                  size: 20,
-                ),
+    title: 'Accent Color',
+    icon: Icons.color_lens_outlined,
+    content: Wrap(
+      spacing: 12,
+      runSpacing: 12,
+      alignment: WrapAlignment.center,
+      children: swatches.map((color) {
+        final isSelected =
+            themeProvider.seedColor.toARGB32() == color.toARGB32();
+        return GestureDetector(
+          onTap: () {
+            themeProvider.setThemeColor(color);
+            Navigator.of(context).pop();
+          },
+          child: AnimatedContainer(
+            duration: AppDurations.fast,
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: color,
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: isSelected ? Colors.white : Colors.transparent,
+                width: 2.5,
               ),
-              const SizedBox(width: 12),
-              Text(
-                'Accent Color',
-                style: GoogleFonts.manrope(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w800,
-                  color: isDark ? Colors.white : AppColors.slate900,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 20),
-          Wrap(
-            spacing: 12,
-            runSpacing: 12,
-            alignment: WrapAlignment.center,
-            children:
-                [
-                  AppColors.primary,
-                  Colors.blueAccent,
-                  Colors.redAccent,
-                  Colors.greenAccent,
-                  Colors.orangeAccent,
-                  Colors.purpleAccent,
-                  Colors.tealAccent,
-                  Colors.pinkAccent,
-                  Colors.amberAccent,
-                  Colors.indigoAccent,
-                ].map((color) {
-                  final isSelected =
-                      themeProvider.seedColor.toARGB32() == color.toARGB32();
-                  return GestureDetector(
-                    onTap: () {
-                      themeProvider.setThemeColor(color);
-                      Navigator.pop(ctx);
-                    },
-                    child: AnimatedContainer(
-                      duration: AppDurations.fast,
-                      width: 44,
-                      height: 44,
-                      decoration: BoxDecoration(
-                        color: color,
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: isSelected ? Colors.white : Colors.transparent,
-                          width: 2.5,
-                        ),
-                        boxShadow: isSelected
-                            ? [
-                                BoxShadow(
-                                  color: color.withAlpha(128),
-                                  blurRadius: 8,
-                                  spreadRadius: 1,
-                                ),
-                              ]
-                            : null,
+              boxShadow: isSelected
+                  ? [
+                      BoxShadow(
+                        color: color.withAlpha(128),
+                        blurRadius: 8,
+                        spreadRadius: 1,
                       ),
-                      child: isSelected
-                          ? const Icon(
-                              Icons.check,
-                              color: Colors.white,
-                              size: 20,
-                            )
-                          : null,
-                    ),
-                  );
-                }).toList(),
-          ),
-          const SizedBox(height: 16),
-          Align(
-            alignment: Alignment.centerRight,
-            child: TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: Text(
-                'Cancel',
-                style: GoogleFonts.manrope(
-                  fontWeight: FontWeight.w700,
-                  color: Theme.of(context).colorScheme.primary,
-                ),
-              ),
+                    ]
+                  : null,
             ),
+            child: isSelected
+                ? const Icon(Icons.check, color: Colors.white, size: 20)
+                : null,
           ),
-        ],
-      ),
+        );
+      }).toList(),
     ),
+    actions: [
+      AppDialogAction(
+        label: 'Cancel',
+        onTap: () => Navigator.of(context).pop(),
+      ),
+    ],
   );
 }
 
 /// Shows a voice mode picker bottom sheet (Male / Female / Jarvis).
 void showVoiceModePicker(BuildContext context, VoiceAssistantService voice) {
-  showModalBottomSheet(
+  final primary = Theme.of(context).colorScheme.primary;
+  AppSheet.show<void>(
     context: context,
-    backgroundColor: Colors.transparent,
-    builder: (ctx) => StatefulBuilder(
+    title: 'Select Voice Mode',
+    icon: Icons.record_voice_over_outlined,
+    child: StatefulBuilder(
       builder: (ctx, setSheetState) {
         final isDark = Theme.of(ctx).brightness == Brightness.dark;
         VoiceMode selectedMode = voice.voiceMode;
@@ -363,7 +246,6 @@ void showVoiceModePicker(BuildContext context, VoiceAssistantService voice) {
           required String label,
           required Color color,
         }) {
-          final isDark = Theme.of(ctx).brightness == Brightness.dark;
           final isSelected = selectedMode == mode;
           return Expanded(
             child: GestureDetector(
@@ -385,14 +267,14 @@ void showVoiceModePicker(BuildContext context, VoiceAssistantService voice) {
                   color: isSelected
                       ? color.withAlpha(38)
                       : (isDark
-                            ? AppColors.surfaceDarkHighlight
-                            : Colors.grey.shade100),
+                          ? AppColors.surfaceDarkHighlight
+                          : Colors.grey.shade100),
                   border: Border.all(
                     color: isSelected
                         ? color
                         : (isDark
-                              ? Colors.white.withAlpha(26)
-                              : Colors.grey.shade300),
+                            ? Colors.white.withAlpha(26)
+                            : Colors.grey.shade300),
                     width: isSelected ? 2 : 1,
                   ),
                 ),
@@ -411,9 +293,8 @@ void showVoiceModePicker(BuildContext context, VoiceAssistantService voice) {
                       label,
                       style: GoogleFonts.manrope(
                         fontSize: 13,
-                        fontWeight: isSelected
-                            ? FontWeight.bold
-                            : FontWeight.w500,
+                        fontWeight:
+                            isSelected ? FontWeight.bold : FontWeight.w500,
                         color: isSelected
                             ? color
                             : (isDark ? Colors.white54 : Colors.grey),
@@ -435,79 +316,29 @@ void showVoiceModePicker(BuildContext context, VoiceAssistantService voice) {
           );
         }
 
-        return GlassBottomSheet(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: isDark ? AppColors.glassBorder : Colors.grey.shade300,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              const SizedBox(height: 16),
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: Theme.of(
-                        context,
-                      ).colorScheme.primary.withAlpha(26),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(
-                        color: Theme.of(
-                          context,
-                        ).colorScheme.primary.withAlpha(51),
-                      ),
-                    ),
-                    child: Icon(
-                      Icons.record_voice_over_outlined,
-                      color: Theme.of(context).colorScheme.primary,
-                      size: 20,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Text(
-                    'Select Voice Mode',
-                    style: GoogleFonts.manrope(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
-                      color: isDark ? Colors.white : AppColors.slate900,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 20),
-              Row(
-                children: [
-                  buildCard(
-                    mode: VoiceMode.male,
-                    icon: Icons.man_rounded,
-                    label: 'Male',
-                    color: Theme.of(context).colorScheme.primary,
-                  ),
-                  const SizedBox(width: 10),
-                  buildCard(
-                    mode: VoiceMode.female,
-                    icon: Icons.woman_rounded,
-                    label: 'Female',
-                    color: Colors.pinkAccent,
-                  ),
-                  const SizedBox(width: 10),
-                  buildCard(
-                    mode: VoiceMode.neutral,
-                    icon: Icons.smart_toy_rounded,
-                    label: 'Jarvis',
-                    color: Theme.of(context).colorScheme.primary,
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-            ],
-          ),
+        return Row(
+          children: [
+            buildCard(
+              mode: VoiceMode.male,
+              icon: Icons.man_rounded,
+              label: 'Male',
+              color: primary,
+            ),
+            const SizedBox(width: 10),
+            buildCard(
+              mode: VoiceMode.female,
+              icon: Icons.woman_rounded,
+              label: 'Female',
+              color: Colors.pinkAccent,
+            ),
+            const SizedBox(width: 10),
+            buildCard(
+              mode: VoiceMode.neutral,
+              icon: Icons.smart_toy_rounded,
+              label: 'Jarvis',
+              color: primary,
+            ),
+          ],
         );
       },
     ),
@@ -519,82 +350,15 @@ void showLiveTonePicker(
   BuildContext context,
   SettingsProvider settingsProvider,
 ) {
-  final isDark = Theme.of(context).brightness == Brightness.dark;
-  final toneOptions = ['Casual', 'Semi-formal', 'Formal'];
-
-  showDialog(
+  _showRadioPicker(
     context: context,
-    builder: (ctx) => GlassDialog(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.primary.withAlpha(26),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(
-                    color: Theme.of(context).colorScheme.primary.withAlpha(51),
-                  ),
-                ),
-                child: Icon(
-                  Icons.chat_bubble_outline,
-                  color: Theme.of(context).colorScheme.primary,
-                  size: 20,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  'Live Session Tone',
-                  style: GoogleFonts.manrope(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w800,
-                    color: isDark ? Colors.white : AppColors.slate900,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 20),
-          ...toneOptions.map((tone) {
-            final isSelected =
-                settingsProvider.defaultLiveTone.toLowerCase() ==
-                tone.toLowerCase();
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: _buildToneOption(
-                context: context,
-                title: tone,
-                isSelected: isSelected,
-                isDark: isDark,
-                onTap: () {
-                  settingsProvider.setDefaultLiveTone(tone.toLowerCase());
-                  Navigator.pop(ctx);
-                },
-              ),
-            );
-          }).toList(),
-          const SizedBox(height: 16),
-          Align(
-            alignment: Alignment.centerRight,
-            child: TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: Text(
-                'Cancel',
-                style: GoogleFonts.manrope(
-                  fontWeight: FontWeight.w700,
-                  color: Theme.of(context).colorScheme.primary,
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    ),
+    title: 'Live Session Tone',
+    icon: Icons.chat_bubble_outline,
+    options: const ['Casual', 'Semi-formal', 'Formal'],
+    isSelected: (tone) =>
+        settingsProvider.defaultLiveTone.toLowerCase() == tone.toLowerCase(),
+    onSelected: (tone) =>
+        settingsProvider.setDefaultLiveTone(tone.toLowerCase()),
   );
 }
 
@@ -603,82 +367,16 @@ void showConsultantTonePicker(
   BuildContext context,
   SettingsProvider settingsProvider,
 ) {
-  final isDark = Theme.of(context).brightness == Brightness.dark;
-  final toneOptions = ['Casual', 'Semi-formal', 'Formal'];
-
-  showDialog(
+  _showRadioPicker(
     context: context,
-    builder: (ctx) => GlassDialog(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.primary.withAlpha(26),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(
-                    color: Theme.of(context).colorScheme.primary.withAlpha(51),
-                  ),
-                ),
-                child: Icon(
-                  Icons.person_outline,
-                  color: Theme.of(context).colorScheme.primary,
-                  size: 20,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  'Consultant Session Tone',
-                  style: GoogleFonts.manrope(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w800,
-                    color: isDark ? Colors.white : AppColors.slate900,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 20),
-          ...toneOptions.map((tone) {
-            final isSelected =
-                settingsProvider.defaultConsultantTone.toLowerCase() ==
-                tone.toLowerCase();
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: _buildToneOption(
-                context: context,
-                title: tone,
-                isSelected: isSelected,
-                isDark: isDark,
-                onTap: () {
-                  settingsProvider.setDefaultConsultantTone(tone.toLowerCase());
-                  Navigator.pop(ctx);
-                },
-              ),
-            );
-          }).toList(),
-          const SizedBox(height: 16),
-          Align(
-            alignment: Alignment.centerRight,
-            child: TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: Text(
-                'Cancel',
-                style: GoogleFonts.manrope(
-                  fontWeight: FontWeight.w700,
-                  color: Theme.of(context).colorScheme.primary,
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    ),
+    title: 'Consultant Session Tone',
+    icon: Icons.person_outline,
+    options: const ['Casual', 'Semi-formal', 'Formal'],
+    isSelected: (tone) =>
+        settingsProvider.defaultConsultantTone.toLowerCase() ==
+        tone.toLowerCase(),
+    onSelected: (tone) =>
+        settingsProvider.setDefaultConsultantTone(tone.toLowerCase()),
   );
 }
 
@@ -687,173 +385,86 @@ void showQuickActionsStylePicker(
   BuildContext context,
   SettingsProvider settingsProvider,
 ) {
-  final isDark = Theme.of(context).brightness == Brightness.dark;
-  // Map internal string values to display titles
-  final styleOptions = {
+  const styleOptions = {
     'list': 'List (One in a line)',
     'grid': 'Grid (Two in a line)',
     'icons': 'Icons (App-like)',
   };
-
-  showDialog(
+  final keys = styleOptions.keys.toList();
+  _showRadioPicker(
     context: context,
-    builder: (ctx) => GlassDialog(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.primary.withAlpha(26),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(
-                    color: Theme.of(context).colorScheme.primary.withAlpha(51),
-                  ),
-                ),
-                child: Icon(
-                  Icons.grid_view_rounded,
-                  color: Theme.of(context).colorScheme.primary,
-                  size: 20,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  'Quick Actions Layout',
-                  style: GoogleFonts.manrope(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w800,
-                    color: isDark ? Colors.white : AppColors.slate900,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 20),
-          ...styleOptions.entries.map((entry) {
-            final styleKey = entry.key;
-            final styleName = entry.value;
-            final isSelected =
-                settingsProvider.quickActionsStyle == styleKey;
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: _buildToneOption(
-                context: context,
-                title: styleName,
-                isSelected: isSelected,
-                isDark: isDark,
-                onTap: () {
-                  settingsProvider.setQuickActionsStyle(styleKey);
-                  Navigator.pop(ctx);
-                },
-              ),
-            );
-          }).toList(),
-          const SizedBox(height: 16),
-          Align(
-            alignment: Alignment.centerRight,
-            child: TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: Text(
-                'Cancel',
-                style: GoogleFonts.manrope(
-                  fontWeight: FontWeight.w700,
-                  color: Theme.of(context).colorScheme.primary,
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    ),
+    title: 'Quick Actions Layout',
+    icon: Icons.grid_view_rounded,
+    options: keys,
+    labelFor: (k) => styleOptions[k]!,
+    isSelected: (k) => settingsProvider.quickActionsStyle == k,
+    onSelected: (k) => settingsProvider.setQuickActionsStyle(k),
   );
 }
 
 /// Shows a language picker dialog.
 void showLanguagePicker(BuildContext context, SettingsProvider settingsProvider) {
-  final isDark = Theme.of(context).brightness == Brightness.dark;
-  final locales = [
-    (const Locale('en'), 'English', '🇬🇧'),
-    (const Locale('ur'), 'اردو', '🇵🇰'),
-    (const Locale('ar'), 'العربية', '🇸🇦'),
+  const locales = [
+    (Locale('en'), 'English', '🇬🇧'),
+    (Locale('ur'), 'اردو', '🇵🇰'),
+    (Locale('ar'), 'العربية', '🇸🇦'),
   ];
-
-  showDialog(
+  _showRadioPicker<Locale>(
     context: context,
-    builder: (ctx) => GlassDialog(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.primary.withAlpha(26),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(
-                    color: Theme.of(context).colorScheme.primary.withAlpha(51),
-                  ),
-                ),
-                child: Icon(
-                  Icons.translate_rounded,
-                  color: Theme.of(context).colorScheme.primary,
-                  size: 20,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  'Select Language',
-                  style: GoogleFonts.manrope(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w800,
-                    color: isDark ? Colors.white : AppColors.slate900,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 20),
-          ...locales.map((item) {
-            final (locale, label, flag) = item;
-            final isSelected =
-                settingsProvider.locale.languageCode == locale.languageCode;
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: _buildToneOption(
-                context: context,
-                title: '$flag  $label',
-                isSelected: isSelected,
-                isDark: isDark,
-                onTap: () {
-                  settingsProvider.setLocale(locale);
-                  Navigator.pop(ctx);
-                },
-              ),
-            );
-          }).toList(),
-          const SizedBox(height: 16),
-          Align(
-            alignment: Alignment.centerRight,
-            child: TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: Text(
-                'Cancel',
-                style: GoogleFonts.manrope(
-                  fontWeight: FontWeight.w700,
-                  color: Theme.of(context).colorScheme.primary,
-                ),
-              ),
+    title: 'Select Language',
+    icon: Icons.translate_rounded,
+    options: locales.map((e) => e.$1).toList(),
+    labelFor: (l) {
+      final entry = locales.firstWhere((e) => e.$1 == l);
+      return '${entry.$3}  ${entry.$2}';
+    },
+    isSelected: (l) =>
+        settingsProvider.locale.languageCode == l.languageCode,
+    onSelected: (l) => settingsProvider.setLocale(l),
+  );
+}
+
+/// Shared radio-style single-select picker used by tone/quick-actions/language.
+void _showRadioPicker<T>({
+  required BuildContext context,
+  required String title,
+  required IconData icon,
+  required List<T> options,
+  required bool Function(T) isSelected,
+  required void Function(T) onSelected,
+  String Function(T)? labelFor,
+}) {
+  final isDark = Theme.of(context).brightness == Brightness.dark;
+  AppDialog.show<void>(
+    context: context,
+    title: title,
+    icon: icon,
+    content: Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (final opt in options)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: _buildToneOption(
+              context: context,
+              title: labelFor != null ? labelFor(opt) : opt.toString(),
+              isSelected: isSelected(opt),
+              isDark: isDark,
+              onTap: () {
+                onSelected(opt);
+                Navigator.of(context).pop();
+              },
             ),
           ),
-        ],
-      ),
+      ],
     ),
+    actions: [
+      AppDialogAction(
+        label: 'Cancel',
+        onTap: () => Navigator.of(context).pop(),
+      ),
+    ],
   );
 }
 

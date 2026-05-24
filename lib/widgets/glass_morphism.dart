@@ -294,7 +294,7 @@ class GlassBottomSheet extends StatelessWidget {
 }
 
 /// Glass pill button — matches .glass-pill:
-/// rgba(19,189,236,0.15) + blur(10px) + inset glow
+/// primary @ 15% + blur(10px) + inset glow
 class GlassPillButton extends StatelessWidget {
   final String label;
   final VoidCallback onTap;
@@ -505,7 +505,7 @@ class LightLeak extends StatelessWidget {
     super.key,
     this.size = 300,
     this.alignment = Alignment.topLeft,
-    this.color = const Color(0x3313BDEC), // primary @ 20%
+    this.color = const Color(0x33475569), // primary @ 20%
   });
 
   @override

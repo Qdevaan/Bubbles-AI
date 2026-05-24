@@ -4,11 +4,11 @@ import 'package:google_fonts/google_fonts.dart';
 /// Design-system colors matching the Stitch glassmorphism UI mockups.
 /// Based on Tailwind CSS Slate palette + brand colors.
 class AppColors {
-  // Primary — Cyan accent from Stitch
-  static const Color primary = Color(0xFF13BDEC);
-  static const Color primaryDark = Color(0xFF0B9AC9);
-  static const Color primaryLight = Color(0xFF6ECBF5);
-  static const Color primaryGlow = Color(0xFF00D2FF);
+  // Primary — Slate-600 neutral accent
+  static const Color primary = Color(0xFF475569);
+  static const Color primaryDark = Color(0xFF334155);
+  static const Color primaryLight = Color(0xFF64748B);
+  static const Color primaryGlow = Color(0xFF94A3B8);
 
   // Backgrounds — dark mesh gradient base
   static const Color backgroundDark = Color(0xFF101E22);
@@ -24,13 +24,13 @@ class AppColors {
   static const Color glassBorder = Color(0x1AFFFFFF); // rgba(255,255,255,0.1)
   static const Color glassBorderLight = Color(0x0DFFFFFF); // rgba(255,255,255,0.05)
   static const Color glassInput = Color(0x0DFFFFFF); // rgba(255,255,255,0.05)
-  static const Color glassPrimary = Color(0x2613BDEC); // rgba(19,189,236,0.15)
-  static const Color glassPrimaryBorder = Color(0x4D13BDEC); // rgba(19,189,236,0.3)
+  static const Color glassPrimary = Color(0x26475569); // 15% slate-600
+  static const Color glassPrimaryBorder = Color(0x4D475569); // 30% slate-600
 
   // Chat bubbles
   static const Color bubbleDark = Color(0xFF1C2A33);
-  static const Color bubbleUser = Color(0x1A13BDEC); // 10% primary
-  static const Color bubbleUserBorder = Color(0x3313BDEC); // 20% primary
+  static const Color bubbleUser = Color(0x1A475569); // 10% slate-600
+  static const Color bubbleUserBorder = Color(0x33475569); // 20% slate-600
 
   // Tailwind Slate scale
   static const Color slate50 = Color(0xFFF8FAFC);

@@ -9,7 +9,7 @@ import 'package:provider/provider.dart';
 import '../providers/settings_provider.dart';
 import '../providers/gamification_provider.dart';
 import '../services/auth_service.dart';
-import '../widgets/glass_morphism.dart';
+import '../widgets/app_dialog.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -160,85 +160,27 @@ class _SplashScreenState extends State<SplashScreen> {
     required String title,
     required String message,
   }) async {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    await showDialog<void>(
+    await AppDialog.show<void>(
       context: context,
+      title: title,
+      subtitle: message,
+      icon: Icons.settings_outlined,
+      tone: AppDialogTone.info,
       barrierDismissible: false,
-      builder: (ctx) => GlassDialog(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
-              children: [
-                Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: Theme.of(context).colorScheme.primary.withAlpha(26),
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: Theme.of(context).colorScheme.primary.withAlpha(51)),
-                        ),
-                        child: Icon(Icons.settings_outlined, color: Theme.of(context).colorScheme.primary, size: 20),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          title,
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: isDark ? Colors.white : AppColors.slate900,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    message,
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: isDark ? AppColors.slate400 : AppColors.slate600,
-                      height: 1.5,
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      TextButton(
-                        onPressed: () => Navigator.of(ctx).pop(),
-                        child: Text(
-                          'OK',
-                          style: TextStyle(
-                            fontWeight: FontWeight.w700,
-                            color: isDark ? AppColors.slate400 : AppColors.slate500,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      TextButton(
-                        onPressed: () async {
-                          Navigator.of(ctx).pop();
-                          await openAppSettings();
-                        },
-                        style: TextButton.styleFrom(
-                          backgroundColor: Theme.of(context).colorScheme.primary.withAlpha(38),
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(AppRadius.full),
-                          ),
-                        ),
-                        child: Text(
-                          'Open Settings',
-                          style: TextStyle(fontWeight: FontWeight.w700, color: Theme.of(context).colorScheme.primary),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-      ),
+      actions: [
+        AppDialogAction(
+          label: 'OK',
+          onTap: () => Navigator.of(context).pop(),
+        ),
+        AppDialogAction(
+          label: 'Open Settings',
+          primary: true,
+          onTap: () async {
+            Navigator.of(context).pop();
+            await openAppSettings();
+          },
+        ),
+      ],
     );
   }
 

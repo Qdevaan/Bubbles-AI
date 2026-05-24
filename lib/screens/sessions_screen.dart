@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 
 import '../theme/design_tokens.dart';
+import '../widgets/app_sheet.dart';
 import '../widgets/chat_bubble.dart';
 import '../widgets/glass_morphism.dart';
 import '../widgets/tags_bottom_sheet.dart';
@@ -51,97 +52,72 @@ class _SessionsScreenState extends State<SessionsScreen> {
   }
 
   void _openSortSheet(BuildContext context, bool isDark) {
-    showModalBottomSheet(
+    AppSheet.show<void>(
       context: context,
-      backgroundColor: Colors.transparent,
-      builder: (_) {
-        return StatefulBuilder(
-          builder: (ctx, setModal) {
-            return GlassBottomSheet(
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Center(
-                    child: Container(
-                            width: 40,
-                            height: 4,
-                            decoration: BoxDecoration(
-                              color: isDark ? AppColors.glassBorder : Colors.grey.shade300,
-                              borderRadius: BorderRadius.circular(2),
-                            ),
-                          ),
-                        ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Sort by',
+      title: 'Sort by',
+      icon: Icons.sort_rounded,
+      child: StatefulBuilder(
+        builder: (ctx, setModal) {
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ...[
+                (
+                  _SortOrder.newestFirst,
+                  Icons.arrow_downward_rounded,
+                  'Newest first',
+                ),
+                (
+                  _SortOrder.oldestFirst,
+                  Icons.arrow_upward_rounded,
+                  'Oldest first',
+                ),
+              ].map((rec) {
+                final (order, icon, label) = rec;
+                final selected = _sortOrder == order;
+                return ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: Icon(
+                    icon,
+                    color: selected
+                        ? Theme.of(context).colorScheme.primary
+                        : (isDark
+                            ? AppColors.slate400
+                            : Colors.grey.shade500),
+                    size: 20,
+                  ),
+                  title: Text(
+                    label,
                     style: GoogleFonts.manrope(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w800,
-                      color: isDark ? Colors.white : AppColors.slate900,
+                      fontSize: 14,
+                      fontWeight: selected
+                          ? FontWeight.w700
+                          : FontWeight.w500,
+                      color: selected
+                          ? Theme.of(context).colorScheme.primary
+                          : (isDark
+                              ? AppColors.slate300
+                              : AppColors.slate700),
                     ),
                   ),
-                  const SizedBox(height: 12),
-                  ...[
-                    (
-                      _SortOrder.newestFirst,
-                      Icons.arrow_downward_rounded,
-                      'Newest first',
-                    ),
-                    (
-                      _SortOrder.oldestFirst,
-                      Icons.arrow_upward_rounded,
-                      'Oldest first',
-                    ),
-                  ].map((rec) {
-                    final (order, icon, label) = rec;
-                    final selected = _sortOrder == order;
-                    return ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      leading: Icon(
-                        icon,
-                        color: selected
-                            ? Theme.of(context).colorScheme.primary
-                            : (isDark
-                                  ? AppColors.slate400
-                                  : Colors.grey.shade500),
-                        size: 20,
-                      ),
-                      title: Text(
-                        label,
-                        style: GoogleFonts.manrope(
-                          fontSize: 14,
-                          fontWeight: selected
-                              ? FontWeight.w700
-                              : FontWeight.w500,
-                          color: selected
-                              ? Theme.of(context).colorScheme.primary
-                              : (isDark
-                                    ? AppColors.slate300
-                                    : AppColors.slate700),
-                        ),
-                      ),
-                      trailing: selected
-                          ? Icon(
-                              Icons.check_circle_rounded,
-                              color: Theme.of(context).colorScheme.primary,
-                              size: 20,
-                            )
-                          : null,
-                      onTap: () {
-                        setState(() => _sortOrder = order);
-                        setModal(() {});
-                        Navigator.pop(ctx);
-                      },
-                    );
-                  }),
-                ],
-              ),
-            );
-          },
-        );
-      },
+                  trailing: selected
+                      ? Icon(
+                          Icons.check_circle_rounded,
+                          color: Theme.of(context).colorScheme.primary,
+                          size: 20,
+                        )
+                      : null,
+                  onTap: () {
+                    setState(() => _sortOrder = order);
+                    setModal(() {});
+                    Navigator.pop(ctx);
+                  },
+                );
+              }),
+            ],
+          );
+        },
+      ),
     );
   }
 
@@ -921,17 +897,10 @@ class _GenericSessionDetailState extends State<GenericSessionDetail> {
                     ),
                     tooltip: 'Tags',
                     onPressed: () async {
-                      await showModalBottomSheet(
-                        context: context,
-                        isScrollControlled: true,
-                        backgroundColor: Theme.of(context).colorScheme.surface,
-                        shape: const RoundedRectangleBorder(
-                          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-                        ),
-                        builder: (_) => TagsBottomSheet(
-                          sessionId: widget.sessionId,
-                          currentTags: _sessionTags,
-                        ),
+                      await TagsBottomSheet.show(
+                        context,
+                        sessionId: widget.sessionId,
+                        currentTags: _sessionTags,
                       );
                       _loadTags();
                     },

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../theme/design_tokens.dart';
+import 'app_sheet.dart';
 
 class ChatBubble extends StatelessWidget {
   final String text;
@@ -27,38 +28,32 @@ class ChatBubble extends StatelessWidget {
   });
 
   void _showAttributionSheet(BuildContext context) {
-    showModalBottomSheet(
+    AppSheet.show<void>(
       context: context,
-      builder: (_) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Who said this?',
-                  style: GoogleFonts.manrope(
-                      fontWeight: FontWeight.w700, fontSize: 16)),
-              const SizedBox(height: 16),
-              ListTile(
-                leading: const Icon(Icons.person_outline),
-                title: Text('This was me', style: GoogleFonts.manrope()),
-                onTap: () {
-                  Navigator.pop(context);
-                  onAttributionChange?.call(true);
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.people_outline),
-                title: Text('This was them', style: GoogleFonts.manrope()),
-                onTap: () {
-                  Navigator.pop(context);
-                  onAttributionChange?.call(false);
-                },
-              ),
-            ],
+      title: 'Who said this?',
+      icon: Icons.help_outline_rounded,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ListTile(
+            leading: const Icon(Icons.person_outline),
+            title: Text('This was me', style: GoogleFonts.manrope()),
+            contentPadding: EdgeInsets.zero,
+            onTap: () {
+              Navigator.pop(context);
+              onAttributionChange?.call(true);
+            },
           ),
-        ),
+          ListTile(
+            leading: const Icon(Icons.people_outline),
+            title: Text('This was them', style: GoogleFonts.manrope()),
+            contentPadding: EdgeInsets.zero,
+            onTap: () {
+              Navigator.pop(context);
+              onAttributionChange?.call(false);
+            },
+          ),
+        ],
       ),
     );
   }

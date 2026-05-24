@@ -9,6 +9,7 @@ import '../providers/theme_provider.dart';
 import '../theme/design_tokens.dart';
 import '../services/auth_service.dart';
 import '../widgets/app_button.dart';
+import '../widgets/app_dialog.dart';
 import '../widgets/app_input.dart';
 import '../widgets/social_button.dart';
 import '../widgets/app_logo.dart';
@@ -67,51 +68,29 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _showThemeSelectionDialog() async {
     final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    await showDialog(
+    await AppDialog.show<void>(
       context: context,
+      title: 'Select Theme',
+      icon: Icons.palette_outlined,
       barrierDismissible: false,
-      builder: (ctx) => GlassDialog(
-        child: Column(
+      content: Builder(
+        builder: (ctx) => Column(
           mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Row(
-              children: [
-                Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: Theme.of(context).colorScheme.primary.withAlpha(26),
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: Theme.of(context).colorScheme.primary.withAlpha(51)),
-                        ),
-                        child: Icon(Icons.palette_outlined, color: Theme.of(context).colorScheme.primary, size: 20),
-                      ),
-                      const SizedBox(width: 12),
-                      Text(
-                        'Select Theme',
-                        style: GoogleFonts.manrope(
-                          fontWeight: FontWeight.w700,
-                          fontSize: 18,
-                          color: isDark ? Colors.white : AppColors.slate900,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  _buildThemeListTile(ctx, themeProvider, isDark,
-                      icon: Icons.brightness_auto,
-                      label: 'System Default',
-                      mode: ThemeMode.system),
-                  _buildThemeListTile(ctx, themeProvider, isDark,
-                      icon: Icons.light_mode,
-                      label: 'Light',
-                      mode: ThemeMode.light),
-                  _buildThemeListTile(ctx, themeProvider, isDark,
-                      icon: Icons.dark_mode,
-                      label: 'Dark',
-                      mode: ThemeMode.dark),
-                ],
-              ),
+            _buildThemeListTile(ctx, themeProvider, isDark,
+                icon: Icons.brightness_auto,
+                label: 'System Default',
+                mode: ThemeMode.system),
+            _buildThemeListTile(ctx, themeProvider, isDark,
+                icon: Icons.light_mode,
+                label: 'Light',
+                mode: ThemeMode.light),
+            _buildThemeListTile(ctx, themeProvider, isDark,
+                icon: Icons.dark_mode,
+                label: 'Dark',
+                mode: ThemeMode.dark),
+          ],
+        ),
       ),
     );
   }

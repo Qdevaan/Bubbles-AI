@@ -11,6 +11,7 @@ import '../services/app_cache_service.dart';
 import '../services/auth_service.dart';
 import '../services/onboarding_service.dart';
 import '../routes/app_routes.dart';
+import '../widgets/app_sheet.dart';
 import '../widgets/settings/settings_widgets.dart';
 import '../widgets/animated_background.dart';
 import '../widgets/app_snack_bar.dart';
@@ -373,62 +374,35 @@ class _ProfileHeroCard extends StatelessWidget {
   const _ProfileHeroCard({required this.isDark, required this.cs});
 
   void _showProfileOptions(BuildContext context, bool isDark) {
-    showModalBottomSheet(
+    AppSheet.show<void>(
       context: context,
-      backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        decoration: BoxDecoration(
-          color: isDark ? AppColors.backgroundDark : Colors.white,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-          border: Border.all(
-            color: isDark ? AppColors.glassBorder : Colors.grey.shade200,
+      title: 'Profile Options',
+      icon: Icons.account_circle_outlined,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _OptionTile(
+            isDark: isDark,
+            icon: Icons.edit_outlined,
+            title: 'Edit Profile',
+            subtitle: 'Update your name and information',
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.pushNamed(context, AppRoutes.profileCompletion);
+            },
           ),
-        ),
-        padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: isDark ? AppColors.slate700 : AppColors.slate200,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            const SizedBox(height: 24),
-            Text(
-              'Profile Options',
-              style: GoogleFonts.manrope(
-                fontSize: 18,
-                fontWeight: FontWeight.w800,
-                color: isDark ? Colors.white : AppColors.slate900,
-              ),
-            ),
-            const SizedBox(height: 24),
-            _OptionTile(
-              isDark: isDark,
-              icon: Icons.edit_outlined,
-              title: 'Edit Profile',
-              subtitle: 'Update your name and information',
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.pushNamed(context, AppRoutes.profileCompletion);
-              },
-            ),
-            const SizedBox(height: 12),
-            _OptionTile(
-              isDark: isDark,
-              icon: Icons.workspace_premium_outlined,
-              title: 'Manage Subscription',
-              subtitle: 'View plans and billing',
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.pushNamed(context, AppRoutes.subscription);
-              },
-            ),
-          ],
-        ),
+          const SizedBox(height: 12),
+          _OptionTile(
+            isDark: isDark,
+            icon: Icons.workspace_premium_outlined,
+            title: 'Manage Subscription',
+            subtitle: 'View plans and billing',
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.pushNamed(context, AppRoutes.subscription);
+            },
+          ),
+        ],
       ),
     );
   }

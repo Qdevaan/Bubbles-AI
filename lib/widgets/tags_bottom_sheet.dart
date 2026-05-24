@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/tags_provider.dart';
+import 'app_sheet.dart';
 
 /// Bottom sheet displaying the user's tags with checkboxes for a given session.
 /// Allows toggling tags on/off and creating new tags.
@@ -15,6 +16,24 @@ class TagsBottomSheet extends StatefulWidget {
     this.entityId,
     required this.currentTags,
   }) : assert(sessionId != null || entityId != null, 'Must provide sessionId or entityId');
+
+  static Future<void> show(
+    BuildContext context, {
+    String? sessionId,
+    String? entityId,
+    required List<Map<String, dynamic>> currentTags,
+  }) {
+    return AppSheet.show<void>(
+      context: context,
+      title: 'Tags',
+      icon: Icons.label_outline,
+      child: TagsBottomSheet(
+        sessionId: sessionId,
+        entityId: entityId,
+        currentTags: currentTags,
+      ),
+    );
+  }
 
   @override
   State<TagsBottomSheet> createState() => _TagsBottomSheetState();
@@ -96,139 +115,116 @@ class _TagsBottomSheetState extends State<TagsBottomSheet> {
     final colorScheme = theme.colorScheme;
     return Consumer<TagsProvider>(
       builder: (context, provider, _) {
-        return SafeArea(
-          child: Padding(
-            padding: EdgeInsets.only(
-              bottom: MediaQuery.of(context).viewInsets.bottom,
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Handle bar
-                Center(
-                  child: Container(
-                    margin: const EdgeInsets.symmetric(vertical: 10),
-                    width: 40, height: 4,
-                    decoration: BoxDecoration(
-                      color: colorScheme.onSurface.withValues(alpha: 0.3),
-                      borderRadius: BorderRadius.circular(2),
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (!provider.loaded)
+              const Padding(
+                padding: EdgeInsets.all(20),
+                child: Center(child: CircularProgressIndicator()),
+              )
+            else if (provider.tags.isEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Text(
+                  'No tags yet. Create one below.',
+                  style: TextStyle(
+                    color: colorScheme.onSurface.withValues(alpha: 0.5),
+                  ),
+                ),
+              )
+            else
+              ListView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: provider.tags.length,
+                itemBuilder: (context, i) {
+                  final tag = provider.tags[i];
+                  final tagId = tag['id'] as String;
+                  final applied = _appliedTagIds.contains(tagId);
+                  final tagColor =
+                      _hexColor(tag['color'] as String? ?? '#6C63FF');
+                  return CheckboxListTile(
+                    value: applied,
+                    onChanged: (_) => _toggleTag(tagId, provider),
+                    title: Row(
+                      children: [
+                        Container(
+                          width: 10,
+                          height: 10,
+                          decoration: BoxDecoration(
+                              color: tagColor, shape: BoxShape.circle),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(tag['name'] as String),
+                      ],
                     ),
+                    secondary: IconButton(
+                      icon: const Icon(Icons.delete_outline, size: 18),
+                      onPressed: () => provider.deleteTag(tagId),
+                      color: colorScheme.error.withValues(alpha: 0.6),
+                    ),
+                    activeColor: tagColor,
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                  );
+                },
+              ),
+            const Divider(),
+            Text('＋ New tag', style: theme.textTheme.labelMedium),
+            const SizedBox(height: 6),
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _newTagController,
+                    decoration: const InputDecoration(
+                      hintText: 'Tag name…',
+                      isDense: true,
+                      border: OutlineInputBorder(),
+                      contentPadding: EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 8),
+                    ),
+                    onSubmitted: (_) => _createAndApply(provider),
                   ),
                 ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.label_outline, size: 20),
-                      const SizedBox(width: 8),
-                      Text('Tags', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 8),
-                // Tag list
-                if (!provider.loaded)
-                  const Padding(padding: EdgeInsets.all(20), child: Center(child: CircularProgressIndicator()))
-                else if (provider.tags.isEmpty)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                    child: Text('No tags yet. Create one below.', style: TextStyle(color: colorScheme.onSurface.withValues(alpha: 0.5))),
-                  )
-                else
-                  ListView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: provider.tags.length,
-                    itemBuilder: (context, i) {
-                      final tag = provider.tags[i];
-                      final tagId = tag['id'] as String;
-                      final applied = _appliedTagIds.contains(tagId);
-                      final tagColor = _hexColor(tag['color'] as String? ?? '#6C63FF');
-                      return CheckboxListTile(
-                        value: applied,
-                        onChanged: (_) => _toggleTag(tagId, provider),
-                        title: Row(
-                          children: [
-                            Container(
-                              width: 10, height: 10,
-                              decoration: BoxDecoration(color: tagColor, shape: BoxShape.circle),
-                            ),
-                            const SizedBox(width: 8),
-                            Text(tag['name'] as String),
-                          ],
-                        ),
-                        secondary: IconButton(
-                          icon: const Icon(Icons.delete_outline, size: 18),
-                          onPressed: () => provider.deleteTag(tagId),
-                          color: colorScheme.error.withValues(alpha: 0.6),
-                        ),
-                        activeColor: tagColor,
-                        dense: true,
-                      );
-                    },
-                  ),
-                const Divider(),
-                // New tag input
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('＋ New tag', style: theme.textTheme.labelMedium),
-                      const SizedBox(height: 6),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: TextField(
-                              controller: _newTagController,
-                              decoration: const InputDecoration(
-                                hintText: 'Tag name…',
-                                isDense: true,
-                                border: OutlineInputBorder(),
-                                contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                              ),
-                              onSubmitted: (_) => _createAndApply(provider),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          _adding
-                              ? const SizedBox(width: 32, height: 32, child: CircularProgressIndicator(strokeWidth: 2))
-                              : IconButton(
-                                  icon: const Icon(Icons.check_circle),
-                                  color: colorScheme.primary,
-                                  onPressed: () => _createAndApply(provider),
-                                ),
-                        ],
+                const SizedBox(width: 8),
+                _adding
+                    ? const SizedBox(
+                        width: 32,
+                        height: 32,
+                        child: CircularProgressIndicator(strokeWidth: 2))
+                    : IconButton(
+                        icon: const Icon(Icons.check_circle),
+                        color: colorScheme.primary,
+                        onPressed: () => _createAndApply(provider),
                       ),
-                      const SizedBox(height: 8),
-                      // Color picker
-                      Wrap(
-                        spacing: 6,
-                        children: _palette.map((hex) {
-                          final c = _hexColor(hex);
-                          return GestureDetector(
-                            onTap: () => setState(() => _newTagColor = hex),
-                            child: Container(
-                              width: 24, height: 24,
-                              decoration: BoxDecoration(
-                                color: c,
-                                shape: BoxShape.circle,
-                                border: _newTagColor == hex
-                                    ? Border.all(width: 2.5, color: colorScheme.onSurface)
-                                    : null,
-                              ),
-                            ),
-                          );
-                        }).toList(),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 16),
               ],
             ),
-          ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 6,
+              children: _palette.map((hex) {
+                final c = _hexColor(hex);
+                return GestureDetector(
+                  onTap: () => setState(() => _newTagColor = hex),
+                  child: Container(
+                    width: 24,
+                    height: 24,
+                    decoration: BoxDecoration(
+                      color: c,
+                      shape: BoxShape.circle,
+                      border: _newTagColor == hex
+                          ? Border.all(
+                              width: 2.5, color: colorScheme.onSurface)
+                          : null,
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+          ],
         );
       },
     );

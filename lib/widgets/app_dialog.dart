@@ -6,6 +6,39 @@ import 'glass_morphism.dart';
 
 enum AppDialogTone { neutral, info, success, warning, danger }
 
+/// Default icon for a given tone. Exposed so [AppSheet] can reuse it.
+IconData appDialogToneIcon(AppDialogTone tone) {
+  switch (tone) {
+    case AppDialogTone.info:
+      return Icons.info_outline_rounded;
+    case AppDialogTone.success:
+      return Icons.check_circle_outline_rounded;
+    case AppDialogTone.warning:
+      return Icons.warning_amber_rounded;
+    case AppDialogTone.danger:
+      return Icons.error_outline_rounded;
+    case AppDialogTone.neutral:
+      return Icons.help_outline_rounded;
+  }
+}
+
+/// Resolves a tone to a color. Exposed so [AppSheet] can reuse it.
+Color appDialogToneColor(BuildContext context, AppDialogTone tone) {
+  final cs = Theme.of(context).colorScheme;
+  switch (tone) {
+    case AppDialogTone.info:
+      return cs.primary;
+    case AppDialogTone.success:
+      return AppColors.success;
+    case AppDialogTone.warning:
+      return AppColors.warning;
+    case AppDialogTone.danger:
+      return AppColors.error;
+    case AppDialogTone.neutral:
+      return cs.primary;
+  }
+}
+
 class AppDialogAction {
   final String label;
   final VoidCallback? onTap;
@@ -80,7 +113,7 @@ class AppDialog extends StatelessWidget {
       context: context,
       title: title,
       subtitle: message,
-      icon: icon ?? _defaultIconFor(tone),
+      icon: icon ?? appDialogToneIcon(tone),
       tone: tone,
       actions: [
         AppDialogAction(label: cancelLabel, onTap: () => Navigator.of(context).pop(false)),
@@ -108,7 +141,7 @@ class AppDialog extends StatelessWidget {
       context: context,
       title: title,
       subtitle: message,
-      icon: icon ?? _defaultIconFor(tone),
+      icon: icon ?? appDialogToneIcon(tone),
       tone: tone,
       actions: [
         AppDialogAction(
@@ -120,41 +153,23 @@ class AppDialog extends StatelessWidget {
     );
   }
 
-  static IconData _defaultIconFor(AppDialogTone tone) {
-    switch (tone) {
-      case AppDialogTone.info:
-        return Icons.info_outline_rounded;
-      case AppDialogTone.success:
-        return Icons.check_circle_outline_rounded;
-      case AppDialogTone.warning:
-        return Icons.warning_amber_rounded;
-      case AppDialogTone.danger:
-        return Icons.error_outline_rounded;
-      case AppDialogTone.neutral:
-        return Icons.help_outline_rounded;
-    }
-  }
-
-  Color _toneColor(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    switch (tone) {
-      case AppDialogTone.info:
-        return cs.primary;
-      case AppDialogTone.success:
-        return AppColors.success;
-      case AppDialogTone.warning:
-        return AppColors.warning;
-      case AppDialogTone.danger:
-        return AppColors.error;
-      case AppDialogTone.neutral:
-        return cs.primary;
-    }
+  /// Convenience: blocking spinner dialog. Caller dismisses via
+  /// `Navigator.of(context, rootNavigator: true).pop()`.
+  static Future<void> loading({
+    required BuildContext context,
+    required String message,
+  }) {
+    return showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => _LoadingDialog(message: message),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final accent = _toneColor(context);
+    final accent = appDialogToneColor(context, tone);
 
     return GlassDialog(
       child: Column(
@@ -192,7 +207,7 @@ class AppDialog extends StatelessWidget {
             const SizedBox(height: 12),
             Text(
               subtitle!,
-              style: GoogleFonts.inter(
+              style: GoogleFonts.manrope(
                 fontSize: 14,
                 height: 1.5,
                 color: isDark ? Colors.white70 : AppColors.slate600,
@@ -268,6 +283,40 @@ class _ActionRow extends StatelessWidget {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
       child: Text(action.label, style: GoogleFonts.manrope(fontWeight: FontWeight.w600)),
+    );
+  }
+}
+
+class _LoadingDialog extends StatelessWidget {
+  final String message;
+  const _LoadingDialog({required this.message});
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return GlassDialog(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const SizedBox(
+            width: 22,
+            height: 22,
+            child: CircularProgressIndicator(strokeWidth: 2.5),
+          ),
+          const SizedBox(width: 16),
+          Flexible(
+            child: Text(
+              message,
+              style: GoogleFonts.manrope(
+                fontWeight: FontWeight.w600,
+                fontSize: 14,
+                color: isDark ? Colors.white : AppColors.slate900,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

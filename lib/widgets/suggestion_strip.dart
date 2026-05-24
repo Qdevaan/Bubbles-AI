@@ -33,9 +33,10 @@ class SuggestionStrip extends StatelessWidget {
                       maxLines: 1,
                     ),
                   ),
-                  onPressed: () => showModalBottomSheet(
-                    context: context,
-                    builder: (_) => SuggestionSheet(text: text, tone: c.tone),
+                  onPressed: () => SuggestionSheet.show(
+                    context,
+                    text: text,
+                    tone: c.tone,
                   ),
                 );
               },

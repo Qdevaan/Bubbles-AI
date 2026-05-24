@@ -12,6 +12,7 @@ import '../services/auth_service.dart';
 import '../services/app_cache_service.dart';
 import '../theme/design_tokens.dart';
 import '../widgets/app_button.dart';
+import '../widgets/app_dialog.dart';
 import '../widgets/glass_morphism.dart';
 
 class DataManagementScreen extends StatefulWidget {
@@ -82,41 +83,39 @@ class _DataManagementScreenState extends State<DataManagementScreen> {
 
   Future<void> _showDeleteConfirmation() async {
     _confirmCtrl.clear();
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    _deleteError = null;
 
-    await showDialog(
+    await AppDialog.show<void>(
       context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDialogState) => AlertDialog(
-          backgroundColor: isDark ? AppColors.backgroundDark : Colors.white,
-          title: Text('Delete Account',
-              style: GoogleFonts.manrope(
-                  fontWeight: FontWeight.w700,
-                  color: isDark ? Colors.white : AppColors.slate900)),
-          content: Column(
+      title: 'Delete Account',
+      subtitle:
+          'This is permanent and cannot be undone. All your data will be deleted.',
+      icon: Icons.delete_forever_rounded,
+      tone: AppDialogTone.danger,
+      content: StatefulBuilder(
+        builder: (ctx, setDialogState) {
+          final isDark = Theme.of(ctx).brightness == Brightness.dark;
+          return Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'This is permanent and cannot be undone. All your data will be deleted.',
-                style: GoogleFonts.manrope(fontSize: 13, color: AppColors.slate400),
+                'Type DELETE to confirm:',
+                style: GoogleFonts.manrope(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: isDark ? Colors.white : AppColors.slate900,
+                ),
               ),
-              const SizedBox(height: 16),
-              Text('Type DELETE to confirm:',
-                  style: GoogleFonts.manrope(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: isDark ? Colors.white : AppColors.slate900)),
               const SizedBox(height: 8),
               TextField(
                 controller: _confirmCtrl,
                 style: GoogleFonts.manrope(
-                    color: isDark ? Colors.white : AppColors.slate900),
+                  color: isDark ? Colors.white : AppColors.slate900,
+                ),
                 decoration: InputDecoration(
                   hintText: 'DELETE',
                   hintStyle: GoogleFonts.manrope(color: AppColors.slate400),
-                  border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8)),
                 ),
               ),
               if (_deleteError != null) ...[
@@ -125,50 +124,87 @@ class _DataManagementScreenState extends State<DataManagementScreen> {
                     style: GoogleFonts.manrope(
                         fontSize: 12, color: AppColors.error)),
               ],
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: SizedBox(
+                      height: 48,
+                      child: TextButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        child: const Text('Cancel'),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: SizedBox(
+                      height: 48,
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.error,
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        onPressed: _deleting
+                            ? null
+                            : () async {
+                                if (_confirmCtrl.text.trim() != 'DELETE') {
+                                  setDialogState(() => _deleteError =
+                                      'Type DELETE exactly to confirm.');
+                                  return;
+                                }
+                                setDialogState(() {
+                                  _deleting = true;
+                                  _deleteError = null;
+                                });
+                                try {
+                                  await AuthService.instance.deleteAccount();
+                                  if (mounted) {
+                                    context
+                                        .read<AppCacheService>()
+                                        .invalidateAll();
+                                  }
+                                  await AuthService.instance.signOut();
+                                  if (context.mounted) {
+                                    Navigator.of(context)
+                                        .pushNamedAndRemoveUntil(
+                                            '/login', (_) => false);
+                                  }
+                                } catch (e) {
+                                  setDialogState(() {
+                                    _deleting = false;
+                                    _deleteError =
+                                        'Deletion failed. Your account was not deleted.';
+                                  });
+                                }
+                              },
+                        child: _deleting
+                            ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2.4,
+                                  color: Colors.white,
+                                ),
+                              )
+                            : Text(
+                                'Delete',
+                                style: GoogleFonts.manrope(
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: Text('Cancel',
-                  style: GoogleFonts.manrope(color: AppColors.slate400)),
-            ),
-            TextButton(
-              onPressed: _deleting
-                  ? null
-                  : () async {
-                      if (_confirmCtrl.text.trim() != 'DELETE') {
-                        setDialogState(() =>
-                            _deleteError = 'Type DELETE exactly to confirm.');
-                        return;
-                      }
-                      setDialogState(
-                          () { _deleting = true; _deleteError = null; });
-                      try {
-                        await AuthService.instance.deleteAccount();
-                        if (mounted) {
-                          context.read<AppCacheService>().invalidateAll();
-                        }
-                        await AuthService.instance.signOut();
-                        if (ctx.mounted) {
-                          Navigator.of(ctx).pushNamedAndRemoveUntil(
-                              '/login', (_) => false);
-                        }
-                      } catch (e) {
-                        setDialogState(() {
-                          _deleting = false;
-                          _deleteError =
-                              'Deletion failed. Your account was not deleted.';
-                        });
-                      }
-                    },
-              child: Text('Delete',
-                  style: GoogleFonts.manrope(
-                      color: AppColors.error,
-                      fontWeight: FontWeight.w700)),
-            ),
-          ],
-        ),
+          );
+        },
       ),
     );
   }

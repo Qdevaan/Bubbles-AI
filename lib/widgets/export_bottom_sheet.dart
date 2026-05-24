@@ -10,6 +10,7 @@ import '../services/auth_service.dart';
 import '../repositories/sessions_repository.dart';
 import 'package:provider/provider.dart';
 
+import '../widgets/app_sheet.dart';
 import '../widgets/app_snack_bar.dart';
 class ExportBottomSheet extends StatefulWidget {
   final String sessionId;
@@ -24,11 +25,13 @@ class ExportBottomSheet extends StatefulWidget {
   });
 
   static Future<void> show(BuildContext context, String sessionId, String sessionTitle, {bool isConsultant = false}) {
-    return showModalBottomSheet(
+    return AppSheet.show<void>(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => ExportBottomSheet(
+      title: 'Export $sessionTitle',
+      subtitle:
+          'Choose your preferred format to export the complete session transcript, analytics, and notes.',
+      icon: Icons.download_outlined,
+      child: ExportBottomSheet(
         sessionId: sessionId,
         sessionTitle: sessionTitle,
         isConsultant: isConsultant,
@@ -130,68 +133,33 @@ class _ExportBottomSheetState extends State<ExportBottomSheet> {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return Padding(
-      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-        decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF0D1B1F).withAlpha(240) : Colors.white.withAlpha(240),
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-          border: Border(
-            top: BorderSide(color: isDark ? AppColors.glassBorder : Colors.grey.shade300),
-          ),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Center(
-              child: Container(
-                width: 40,
-                height: 4,
-                margin: const EdgeInsets.only(bottom: 24),
-                decoration: BoxDecoration(
-                  color: isDark ? Colors.white24 : Colors.grey.shade300,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ),
-            Text(
-              'Export ${widget.sessionTitle}',
-              style: GoogleFonts.manrope(
-                fontSize: 18,
-                fontWeight: FontWeight.w800,
-                color: isDark ? Colors.white : AppColors.slate900,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Choose your preferred format to export the complete session transcript, analytics, and notes.',
-              style: GoogleFonts.manrope(
-                fontSize: 14,
-                color: isDark ? AppColors.slate400 : AppColors.slate600,
-                height: 1.5,
-              ),
-            ),
-            const SizedBox(height: 24),
-            
-            ..._formats.entries.map((f) => Padding(
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        ..._formats.entries.map((f) => Padding(
               padding: const EdgeInsets.only(bottom: 8),
               child: InkWell(
                 onTap: () => setState(() => _selectedFormat = f.key),
                 borderRadius: BorderRadius.circular(12),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 16, vertical: 12),
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
                       color: _selectedFormat == f.key
                           ? Theme.of(context).colorScheme.primary
-                          : (isDark ? AppColors.glassBorder : Colors.grey.shade300),
+                          : (isDark
+                              ? AppColors.glassBorder
+                              : Colors.grey.shade300),
                       width: _selectedFormat == f.key ? 2 : 1,
                     ),
                     color: _selectedFormat == f.key
-                        ? Theme.of(context).colorScheme.primary.withAlpha(30)
+                        ? Theme.of(context)
+                            .colorScheme
+                            .primary
+                            .withAlpha(30)
                         : Colors.transparent,
                   ),
                   child: Row(
@@ -200,17 +168,23 @@ class _ExportBottomSheetState extends State<ExportBottomSheet> {
                         _formatIcons[f.key]!,
                         color: _selectedFormat == f.key
                             ? Theme.of(context).colorScheme.primary
-                            : (isDark ? AppColors.slate400 : AppColors.slate600),
+                            : (isDark
+                                ? AppColors.slate400
+                                : AppColors.slate600),
                       ),
                       const SizedBox(width: 16),
                       Expanded(
                         child: Text(
                           f.value,
                           style: GoogleFonts.manrope(
-                            fontWeight: _selectedFormat == f.key ? FontWeight.w700 : FontWeight.w600,
+                            fontWeight: _selectedFormat == f.key
+                                ? FontWeight.w700
+                                : FontWeight.w600,
                             color: _selectedFormat == f.key
                                 ? Theme.of(context).colorScheme.primary
-                                : (isDark ? AppColors.slate300 : AppColors.slate700),
+                                : (isDark
+                                    ? AppColors.slate300
+                                    : AppColors.slate700),
                           ),
                         ),
                       ),
@@ -224,31 +198,30 @@ class _ExportBottomSheetState extends State<ExportBottomSheet> {
                 ),
               ),
             )),
-            
-            const SizedBox(height: 24),
-            FilledButton(
-              onPressed: _exporting ? null : _handleExport,
-              style: FilledButton.styleFrom(
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                padding: const EdgeInsets.symmetric(vertical: 16),
-              ),
-              child: _exporting
-                  ? const SizedBox(
-                      width: 20, height: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                    )
-                  : Text(
-                      'Export',
-                      style: GoogleFonts.manrope(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-            ),
-            const SizedBox(height: 8),
-          ],
+        const SizedBox(height: 16),
+        FilledButton(
+          onPressed: _exporting ? null : _handleExport,
+          style: FilledButton.styleFrom(
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14)),
+            padding: const EdgeInsets.symmetric(vertical: 16),
+          ),
+          child: _exporting
+              ? const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                      strokeWidth: 2, color: Colors.white),
+                )
+              : Text(
+                  'Export',
+                  style: GoogleFonts.manrope(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
         ),
-      ),
+      ],
     );
   }
 }

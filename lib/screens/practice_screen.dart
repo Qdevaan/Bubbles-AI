@@ -9,6 +9,7 @@ import '../models/scenario_models.dart';
 import '../providers/scenarios_provider.dart';
 import '../routes/app_routes.dart';
 import '../theme/design_tokens.dart';
+import '../widgets/app_dialog.dart';
 import '../widgets/app_snack_bar.dart';
 import '../widgets/help_sheet.dart';
 import '../widgets/skeleton_loader.dart';
@@ -57,11 +58,7 @@ class _PracticeScreenState extends State<PracticeScreen> {
     final entityName = entity['display_name']?.toString() ?? 'someone';
 
     // Loading dialog (call takes 1-3 s; allow up to 30 s).
-    showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => const _GeneratingDialog(),
-    );
+    AppDialog.loading(context: context, message: 'Generating a scenario…');
     final s = await context
         .read<ScenariosProvider>()
         .generate(targetEntityId: entityId);
@@ -99,11 +96,7 @@ class _PracticeScreenState extends State<PracticeScreen> {
 
   Future<void> _startScenario(Scenario s) async {
     final provider = context.read<ScenariosProvider>();
-    showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => const _StartingDialog(),
-    );
+    AppDialog.loading(context: context, message: 'Opening the scene…');
     final res = await provider.start(s);
     if (!mounted) return;
     Navigator.of(context, rootNavigator: true).pop();
@@ -815,68 +808,6 @@ class _OpeningLineCard extends StatelessWidget {
               fontSize: 14,
               fontStyle: FontStyle.italic,
               color: isDark ? Colors.white : AppColors.slate900,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _GeneratingDialog extends StatelessWidget {
-  const _GeneratingDialog();
-  @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return AlertDialog(
-      backgroundColor:
-          isDark ? AppColors.surfaceDark : Colors.white,
-      content: Row(
-        children: [
-          const SizedBox(
-            width: 22,
-            height: 22,
-            child: CircularProgressIndicator(strokeWidth: 2.5),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Text(
-              'Generating a scenario…',
-              style: GoogleFonts.manrope(
-                fontWeight: FontWeight.w600,
-                color: isDark ? Colors.white : AppColors.slate900,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _StartingDialog extends StatelessWidget {
-  const _StartingDialog();
-  @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return AlertDialog(
-      backgroundColor:
-          isDark ? AppColors.surfaceDark : Colors.white,
-      content: Row(
-        children: [
-          const SizedBox(
-            width: 22,
-            height: 22,
-            child: CircularProgressIndicator(strokeWidth: 2.5),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Text(
-              'Opening the scene…',
-              style: GoogleFonts.manrope(
-                fontWeight: FontWeight.w600,
-                color: isDark ? Colors.white : AppColors.slate900,
-              ),
             ),
           ),
         ],

@@ -8,6 +8,7 @@ import '../data/help_content.dart';
 import '../models/drill_models.dart';
 import '../providers/drills_provider.dart';
 import '../theme/design_tokens.dart';
+import '../widgets/app_dialog.dart';
 import '../widgets/app_snack_bar.dart';
 import '../widgets/help_sheet.dart';
 import '../widgets/skeleton_loader.dart';
@@ -83,50 +84,15 @@ class _DrillsScreenState extends State<DrillsScreen> {
   }
 
   Future<void> _confirmRetire(DrillCard card) async {
-    final ok = await showDialog<bool>(
+    final ok = await AppDialog.confirm(
       context: context,
-      builder: (ctx) {
-        final isDark = Theme.of(ctx).brightness == Brightness.dark;
-        return AlertDialog(
-          backgroundColor:
-              isDark ? AppColors.surfaceDark : Colors.white,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(AppRadius.lg),
-          ),
-          title: Text(
-            'Stop showing this card?',
-            style: GoogleFonts.manrope(
-              fontWeight: FontWeight.w700,
-              color: isDark ? Colors.white : AppColors.slate900,
-            ),
-          ),
-          content: Text(
-            'Retiring is permanent — this card will never appear in your '
-            'drill queue again.',
-            style: GoogleFonts.manrope(
-              color: isDark ? AppColors.slate300 : AppColors.slate600,
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(ctx).pop(false),
-              child: const Text('Cancel'),
-            ),
-            TextButton(
-              onPressed: () => Navigator.of(ctx).pop(true),
-              child: Text(
-                'Retire',
-                style: GoogleFonts.manrope(
-                  color: AppColors.error,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ),
-          ],
-        );
-      },
+      title: 'Stop showing this card?',
+      message: 'Retiring is permanent — this card will never appear in your '
+          'drill queue again.',
+      confirmLabel: 'Retire',
+      tone: AppDialogTone.danger,
     );
-    if (ok != true || !mounted) return;
+    if (!ok || !mounted) return;
     final ok2 = await context.read<DrillsProvider>().retire(card);
     if (!mounted) return;
     if (ok2) {

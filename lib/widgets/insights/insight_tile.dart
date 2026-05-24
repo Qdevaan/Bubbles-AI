@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../theme/design_tokens.dart';
+import '../app_sheet.dart';
 import 'insight_item.dart';
 import 'insight_chips.dart';
 
@@ -314,102 +315,73 @@ class _InsightTileState extends State<InsightTile>
   }
 
   void _showActions(BuildContext context) {
-    showModalBottomSheet(
+    AppSheet.show<void>(
       context: context,
-      backgroundColor: Colors.transparent,
-      builder: (_) => Container(
-        margin: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surfaceContainerHigh,
-          borderRadius: BorderRadius.circular(20),
-        ),
-        padding: const EdgeInsets.fromLTRB(24, 20, 24, 32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(
-              child: Container(
-                width: 40, height: 4,
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.onSurface.withAlpha(50),
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Row(children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: widget.item.color.withAlpha(30),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: widget.item.color.withAlpha(80)),
-                ),
-                child: Icon(widget.item.icon, color: widget.item.color, size: 16),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text(widget.item.title,
-                      style: GoogleFonts.manrope(
-                          fontWeight: FontWeight.w700, fontSize: 15)),
-                  Text(widget.item.badge,
-                      style: GoogleFonts.manrope(fontSize: 12, color: widget.item.color)),
-                ]),
-              ),
-            ]),
-            const SizedBox(height: 16),
-            const Divider(),
-            if (widget.item.sessionId != null && widget.item.sessionId!.isNotEmpty)
-              ListTile(
-                leading: Icon(Icons.analytics_outlined,
-                    color: Theme.of(context).colorScheme.primary),
-                title: Text('View Source',
-                    style: TextStyle(
-                        color: Theme.of(context).colorScheme.primary)),
-                contentPadding: EdgeInsets.zero,
-                onTap: () {
-                  Navigator.pop(context);
-                  Navigator.pushNamed(context, '/session-analytics',
-                      arguments: {
-                        'sessionId': widget.item.sessionId,
-                        'sessionTitle': widget.item.title,
-                        'initialTab': 2
-                      });
-                },
-              ),
-            if (widget.item.table != 'notifications')
-              ListTile(
-                leading: Icon(Icons.edit_outlined,
-                    color: Theme.of(context).colorScheme.primary),
-                title: Text('Edit',
-                    style: TextStyle(
-                        color: Theme.of(context).colorScheme.primary)),
-                contentPadding: EdgeInsets.zero,
-                onTap: () { Navigator.pop(context); widget.onEdit(); },
-              )
-            else
-              ListTile(
-                leading: Icon(Icons.mark_email_read_outlined,
-                    color: Theme.of(context).colorScheme.primary),
-                title: Text(widget.item.isDimmed ? 'Mark as unread' : 'Mark as read',
-                    style: TextStyle(
-                        color: Theme.of(context).colorScheme.primary)),
-                contentPadding: EdgeInsets.zero,
-                onTap: () { Navigator.pop(context); widget.onEdit(); },
-              ),
+      title: widget.item.title,
+      subtitle: widget.item.badge,
+      icon: widget.item.icon,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (widget.item.sessionId != null && widget.item.sessionId!.isNotEmpty)
             ListTile(
-              leading: Icon(Icons.delete_outline,
-                  color: Theme.of(context).colorScheme.error),
-              title: Text('Delete',
+              leading: Icon(Icons.analytics_outlined,
+                  color: Theme.of(context).colorScheme.primary),
+              title: Text('View Source',
                   style: TextStyle(
-                      color: Theme.of(context).colorScheme.error)),
+                      color: Theme.of(context).colorScheme.primary)),
               contentPadding: EdgeInsets.zero,
-              onTap: () { Navigator.pop(context); widget.onDelete(); },
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.pushNamed(context, '/session-analytics',
+                    arguments: {
+                      'sessionId': widget.item.sessionId,
+                      'sessionTitle': widget.item.title,
+                      'initialTab': 2,
+                    });
+              },
             ),
-          ],
-        ),
+          if (widget.item.table != 'notifications')
+            ListTile(
+              leading: Icon(Icons.edit_outlined,
+                  color: Theme.of(context).colorScheme.primary),
+              title: Text('Edit',
+                  style: TextStyle(
+                      color: Theme.of(context).colorScheme.primary)),
+              contentPadding: EdgeInsets.zero,
+              onTap: () {
+                Navigator.pop(context);
+                widget.onEdit();
+              },
+            )
+          else
+            ListTile(
+              leading: Icon(Icons.mark_email_read_outlined,
+                  color: Theme.of(context).colorScheme.primary),
+              title: Text(
+                  widget.item.isDimmed ? 'Mark as unread' : 'Mark as read',
+                  style: TextStyle(
+                      color: Theme.of(context).colorScheme.primary)),
+              contentPadding: EdgeInsets.zero,
+              onTap: () {
+                Navigator.pop(context);
+                widget.onEdit();
+              },
+            ),
+          ListTile(
+            leading: Icon(Icons.delete_outline,
+                color: Theme.of(context).colorScheme.error),
+            title: Text('Delete',
+                style: TextStyle(
+                    color: Theme.of(context).colorScheme.error)),
+            contentPadding: EdgeInsets.zero,
+            onTap: () {
+              Navigator.pop(context);
+              widget.onDelete();
+            },
+          ),
+        ],
       ),
     );
   }

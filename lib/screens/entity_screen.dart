@@ -9,6 +9,7 @@ import '../services/api_service.dart';
 import '../services/auth_service.dart';
 import '../repositories/entity_repository.dart';
 import '../theme/design_tokens.dart';
+import '../widgets/app_dialog.dart';
 import '../widgets/glass_morphism.dart';
 import '../widgets/tags_bottom_sheet.dart';
 import '../widgets/skeleton_loader.dart';
@@ -87,72 +88,15 @@ class _EntityScreenState extends State<EntityScreen> {
   }
 
   Future<void> _deleteEntity(String entityId) async {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final confirm = await showDialog<bool>(
+    final confirm = await AppDialog.confirm(
       context: context,
-      builder: (ctx) => GlassDialog(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
-              children: [
-                Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: AppColors.error.withAlpha(26),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Icon(Icons.delete_outline_rounded, color: AppColors.error, size: 20),
-                      ),
-                      const SizedBox(width: 12),
-                      Text(
-                        'Delete Entity?',
-                        style: GoogleFonts.manrope(
-                          fontWeight: FontWeight.w700,
-                          fontSize: 18,
-                          color: isDark ? Colors.white : AppColors.slate900,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    'This will also remove all attributes and relations for this entity.',
-                    style: GoogleFonts.manrope(
-                      fontSize: 14,
-                      color: isDark ? AppColors.slate400 : AppColors.slate500,
-                      height: 1.5,
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      TextButton(
-                        onPressed: () => Navigator.pop(ctx, false),
-                        child: Text(
-                          'Cancel',
-                          style: GoogleFonts.manrope(
-                            fontWeight: FontWeight.w700,
-                            color: isDark ? AppColors.slate400 : AppColors.slate500,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      FilledButton(
-                        style: FilledButton.styleFrom(backgroundColor: AppColors.error),
-                        onPressed: () => Navigator.pop(ctx, true),
-                        child: const Text('Delete'),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-      ),
+      title: 'Delete Entity?',
+      message: 'This will also remove all attributes and relations for this entity.',
+      confirmLabel: 'Delete',
+      tone: AppDialogTone.danger,
     );
 
-    if (confirm != true) return;
+    if (!confirm) return;
 
     final user = AuthService.instance.currentUser;
     if (user == null) return;
@@ -958,17 +902,10 @@ class _EntityCardState extends State<_EntityCard> {
                           onPressed: () async {
                             final pTags = await context.read<TagsProvider>().getTagsForEntity(widget.entity['id'] as String);
                             if (!mounted) return;
-                            await showModalBottomSheet(
-                              context: context,
-                              isScrollControlled: true,
-                              backgroundColor: Theme.of(context).colorScheme.surface,
-                              shape: const RoundedRectangleBorder(
-                                borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-                              ),
-                              builder: (_) => TagsBottomSheet(
-                                entityId: widget.entity['id'] as String,
-                                currentTags: pTags,
-                              ),
+                            await TagsBottomSheet.show(
+                              context,
+                              entityId: widget.entity['id'] as String,
+                              currentTags: pTags,
                             );
                             widget.onRefresh();
                           },

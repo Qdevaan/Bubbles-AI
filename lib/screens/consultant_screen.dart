@@ -19,6 +19,7 @@ import '../services/auth_service.dart';
 import '../services/connection_service.dart';
 import '../providers/consultant_provider.dart';
 import '../providers/settings_provider.dart';
+import '../widgets/app_dialog.dart';
 import '../widgets/app_logo.dart';
 import '../widgets/consultant/voice_mode.dart';
 import '../widgets/consultant/consultant_widgets.dart';
@@ -189,91 +190,71 @@ class _ConsultantScreenState extends State<ConsultantScreen>
 
     String selected = _conversationTone;
     bool setAsDefault = false;
-    final result = await showDialog<bool>(
+    final result = await AppDialog.show<bool>(
       context: context,
-      builder: (ctx) {
-        final isDark = Theme.of(context).brightness == Brightness.dark;
-        return StatefulBuilder(
-          builder: (ctx, setModal) => GlassDialog(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Choose Conversation Mode',
-                  style: GoogleFonts.manrope(
-                    fontSize: 17,
-                    fontWeight: FontWeight.w800,
-                    color: isDark ? Colors.white : AppColors.slate900,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Set the tone for this new chat session.',
-                  style: GoogleFonts.manrope(
-                    fontSize: 13,
-                    color: isDark ? AppColors.slate400 : AppColors.slate500,
-                  ),
-                ),
-                const SizedBox(height: 14),
-                RadioGroup<String>(
-                  groupValue: selected,
-                  onChanged: (value) {
-                    if (value == null) return;
-                    setModal(() => selected = value);
-                  },
-                  child: Column(
-                    children: [
-                      for (final tone in const ['formal', 'semi-formal', 'casual'])
-                        RadioListTile<String>(
-                          value: tone,
-                          contentPadding: EdgeInsets.zero,
-                          title: Text(
-                            _toneLabel(tone),
-                            style: GoogleFonts.manrope(
-                              fontWeight: selected == tone
-                                  ? FontWeight.w700
-                                  : FontWeight.w600,
-                              color: isDark ? Colors.white : AppColors.slate900,
-                            ),
+      title: 'Choose Conversation Mode',
+      subtitle: 'Set the tone for this new chat session.',
+      icon: Icons.chat_bubble_outline_rounded,
+      content: StatefulBuilder(
+        builder: (ctx, setModal) {
+          final isDark = Theme.of(ctx).brightness == Brightness.dark;
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              RadioGroup<String>(
+                groupValue: selected,
+                onChanged: (value) {
+                  if (value == null) return;
+                  setModal(() => selected = value);
+                },
+                child: Column(
+                  children: [
+                    for (final tone in const ['formal', 'semi-formal', 'casual'])
+                      RadioListTile<String>(
+                        value: tone,
+                        contentPadding: EdgeInsets.zero,
+                        title: Text(
+                          _toneLabel(tone),
+                          style: GoogleFonts.manrope(
+                            fontWeight: selected == tone
+                                ? FontWeight.w700
+                                : FontWeight.w600,
+                            color: isDark ? Colors.white : AppColors.slate900,
                           ),
                         ),
-                    ],
-                  ),
-                ),
-                CheckboxListTile(
-                  value: setAsDefault,
-                  onChanged: (v) => setModal(() => setAsDefault = v ?? false),
-                  contentPadding: EdgeInsets.zero,
-                  controlAffinity: ListTileControlAffinity.leading,
-                  title: Text(
-                    'Set as default for all sessions',
-                    style: GoogleFonts.manrope(
-                      fontSize: 13,
-                      color: isDark ? AppColors.slate300 : AppColors.slate700,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(ctx, false),
-                      child: const Text('Cancel'),
-                    ),
-                    const SizedBox(width: 8),
-                    FilledButton(
-                      onPressed: () => Navigator.pop(ctx, true),
-                      child: const Text('Start'),
-                    ),
+                      ),
                   ],
                 ),
-              ],
-            ),
-          ),
-        );
-      },
+              ),
+              CheckboxListTile(
+                value: setAsDefault,
+                onChanged: (v) => setModal(() => setAsDefault = v ?? false),
+                contentPadding: EdgeInsets.zero,
+                controlAffinity: ListTileControlAffinity.leading,
+                title: Text(
+                  'Set as default for all sessions',
+                  style: GoogleFonts.manrope(
+                    fontSize: 13,
+                    color: isDark ? AppColors.slate300 : AppColors.slate700,
+                  ),
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+      actions: [
+        AppDialogAction(
+          label: 'Cancel',
+          onTap: () => Navigator.of(context).pop(false),
+        ),
+        AppDialogAction(
+          label: 'Start',
+          primary: true,
+          onTap: () => Navigator.of(context).pop(true),
+        ),
+      ],
     );
 
     if (result == true) {
@@ -301,97 +282,27 @@ class _ConsultantScreenState extends State<ConsultantScreen>
 
   // -- Not-connected dialog --
   void _showNotConnectedDialog() {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    showDialog(
+    AppDialog.show<void>(
       context: context,
-      builder: (ctx) => GlassDialog(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: AppColors.error.withAlpha(26),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: const Icon(
-                    Icons.wifi_off_rounded,
-                    color: AppColors.error,
-                    size: 20,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    'Not Connected',
-                    style: GoogleFonts.manrope(
-                      fontSize: 17,
-                      fontWeight: FontWeight.w800,
-                      color: isDark ? Colors.white : AppColors.slate900,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Text(
-              'The Consultant AI requires a server connection. Please connect first in Settings.',
-              style: GoogleFonts.manrope(
-                fontSize: 14,
-                color: isDark ? AppColors.textSecondary : AppColors.textMuted,
-                height: 1.5,
-              ),
-            ),
-            const SizedBox(height: 20),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                TextButton(
-                  onPressed: () => Navigator.pop(ctx),
-                  child: Text(
-                    'Cancel',
-                    style: GoogleFonts.manrope(
-                      fontWeight: FontWeight.w600,
-                      color: isDark
-                          ? AppColors.textSecondary
-                          : AppColors.textMuted,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                TextButton(
-                  onPressed: () {
-                    Navigator.pop(ctx);
-                    Navigator.pushNamed(context, '/connections');
-                  },
-                  style: TextButton.styleFrom(
-                    backgroundColor: Theme.of(
-                      context,
-                    ).colorScheme.primary.withAlpha(31),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 8,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(AppRadius.full),
-                    ),
-                  ),
-                  child: Text(
-                    'Connect',
-                    style: GoogleFonts.manrope(
-                      fontWeight: FontWeight.w700,
-                      color: Theme.of(context).colorScheme.primary,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ],
+      title: 'Not Connected',
+      subtitle:
+          'The Consultant AI requires a server connection. Please connect first in Settings.',
+      icon: Icons.wifi_off_rounded,
+      tone: AppDialogTone.danger,
+      actions: [
+        AppDialogAction(
+          label: 'Cancel',
+          onTap: () => Navigator.of(context).pop(),
         ),
-      ),
+        AppDialogAction(
+          label: 'Connect',
+          primary: true,
+          onTap: () {
+            Navigator.of(context).pop();
+            Navigator.pushNamed(context, '/connections');
+          },
+        ),
+      ],
     );
   }
 
