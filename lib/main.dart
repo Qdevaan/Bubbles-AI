@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -86,6 +87,10 @@ import 'routes/app_routes.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Manrope is bundled in assets/fonts/ — every GoogleFonts.manrope() call
+  // resolves to the local family without ever touching the CDN.
+  GoogleFonts.config.allowRuntimeFetching = false;
 
   // Initialize Persistent Cache + synchronous boot-state mirror.
   // BootStateService is consulted by AppBootstrap on the first frame so the
