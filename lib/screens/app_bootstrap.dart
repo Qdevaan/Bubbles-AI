@@ -14,6 +14,7 @@ import '../providers/settings_provider.dart';
 import '../routes/app_routes.dart';
 import '../services/auth_service.dart';
 import '../services/boot_state_service.dart';
+import '../services/device_perf_tier.dart';
 import '../theme/design_tokens.dart';
 import '../widgets/app_dialog.dart';
 
@@ -55,7 +56,10 @@ class _AppBootstrapState extends State<AppBootstrap> {
         Navigator.of(context).pushReplacementNamed(AppRoutes.updatePassword);
       }
     });
-    WidgetsBinding.instance.addPostFrameCallback((_) => _decideAndNavigate());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      DevicePerfTier.instance.observeFirstFrames(context);
+      _decideAndNavigate();
+    });
   }
 
   @override

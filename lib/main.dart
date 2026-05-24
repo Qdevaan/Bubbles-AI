@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -14,6 +15,8 @@ import 'services/app_cache_service.dart';
 import 'services/hydration_service.dart';
 import 'cache/persistent_cache_service.dart';
 import 'services/boot_state_service.dart';
+import 'services/device_perf_tier.dart';
+import 'theme/surface_style.dart';
 import 'repositories/profile_repository.dart';
 import 'repositories/settings_repository.dart';
 import 'repositories/home_repository.dart';
@@ -90,6 +93,11 @@ Future<void> main() async {
   await PersistentCacheService.instance.init();
   await BootStateService.instance.init();
 
+  // Performance-tier classification — runs in the background to drive the
+  // default surface style and animation cap. The cached tier from the boot
+  // mirror is applied immediately; a fresh classification refines it.
+  unawaited(DevicePerfTier.instance.detect());
+
   // Load environment variables — .env is no longer bundled as a Flutter asset
   // (to avoid leaking API keys in the APK). It still loads from the project
   // root during development. For release builds, pass keys via --dart-define.
@@ -151,10 +159,17 @@ Future<void> main() async {
       savedMode != null ? ThemeMode.values[savedMode] : ThemeMode.system;
   final Color? initialSeedColor =
       savedColor != null ? Color(savedColor) : null;
+  final String? savedSurfaceStyle = prefs.getString('boot_surface_style_v1');
+  final SurfaceStyle? initialSurfaceStyle = savedSurfaceStyle == null
+      ? null
+      : SurfaceStyleX.fromPersisted(savedSurfaceStyle);
+  final bool initialPerformanceMode = prefs.getBool('performance_mode_v1') ?? false;
 
   runApp(BubblesApp(
     initialThemeMode: initialThemeMode,
     initialSeedColor: initialSeedColor,
+    initialSurfaceStyle: initialSurfaceStyle,
+    initialPerformanceMode: initialPerformanceMode,
   ));
 }
 
@@ -164,11 +179,15 @@ class BubblesApp extends StatelessWidget {
 
   final ThemeMode initialThemeMode;
   final Color? initialSeedColor;
+  final SurfaceStyle? initialSurfaceStyle;
+  final bool initialPerformanceMode;
 
   const BubblesApp({
     super.key,
     this.initialThemeMode = ThemeMode.system,
     this.initialSeedColor,
+    this.initialSurfaceStyle,
+    this.initialPerformanceMode = false,
   });
 
   @override
@@ -282,6 +301,8 @@ class BubblesApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => ThemeProvider(
           initialThemeMode: initialThemeMode,
           initialSeedColor: initialSeedColor,
+          initialSurfaceStyle: initialSurfaceStyle,
+          initialPerformanceMode: initialPerformanceMode,
         )),
 
         // 4.5. Settings Provider (Depends on SettingsRepository)

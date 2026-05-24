@@ -1,6 +1,29 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../providers/theme_provider.dart';
+import '../services/device_perf_tier.dart';
 import '../theme/design_tokens.dart';
+import '../theme/surface_style.dart';
+
+/// Returns the BackdropFilter wrapper when the active [SurfaceStyle] is
+/// [SurfaceStyle.glass]; otherwise renders [child] directly. The blur sigma
+/// is scaled by [DevicePerfTier.blurScale] so mid-tier devices use a cheaper
+/// pass without losing the glassmorphic aesthetic.
+Widget _blurOrPassthrough(
+  BuildContext context, {
+  required double sigma,
+  required Widget child,
+}) {
+  final style = context.watch<ThemeProvider>().effectiveSurfaceStyle;
+  if (!style.useBlur) return child;
+  final scaled = sigma * DevicePerfTier.instance.blurScale;
+  if (scaled <= 0.5) return child;
+  return BackdropFilter(
+    filter: ImageFilter.blur(sigmaX: scaled, sigmaY: scaled),
+    child: child,
+  );
+}
 
 /// Mesh gradient background used on most screens.
 /// Replicates: radial-gradients at corners with primary@15% on #101e22 base.
@@ -114,8 +137,9 @@ class GlassCard extends StatelessWidget {
       onTap: onTap,
       child: ClipRRect(
         borderRadius: BorderRadius.circular(borderRadius),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: blur, sigmaY: blur),
+        child: _blurOrPassthrough(
+          context,
+          sigma: blur,
           child: Container(
             decoration: BoxDecoration(
               color: bg,
@@ -149,8 +173,9 @@ class GlassPanel extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return ClipRRect(
       borderRadius: BorderRadius.circular(borderRadius),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+      child: _blurOrPassthrough(
+        context,
+        sigma: 12,
         child: Container(
           decoration: BoxDecoration(
             color: isDark ? AppColors.glassWhite : Theme.of(context).colorScheme.primary.withAlpha(12),
@@ -198,8 +223,9 @@ class GlassTile extends StatelessWidget {
       onTap: onTap,
       child: ClipRRect(
         borderRadius: BorderRadius.circular(AppRadius.lg),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+        child: _blurOrPassthrough(
+          context,
+          sigma: 8,
           child: Container(
             decoration: BoxDecoration(
               color: bg,
@@ -269,8 +295,9 @@ class GlassBottomSheet extends StatelessWidget {
 
     return ClipRRect(
       borderRadius: const BorderRadius.vertical(top: Radius.circular(AppRadius.xxl)),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+      child: _blurOrPassthrough(
+        context,
+        sigma: 20,
         child: Container(
           decoration: BoxDecoration(
             color: isDark
@@ -315,8 +342,9 @@ class GlassPillButton extends StatelessWidget {
       onTap: loading ? null : onTap,
       child: ClipRRect(
         borderRadius: BorderRadius.circular(AppRadius.full),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+        child: _blurOrPassthrough(
+          context,
+          sigma: 10,
           child: Container(
             height: 52,
             decoration: BoxDecoration(
@@ -383,8 +411,9 @@ class GlassBottomNav extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ClipRRect(
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+      child: _blurOrPassthrough(
+        context,
+        sigma: 20,
         child: Container(
           height: 72,
           decoration: BoxDecoration(
@@ -459,8 +488,9 @@ class GlassHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return ClipRRect(
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+      child: _blurOrPassthrough(
+        context,
+        sigma: 20,
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           decoration: BoxDecoration(

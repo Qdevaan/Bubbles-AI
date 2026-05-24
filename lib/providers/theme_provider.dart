@@ -3,21 +3,54 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/auth_service.dart';
+import '../services/boot_state_service.dart';
+import '../services/device_perf_tier.dart';
 import '../theme/design_tokens.dart';
+import '../theme/surface_style.dart';
 
 class ThemeProvider extends ChangeNotifier {
   Color _seedColor = AppColors.primary;
   ThemeMode _themeMode = ThemeMode.system;
+  SurfaceStyle? _explicitSurfaceStyle;
+  bool _performanceMode = false;
 
   static const String _colorKey = 'theme_seed_color';
   static const String _themeModeKey = 'theme_mode_pref';
+  static const String _surfaceStyleKey = 'boot_surface_style_v1';
+  static const String _performanceModeKey = 'performance_mode_v1';
 
   Color get seedColor => _seedColor;
   ThemeMode get themeMode => _themeMode;
 
-  ThemeProvider({ThemeMode? initialThemeMode, Color? initialSeedColor}) {
+  /// User's explicit surface-style preference, or null when on auto.
+  SurfaceStyle? get explicitSurfaceStyle => _explicitSurfaceStyle;
+
+  /// When true, force [SurfaceStyle.solid] regardless of device tier. The
+  /// user opts in via Settings → Performance mode.
+  bool get performanceMode => _performanceMode;
+
+  /// The style actually used by widgets — honours explicit override first,
+  /// then performance mode, then the [DevicePerfTier] heuristic.
+  SurfaceStyle get effectiveSurfaceStyle {
+    if (_performanceMode) return SurfaceStyle.solid;
+    if (_explicitSurfaceStyle != null) return _explicitSurfaceStyle!;
+    return DevicePerfTier.instance.tier == PerfTier.low
+        ? SurfaceStyle.solid
+        : SurfaceStyle.glass;
+  }
+
+  ThemeProvider({
+    ThemeMode? initialThemeMode,
+    Color? initialSeedColor,
+    SurfaceStyle? initialSurfaceStyle,
+    bool? initialPerformanceMode,
+  }) {
     if (initialThemeMode != null) _themeMode = initialThemeMode;
     if (initialSeedColor != null) _seedColor = initialSeedColor;
+    _explicitSurfaceStyle = initialSurfaceStyle;
+    if (initialPerformanceMode != null) {
+      _performanceMode = initialPerformanceMode;
+    }
     _loadFromSupabase();
   }
 
@@ -93,6 +126,27 @@ class ThemeProvider extends ChangeNotifier {
       tStr = 'light';
     }
     _upsertSetting({'theme': tStr});
+  }
+
+  /// Sets the user's surface-style preference. Pass null to revert to the
+  /// device-tier auto default.
+  Future<void> setSurfaceStyle(SurfaceStyle? style) async {
+    _explicitSurfaceStyle = style;
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    if (style == null) {
+      await prefs.remove(_surfaceStyleKey);
+    } else {
+      await prefs.setString(_surfaceStyleKey, style.persistedValue);
+      await BootStateService.instance.setSurfaceStyle(style.persistedValue);
+    }
+  }
+
+  Future<void> setPerformanceMode(bool value) async {
+    _performanceMode = value;
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_performanceModeKey, value);
   }
 
   TextTheme get _manropeTextTheme => GoogleFonts.manropeTextTheme();

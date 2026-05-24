@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../providers/theme_provider.dart';
 import '../providers/settings_provider.dart';
 import '../theme/design_tokens.dart';
+import '../theme/surface_style.dart';
 import '../widgets/animated_background.dart';
 import '../widgets/settings/settings_widgets.dart';
 import '../widgets/settings/settings_dialogs.dart';
@@ -135,6 +136,32 @@ class SettingsPreferencesScreen extends StatelessWidget {
                                   ),
                                 ),
                                 onTap: () => _showColorPicker(context, tp),
+                              ),
+                            ),
+                            TileDivider(isDark: isDark),
+                            Consumer<ThemeProvider>(
+                              builder: (context, tp, _) => ToggleTile(
+                                isDark: isDark,
+                                iconBg: const Color(0xFF818CF8).withAlpha(51),
+                                iconColor: const Color(0xFF818CF8),
+                                icon: Icons.blur_on_rounded,
+                                title: 'Glassmorphic surfaces',
+                                value: tp.effectiveSurfaceStyle ==
+                                    SurfaceStyle.glass,
+                                onChanged: (v) => tp.setSurfaceStyle(
+                                    v ? SurfaceStyle.glass : SurfaceStyle.solid),
+                              ),
+                            ),
+                            TileDivider(isDark: isDark),
+                            Consumer<ThemeProvider>(
+                              builder: (context, tp, _) => ToggleTile(
+                                isDark: isDark,
+                                iconBg: const Color(0xFFFBBF24).withAlpha(51),
+                                iconColor: const Color(0xFFFBBF24),
+                                icon: Icons.speed_rounded,
+                                title: 'Performance mode',
+                                value: tp.performanceMode,
+                                onChanged: tp.setPerformanceMode,
                               ),
                             ),
                             TileDivider(isDark: isDark),
