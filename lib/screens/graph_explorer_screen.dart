@@ -2,7 +2,6 @@ import 'dart:ui';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:provider/provider.dart';
@@ -11,6 +10,7 @@ import '../services/api_service.dart';
 import '../services/connection_service.dart';
 import '../providers/persona_provider.dart';
 import '../repositories/graph_repository.dart';
+import '../assets/graph_assets.dart';
 import '../widgets/animated_background.dart';
 import '../widgets/skeleton_loader.dart';
 import '../theme/design_tokens.dart';
@@ -202,7 +202,7 @@ class _GraphExplorerScreenState extends State<GraphExplorerScreen> {
   }
 
   Future<void> _loadTemplate() async {
-    final template = await rootBundle.loadString('assets/text/graph_template.html');
+    final template = await GraphAssets.template;
     _webViewController?.loadHtmlString(template);
   }
 

@@ -1,7 +1,9 @@
 import 'package:flutter/foundation.dart';
 
 import '../models/dashboard_models.dart';
+import '../repositories/dashboard_repository.dart';
 import '../services/api_service.dart';
+import '../services/auth_service.dart';
 
 enum DashboardLoadState { idle, loading, loaded, error }
 
@@ -9,6 +11,8 @@ class DashboardProvider extends ChangeNotifier {
   DashboardProvider(this._api);
 
   final ApiService _api;
+  DashboardRepository? _repo;
+  void setRepository(DashboardRepository repo) => _repo = repo;
 
   static const allowedRanges = ['30d', '90d', '365d'];
 
@@ -31,15 +35,36 @@ class DashboardProvider extends ChangeNotifier {
     await load();
   }
 
-  Future<void> load() async {
+  Future<void> load({bool forceRefresh = false}) async {
     _state = DashboardLoadState.loading;
     _error = null;
     notifyListeners();
-    final res = await _api.getDashboard(range: _range);
-    _lastStatusCode = res.statusCode;
-    if (res.statusCode == 200 && res.data != null) {
+
+    final userId = AuthService.instance.currentUser?.id;
+    Map<String, dynamic>? payload;
+    int statusCode = 0;
+
+    if (_repo != null && userId != null) {
+      final outcome = await _repo!.getDashboard(
+        userId: userId,
+        range: _range,
+        forceRefresh: forceRefresh,
+      );
+      payload = outcome.result.data;
+      statusCode = outcome.statusCode;
+      if (payload == null && outcome.result.hasData) {
+        payload = outcome.result.data;
+      }
+    } else {
+      final res = await _api.getDashboard(range: _range);
+      payload = res.data;
+      statusCode = res.statusCode;
+    }
+
+    _lastStatusCode = statusCode;
+    if (payload != null) {
       try {
-        _data = DashboardResponse.fromJson(res.data!);
+        _data = DashboardResponse.fromJson(payload);
         _state = DashboardLoadState.loaded;
         _error = null;
       } catch (e, st) {
@@ -49,7 +74,7 @@ class DashboardProvider extends ChangeNotifier {
       }
     } else {
       _state = DashboardLoadState.error;
-      _error = switch (res.statusCode) {
+      _error = switch (statusCode) {
         429 => 'Slow down — try again in a moment.',
         401 => 'Session expired — please sign in again.',
         400 => 'Bad request — unsupported range.',

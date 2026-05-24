@@ -22,6 +22,9 @@ import 'repositories/graph_repository.dart';
 import 'repositories/entity_repository.dart';
 import 'repositories/gamification_repository.dart';
 import 'repositories/sessions_repository.dart';
+import 'repositories/drills_repository.dart';
+import 'repositories/dashboard_repository.dart';
+import 'repositories/scenarios_repository.dart';
 import 'providers/theme_provider.dart';
 import 'providers/settings_provider.dart';
 import 'providers/consultant_provider.dart';
@@ -237,6 +240,27 @@ class BubblesApp extends StatelessWidget {
             api: api,
           ),
         ),
+        ProxyProvider2<AppCacheService, ApiService, DrillsRepository>(
+          update: (context, l1, api, _) => DrillsRepository(
+            l1: l1,
+            l2: context.read<PersistentCacheService>(),
+            api: api,
+          ),
+        ),
+        ProxyProvider2<AppCacheService, ApiService, DashboardRepository>(
+          update: (context, l1, api, _) => DashboardRepository(
+            l1: l1,
+            l2: context.read<PersistentCacheService>(),
+            api: api,
+          ),
+        ),
+        ProxyProvider2<AppCacheService, ApiService, ScenariosRepository>(
+          update: (context, l1, api, _) => ScenariosRepository(
+            l1: l1,
+            l2: context.read<PersistentCacheService>(),
+            api: api,
+          ),
+        ),
 
         // Hydration Service — parallel cache refresh + Realtime subscriptions
         ChangeNotifierProxyProvider<ConnectionService, HydrationService>(
@@ -320,19 +344,22 @@ class BubblesApp extends StatelessWidget {
           ),
         ),
 
-        // 16. Drills (spaced-repetition cards)
-        ChangeNotifierProvider<DrillsProvider>(
+        // 16. Drills (spaced-repetition cards) — backed by DrillsRepository
+        ChangeNotifierProxyProvider<DrillsRepository, DrillsProvider>(
           create: (ctx) => DrillsProvider(ctx.read<ApiService>()),
+          update: (ctx, repo, provider) => provider!..setRepository(repo),
         ),
 
-        // 17. Dashboard (longitudinal progress)
-        ChangeNotifierProvider<DashboardProvider>(
+        // 17. Dashboard (longitudinal progress) — backed by DashboardRepository
+        ChangeNotifierProxyProvider<DashboardRepository, DashboardProvider>(
           create: (ctx) => DashboardProvider(ctx.read<ApiService>()),
+          update: (ctx, repo, provider) => provider!..setRepository(repo),
         ),
 
-        // 18. Scenarios (personalized roleplay)
-        ChangeNotifierProvider<ScenariosProvider>(
+        // 18. Scenarios (personalized roleplay) — backed by ScenariosRepository
+        ChangeNotifierProxyProvider<ScenariosRepository, ScenariosProvider>(
           create: (ctx) => ScenariosProvider(ctx.read<ApiService>()),
+          update: (ctx, repo, provider) => provider!..setRepository(repo),
         ),
 
         // 19. Live confidence meter (per-session)

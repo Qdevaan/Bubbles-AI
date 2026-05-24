@@ -1,7 +1,9 @@
 import 'package:flutter/foundation.dart';
 
 import '../models/drill_models.dart';
+import '../repositories/drills_repository.dart';
 import '../services/api_service.dart';
+import '../services/auth_service.dart';
 
 enum DrillsLoadState { idle, loading, loaded, error }
 
@@ -9,6 +11,8 @@ class DrillsProvider extends ChangeNotifier {
   DrillsProvider(this._api);
 
   final ApiService _api;
+  DrillsRepository? _repo;
+  void setRepository(DrillsRepository repo) => _repo = repo;
 
   List<DrillCard> _cards = const [];
   int _totalDue = 0;
@@ -26,11 +30,42 @@ class DrillsProvider extends ChangeNotifier {
   int get badgeCount => _totalDue;
   bool get hasData => _state == DrillsLoadState.loaded;
 
-  Future<void> load({bool includeUpcomingFallback = true}) async {
+  Future<void> load({
+    bool includeUpcomingFallback = true,
+    bool forceRefresh = false,
+  }) async {
     _state = DrillsLoadState.loading;
     _error = null;
     notifyListeners();
-    final due = await _api.getDrillsQueue(limit: 50);
+
+    final userId = AuthService.instance.currentUser?.id;
+
+    Future<Map<String, dynamic>?> fetchDue() async {
+      if (_repo != null && userId != null) {
+        final result = await _repo!.getQueue(
+          userId: userId,
+          limit: 50,
+          forceRefresh: forceRefresh,
+        );
+        return result.data;
+      }
+      return _api.getDrillsQueue(limit: 50);
+    }
+
+    Future<Map<String, dynamic>?> fetchUpcoming() async {
+      if (_repo != null && userId != null) {
+        final result = await _repo!.getQueue(
+          userId: userId,
+          limit: 20,
+          includeUpcoming: true,
+          forceRefresh: forceRefresh,
+        );
+        return result.data;
+      }
+      return _api.getDrillsQueue(limit: 20, includeUpcoming: true);
+    }
+
+    final due = await fetchDue();
     if (due == null) {
       _state = DrillsLoadState.error;
       _error = 'Could not load drills.';
@@ -40,10 +75,7 @@ class DrillsProvider extends ChangeNotifier {
     var parsed = DrillQueueResponse.fromJson(due);
 
     if (parsed.cards.isEmpty && includeUpcomingFallback) {
-      final upcoming = await _api.getDrillsQueue(
-        limit: 20,
-        includeUpcoming: true,
-      );
+      final upcoming = await fetchUpcoming();
       if (upcoming != null) {
         final fallback = DrillQueueResponse.fromJson(upcoming);
         if (fallback.cards.isNotEmpty) {
@@ -93,6 +125,7 @@ class DrillsProvider extends ChangeNotifier {
     ];
     // total_due was decremented by the server; reflect that locally.
     if (_totalDue > 0) _totalDue -= 1;
+    await _invalidateQueueCache();
     notifyListeners();
     return parsed;
   }
@@ -105,8 +138,15 @@ class DrillsProvider extends ChangeNotifier {
         if (c.id != card.id) c,
     ];
     if (_totalDue > 0 && !card.isMastered) _totalDue -= 1;
+    await _invalidateQueueCache();
     notifyListeners();
     return true;
+  }
+
+  Future<void> _invalidateQueueCache() async {
+    final userId = AuthService.instance.currentUser?.id;
+    if (_repo == null || userId == null) return;
+    await _repo!.invalidateQueue(userId);
   }
 
   /// Wait 2-5 s after `end_session`, then refresh once so worker-

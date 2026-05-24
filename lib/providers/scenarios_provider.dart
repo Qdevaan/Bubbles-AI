@@ -1,7 +1,9 @@
 import 'package:flutter/foundation.dart';
 
 import '../models/scenario_models.dart';
+import '../repositories/scenarios_repository.dart';
 import '../services/api_service.dart';
+import '../services/auth_service.dart';
 
 enum ScenariosLoadState { idle, loading, loaded, error }
 
@@ -9,6 +11,8 @@ class ScenariosProvider extends ChangeNotifier {
   ScenariosProvider(this._api);
 
   final ApiService _api;
+  ScenariosRepository? _repo;
+  void setRepository(ScenariosRepository repo) => _repo = repo;
 
   List<Scenario> _suggested = const [];
   ScenariosLoadState _state = ScenariosLoadState.idle;
@@ -23,11 +27,25 @@ class ScenariosProvider extends ChangeNotifier {
   int? get lastGenerateStatus => _lastGenerateStatus;
   bool get hasData => _state == ScenariosLoadState.loaded;
 
-  Future<void> loadSuggested() async {
+  Future<void> loadSuggested({bool forceRefresh = false}) async {
     _state = ScenariosLoadState.loading;
     _error = null;
     notifyListeners();
-    final raw = await _api.getScenarios(status: 'suggested', limit: 30);
+
+    final userId = AuthService.instance.currentUser?.id;
+    List<Map<String, dynamic>>? raw;
+
+    if (_repo != null && userId != null) {
+      final result = await _repo!.getSuggested(
+        userId: userId,
+        limit: 30,
+        forceRefresh: forceRefresh,
+      );
+      raw = result.data;
+    } else {
+      raw = await _api.getScenarios(status: 'suggested', limit: 30);
+    }
+
     if (raw == null) {
       _state = ScenariosLoadState.error;
       _error = "Couldn't load scenarios.";

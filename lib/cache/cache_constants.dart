@@ -18,6 +18,11 @@ class CacheKeys {
   static String sessionLogs(String sessionId) => 'session:$sessionId:logs';
   static String sessionAnalytics(String sessionId) => 'session:$sessionId:analytics';
   static String coachingReport(String sessionId) => 'session:$sessionId:report';
+  static String drillsQueue(String uid)        => 'user:$uid:drills:queue';
+  static String dashboard(String uid, String range) =>
+      'user:$uid:dashboard:$range';
+  static String scenariosSuggested(String uid) => 'user:$uid:scenarios:suggested';
+  static String recentSessions(String uid)     => 'user:$uid:sessions:recent';
 }
 
 class CacheTtl {
@@ -33,6 +38,9 @@ class CacheTtl {
   static const Duration performance      = Duration(minutes: 30);
   static const Duration sessions         = Duration(minutes: 10);
   static const Duration sessionLogs      = Duration(hours: 1);
+  static const Duration drillsQueue      = Duration(minutes: 3);
+  static const Duration dashboard        = Duration(minutes: 10);
+  static const Duration scenarios        = Duration(minutes: 15);
 }
 
 class CacheSchemaVersion {
@@ -44,4 +52,7 @@ class CacheSchemaVersion {
   static const int entities      = 1;
   static const int gamification  = 1;
   static const int sessions      = 1;
+  static const int drills        = 1;
+  static const int dashboard     = 1;
+  static const int scenarios     = 1;
 }
