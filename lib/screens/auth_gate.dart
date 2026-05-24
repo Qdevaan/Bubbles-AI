@@ -1,77 +1,21 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 
-import '../providers/persona_provider.dart';
-import '../routes/app_routes.dart';
-import '../services/onboarding_service.dart';
-import '../services/persona_skip_service.dart';
-import '../widgets/skeleton_loader.dart';
+import 'app_bootstrap.dart';
 
 /// Post-login routing gate.
 ///
-/// Refreshes [PersonaProvider] once and then redirects:
-///   * `/performa-wizard` — if the user has no persona row, or the row
-///     exists but has not been completed (`completed_at` is null).
-///   * `/home`            — if the persona is fully completed.
+/// Delegates to [AppBootstrap] so a freshly-signed-in user follows the same
+/// fast-path decision tree as a cold launch:
+///   * If [PersonaProvider] / [BootStateService] indicate the wizard is
+///     unfinished and was not skipped → `/performa-wizard`.
+///   * Otherwise → `/home` (or `/onboarding` if the tutorial hasn't run).
 ///
-/// Combined with [PerformaWizardScreen]'s `PopScope(canPop: false)`,
-/// this gives us a hard block: a freshly-signed-in user with no persona
-/// cannot reach the rest of the app until the wizard is finished.
-///
-/// AuthGate assumes the user is already authenticated. It is intended to
-/// be the destination after `LoginScreen`, `SignupScreen`,
-/// `ProfileCompletionScreen`, and the splash's logged-in branch.
-class AuthGate extends StatefulWidget {
+/// AuthGate assumes the user is already authenticated. It is intended to be
+/// the destination after [LoginScreen] and [SignupScreen]. Cold launches go
+/// through [AppBootstrap] directly without ever rendering this widget.
+class AuthGate extends StatelessWidget {
   const AuthGate({super.key});
 
   @override
-  State<AuthGate> createState() => _AuthGateState();
-}
-
-class _AuthGateState extends State<AuthGate> {
-  bool _decided = false;
-
-  @override
-  void initState() {
-    super.initState();
-    // Defer one frame so the Navigator is mounted before we push.
-    WidgetsBinding.instance.addPostFrameCallback((_) => _decideRoute());
-  }
-
-  Future<void> _decideRoute() async {
-    if (_decided || !mounted) return;
-    final persona = context.read<PersonaProvider>();
-    try {
-      await persona.refresh();
-    } catch (_) {
-      // Refresh errors are surfaced by PersonaProvider.error; even on
-      // failure we route to the wizard so the user is never stranded
-      // on a blank gate. PersonaProvider.needsWizard is true when
-      // _persona is null (which is the case after a failed fetch too).
-    }
-    if (!mounted || _decided) return;
-    _decided = true;
-
-    final skipped = await PersonaSkipService.instance.isSkipped();
-    if (!mounted) return;
-
-    if (persona.needsWizard && !skipped) {
-      Navigator.of(context).pushReplacementNamed(AppRoutes.performaWizard);
-      return;
-    }
-
-    // Persona complete (or skipped) — check onboarding tutorial flag.
-    final seenTutorial = await OnboardingService.instance.hasSeen();
-    if (!mounted) return;
-    Navigator.of(context).pushReplacementNamed(
-      seenTutorial ? AppRoutes.home : AppRoutes.onboarding,
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return const Scaffold(
-      body: SafeArea(child: SkeletonSplash()),
-    );
-  }
+  Widget build(BuildContext context) => const AppBootstrap();
 }

@@ -1,5 +1,7 @@
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'boot_state_service.dart';
+
 /// Tracks whether the first-launch onboarding carousel has been seen.
 ///
 /// Bumping [_version] forces every user back through onboarding on the next
@@ -21,10 +23,12 @@ class OnboardingService {
   Future<void> markSeen() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_storageKey, true);
+    await BootStateService.instance.setOnboardingSeen(true);
   }
 
   Future<void> reset() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_storageKey);
+    await BootStateService.instance.setOnboardingSeen(false);
   }
 }

@@ -13,6 +13,7 @@ import 'services/auth_service.dart';
 import 'services/app_cache_service.dart';
 import 'services/hydration_service.dart';
 import 'cache/persistent_cache_service.dart';
+import 'services/boot_state_service.dart';
 import 'repositories/profile_repository.dart';
 import 'repositories/settings_repository.dart';
 import 'repositories/home_repository.dart';
@@ -27,7 +28,7 @@ import 'providers/consultant_provider.dart';
 import 'providers/session_provider.dart';
 import 'providers/home_provider.dart';
 import 'widgets/voice_overlay.dart';
-import 'screens/splash_screen.dart';
+import 'screens/app_bootstrap.dart';
 import 'screens/login_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/connections_screen.dart';
@@ -80,8 +81,11 @@ import 'routes/app_routes.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Initialize Persistent Cache
+  // Initialize Persistent Cache + synchronous boot-state mirror.
+  // BootStateService is consulted by AppBootstrap on the first frame so the
+  // app can route to home without awaiting any network work.
   await PersistentCacheService.instance.init();
+  await BootStateService.instance.init();
 
   // Load environment variables — .env is no longer bundled as a Flutter asset
   // (to avoid leaking API keys in the APK). It still loads from the project
@@ -114,12 +118,14 @@ Future<void> main() async {
       DeviceService.instance.registerDevice();
       final userId = data.session?.user.id;
       if (userId != null) {
+        BootStateService.instance.setLastUserId(userId);
         WidgetsBinding.instance.addPostFrameCallback((_) {
           final ctx = BubblesApp.navigatorKey.currentContext;
           ctx?.read<HydrationService>().setUserId(userId);
         });
       }
     } else if (event == AuthChangeEvent.signedOut) {
+      BootStateService.instance.clearUserScope();
       WidgetsBinding.instance.addPostFrameCallback((_) {
         final ctx = BubblesApp.navigatorKey.currentContext;
         ctx?.read<HydrationService>().clearUserId();
@@ -364,8 +370,10 @@ class BubblesApp extends StatelessWidget {
             // Dark Theme Configuration
             darkTheme: themeProvider.darkTheme,
 
-            // The root screen
-            home: const SplashScreen(),
+            // The root screen — unified boot widget. Decides the route from
+            // the BootStateService mirror on the first frame; no intermediate
+            // skeleton when the cache is warm.
+            home: const AppBootstrap(),
 
             // Global builder: adds VoiceOverlay on all routes except /settings
             builder: (context, child) {
