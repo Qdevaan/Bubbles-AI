@@ -26,7 +26,10 @@ class _ProgressScreenState extends State<ProgressScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<DashboardProvider>().load();
+      final provider = context.read<DashboardProvider>();
+      if (!provider.hasData) {
+        provider.load();
+      }
     });
   }
 

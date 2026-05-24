@@ -28,7 +28,12 @@ class _DrillsScreenState extends State<DrillsScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<DrillsProvider>().load();
+      final provider = context.read<DrillsProvider>();
+      // Skip the network round-trip when an earlier prefetch already
+      // populated the provider — the screen renders from cached state.
+      if (!provider.hasData) {
+        provider.load();
+      }
     });
   }
 

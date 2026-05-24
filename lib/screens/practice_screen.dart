@@ -28,7 +28,10 @@ class _PracticeScreenState extends State<PracticeScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<ScenariosProvider>().loadSuggested();
+      final provider = context.read<ScenariosProvider>();
+      if (!provider.hasData) {
+        provider.loadSuggested();
+      }
     });
   }
 

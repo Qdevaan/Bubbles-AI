@@ -24,6 +24,7 @@ class DrillsProvider extends ChangeNotifier {
   String? get error => _error;
   bool get includeUpcoming => _includeUpcoming;
   int get badgeCount => _totalDue;
+  bool get hasData => _state == DrillsLoadState.loaded;
 
   Future<void> load({bool includeUpcomingFallback = true}) async {
     _state = DrillsLoadState.loading;

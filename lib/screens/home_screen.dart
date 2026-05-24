@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -13,6 +14,9 @@ import '../services/voice_assistant_service.dart';
 import '../providers/home_provider.dart';
 import '../providers/gamification_provider.dart';
 import '../providers/settings_provider.dart';
+import '../providers/drills_provider.dart';
+import '../providers/dashboard_provider.dart';
+import '../providers/scenarios_provider.dart';
 import '../repositories/graph_repository.dart';
 import '../widgets/app_dialog.dart';
 import '../widgets/animated_background.dart';
@@ -51,10 +55,43 @@ class _HomeScreenState extends State<HomeScreen>
       Provider.of<HomeProvider>(context, listen: false).init();
       Provider.of<VoiceAssistantService>(context, listen: false).activate();
       Provider.of<GamificationProvider>(context, listen: false).init();
-      
+
       final userId = AuthService.instance.currentUser?.id;
       if (userId != null) {
-        Provider.of<GraphRepository>(context, listen: false).getGraphExport(userId, forceRefresh: true);
+        // SWR — paint cached graph immediately, refresh silently in the
+        // background. forceRefresh=true previously triggered a network round
+        // trip on every home mount.
+        Provider.of<GraphRepository>(context, listen: false)
+            .getGraphExport(userId, forceRefresh: false);
+      }
+
+      // Idle prefetch: warm the providers backing the most likely next
+      // destinations (Drills, Progress, Practice). Subsequent navigations
+      // render from the populated provider with no spinner.
+      _scheduleIdlePrefetch();
+    });
+  }
+
+  void _scheduleIdlePrefetch() {
+    Future.microtask(() async {
+      if (!mounted) return;
+      final drills = context.read<DrillsProvider>();
+      if (!drills.hasData) {
+        unawaited(drills.load());
+      }
+    });
+    Future.delayed(const Duration(milliseconds: 400), () {
+      if (!mounted) return;
+      final dashboard = context.read<DashboardProvider>();
+      if (!dashboard.hasData) {
+        unawaited(dashboard.load());
+      }
+    });
+    Future.delayed(const Duration(milliseconds: 800), () {
+      if (!mounted) return;
+      final scenarios = context.read<ScenariosProvider>();
+      if (!scenarios.hasData) {
+        unawaited(scenarios.loadSuggested());
       }
     });
   }

@@ -42,6 +42,7 @@ class AppBootstrap extends StatefulWidget {
 class _AppBootstrapState extends State<AppBootstrap> {
   bool _navigated = false;
   bool _showColdLoader = false;
+  bool _imagesPrecached = false;
   String _loaderText = 'Loading...';
   StreamSubscription<AuthState>? _authSub;
 
@@ -55,6 +56,17 @@ class _AppBootstrapState extends State<AppBootstrap> {
       }
     });
     WidgetsBinding.instance.addPostFrameCallback((_) => _decideAndNavigate());
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_imagesPrecached) return;
+    _imagesPrecached = true;
+    // Warm the image cache for the brand logos so the home-screen header
+    // does not pop a fresh decode on the user's first paint.
+    precacheImage(const AssetImage('assets/logos/logo_light.png'), context);
+    precacheImage(const AssetImage('assets/logos/logo_dark.png'), context);
   }
 
   @override

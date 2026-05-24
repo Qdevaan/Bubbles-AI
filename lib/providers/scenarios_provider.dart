@@ -21,6 +21,7 @@ class ScenariosProvider extends ChangeNotifier {
   String? get error => _error;
   bool get generating => _generating;
   int? get lastGenerateStatus => _lastGenerateStatus;
+  bool get hasData => _state == ScenariosLoadState.loaded;
 
   Future<void> loadSuggested() async {
     _state = ScenariosLoadState.loading;
