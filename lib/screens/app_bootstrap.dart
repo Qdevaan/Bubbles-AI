@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -71,6 +72,17 @@ class _AppBootstrapState extends State<AppBootstrap> {
     // does not pop a fresh decode on the user's first paint.
     precacheImage(const AssetImage('assets/logos/logo_light.png'), context);
     precacheImage(const AssetImage('assets/logos/logo_dark.png'), context);
+    // Pre-load every Manrope weight used across the app. google_fonts caches
+    // the TTF on disk after the first successful fetch — pulling them in
+    // parallel during the boot frame means the home screen's first text
+    // render no longer awaits a network fetch.
+    unawaited(GoogleFonts.pendingFonts([
+      GoogleFonts.manrope(),
+      GoogleFonts.manrope(fontWeight: FontWeight.w500),
+      GoogleFonts.manrope(fontWeight: FontWeight.w600),
+      GoogleFonts.manrope(fontWeight: FontWeight.w700),
+      GoogleFonts.manrope(fontWeight: FontWeight.w800),
+    ]));
   }
 
   @override

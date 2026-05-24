@@ -70,3 +70,24 @@ flutter:
     - assets/logos/
     - assets/text/
     - assets/wake_word/
+
+  # Bundle Manrope locally to drop the runtime google_fonts network fetch.
+  # Drop the four TTF files into `assets/fonts/` (download from
+  # https://github.com/sharanda/manrope/tree/master/fonts), then uncomment
+  # the section below. theme_provider.dart will pick the bundled family
+  # automatically because every call site already passes
+  # `fontFamily: 'Manrope'` via google_fonts; once the family resolves
+  # locally, google_fonts skips the network entirely.
+  #
+  # fonts:
+  #   - family: Manrope
+  #     fonts:
+  #       - asset: assets/fonts/Manrope-Regular.ttf
+  #       - asset: assets/fonts/Manrope-Medium.ttf
+  #         weight: 500
+  #       - asset: assets/fonts/Manrope-SemiBold.ttf
+  #         weight: 600
+  #       - asset: assets/fonts/Manrope-Bold.ttf
+  #         weight: 700
+  #       - asset: assets/fonts/Manrope-ExtraBold.ttf
+  #         weight: 800
