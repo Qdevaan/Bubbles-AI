@@ -7,9 +7,11 @@ import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:record/record.dart';
 
+import '../data/help_content.dart';
 import '../providers/settings_provider.dart';
 import '../services/api_service.dart';
 import '../services/auth_service.dart';
+import '../widgets/help_sheet.dart';
 import '../theme/design_tokens.dart';
 
 import '../widgets/app_snack_bar.dart';
@@ -218,6 +220,8 @@ class _VoiceEnrollmentScreenState extends State<VoiceEnrollmentScreen>
               color: isDark ? Colors.white : AppColors.slate900,
             ),
           ),
+          const Spacer(),
+          const HelpIconButton(screen: HelpScreen.voiceEnrollment),
         ],
       ),
     );

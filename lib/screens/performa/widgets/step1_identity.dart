@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../services/auth_service.dart';
 import '../draft.dart';
 
 /// Step 1 of the PerformaWizard. Collects identity-level information:
@@ -48,10 +49,34 @@ class _Step1IdentityState extends State<Step1Identity> {
   @override
   void initState() {
     super.initState();
-    _displayName = TextEditingController(text: widget.draft.displayName ?? '');
+    final existing = widget.draft.displayName;
+    final initialName =
+        (existing != null && existing.isNotEmpty) ? existing : _nameFromAuth();
+    _displayName = TextEditingController(text: initialName);
+    if ((existing == null || existing.isEmpty) && initialName.isNotEmpty) {
+      // Push the prefilled name onto the draft so the wizard advances
+      // without forcing the user to retype it.
+      widget.draft.displayName = initialName;
+    }
     _profession =
         TextEditingController(text: widget.draft.professionDetail ?? '');
     _newTag = TextEditingController();
+  }
+
+  /// Pulls a sensible default display name from the Supabase auth session:
+  /// `user_metadata.full_name`, falling back to the email's local-part.
+  static String _nameFromAuth() {
+    final user = AuthService.instance.currentUser;
+    final metaName = user?.userMetadata?['full_name'];
+    if (metaName is String && metaName.trim().isNotEmpty) {
+      return metaName.trim();
+    }
+    final email = user?.email;
+    if (email != null && email.contains('@')) {
+      final local = email.split('@').first.trim();
+      if (local.isNotEmpty) return local;
+    }
+    return '';
   }
 
   @override

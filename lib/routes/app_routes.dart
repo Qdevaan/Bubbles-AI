@@ -34,4 +34,6 @@ class AppRoutes {
   static const progress = '/progress';
   static const practice = '/practice';
   static const scenarioResults = '/scenario-results';
+  static const onboarding = '/onboarding';
+  static const help = '/help';
 }

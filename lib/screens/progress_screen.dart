@@ -4,10 +4,12 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
+import '../data/help_content.dart';
 import '../models/dashboard_models.dart';
 import '../providers/dashboard_provider.dart';
 import '../routes/app_routes.dart';
 import '../theme/design_tokens.dart';
+import '../widgets/help_sheet.dart';
 import '../widgets/skeleton_loader.dart';
 
 class ProgressScreen extends StatefulWidget {
@@ -58,6 +60,9 @@ class _ProgressScreenState extends State<ProgressScreen> {
         iconTheme: IconThemeData(
           color: isDark ? Colors.white : AppColors.slate900,
         ),
+        actions: const [
+          HelpIconButton(screen: HelpScreen.progress),
+        ],
       ),
       body: SafeArea(
         child: Consumer<DashboardProvider>(

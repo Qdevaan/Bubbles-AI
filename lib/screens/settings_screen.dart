@@ -5,13 +5,16 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 
+import '../data/help_content.dart';
 import '../theme/design_tokens.dart';
 import '../services/app_cache_service.dart';
 import '../services/auth_service.dart';
+import '../services/onboarding_service.dart';
 import '../routes/app_routes.dart';
 import '../widgets/settings/settings_widgets.dart';
 import '../widgets/animated_background.dart';
 import '../widgets/app_snack_bar.dart';
+import '../widgets/help_sheet.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -93,6 +96,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             ),
                           ),
                           const Spacer(),
+                          const HelpIconButton(screen: HelpScreen.settings),
                           TextButton(
                             onPressed: () => Navigator.pop(context),
                             child: Text(
@@ -187,6 +191,33 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             title: 'Permissions',
                             subtitle: 'OS permissions and access',
                             onTap: () => Navigator.pushNamed(context, AppRoutes.permissions),
+                          ),
+                          TileDivider(isDark: isDark),
+                          SettingsNavigationTile(
+                            isDark: isDark,
+                            iconBg: AppColors.primary.withAlpha(38),
+                            iconColor: AppColors.primary,
+                            icon: Icons.help_outline_rounded,
+                            title: 'Help & tips',
+                            subtitle: 'Per-screen guidance and tutorials',
+                            onTap: () => Navigator.pushNamed(context, AppRoutes.help),
+                          ),
+                          TileDivider(isDark: isDark),
+                          SettingsNavigationTile(
+                            isDark: isDark,
+                            iconBg: AppColors.amber.withAlpha(38),
+                            iconColor: AppColors.amber,
+                            icon: Icons.replay_rounded,
+                            title: 'Replay tutorial',
+                            subtitle: 'See the welcome carousel again',
+                            onTap: () async {
+                              await OnboardingService.instance.reset();
+                              if (!context.mounted) return;
+                              Navigator.pushNamed(
+                                context,
+                                AppRoutes.onboarding,
+                              );
+                            },
                           ),
                           TileDivider(isDark: isDark),
                           SettingsNavigationTile(

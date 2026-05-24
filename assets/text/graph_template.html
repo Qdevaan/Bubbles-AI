@@ -142,15 +142,28 @@ function updateGraph(nodesJsonStr, edgesJsonStr, isDark) {
     // Build vis.js nodes
     const visNodes = rawNodes.map(n => {
       const type = n.type || n.entity_type || '';
-      const tc = getTypeColor(type);
+      const isCentral = n.isCentral === true || type === 'user';
+      const tc = isCentral
+        ? {
+            bg: isDark ? '#13BDEC' : '#0B9AC9',
+            border: '#ffffff',
+            highlight: '#6ECBF5',
+            glow: 'rgba(19,189,236,0.55)',
+          }
+        : getTypeColor(type);
       const degree = n.degree || degreeMap[n.id] || 0;
       const mentions = n.mention_count || 0;
-      // Size: base 14, scale with degree + mentions, cap at 55
-      const size = Math.min(55, Math.max(14, 12 + degree * 3 + Math.min(mentions, 10)));
+      // Size: base 14, scale with degree + mentions, cap at 55.
+      // Central user node is rendered larger so it visually anchors the graph.
+      const size = isCentral
+        ? 60
+        : Math.min(55, Math.max(14, 12 + degree * 3 + Math.min(mentions, 10)));
       // Font: scale with degree
-      const fontSize = Math.min(18, Math.max(9, 8 + degree * 1.2));
+      const fontSize = isCentral
+        ? 20
+        : Math.min(18, Math.max(9, 8 + degree * 1.2));
 
-      return {
+      const node = {
         id: n.id,
         label: n.label || n.id,
         size: size,
@@ -162,26 +175,41 @@ function updateGraph(nodesJsonStr, edgesJsonStr, isDark) {
         },
         font: {
           size: fontSize,
-          color: isDark ? '#ffffffcc' : '#1e293bcc',
+          color: isCentral
+              ? '#ffffff'
+              : (isDark ? '#ffffffcc' : '#1e293bcc'),
           strokeWidth: 3,
           strokeColor: isDark ? 'rgba(16,30,34,0.85)' : 'rgba(248,250,252,0.9)',
           face: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+          bold: isCentral,
         },
-        borderWidth: 2,
-        borderWidthSelected: 3.5,
+        borderWidth: isCentral ? 4 : 2,
+        borderWidthSelected: isCentral ? 5 : 3.5,
         shadow: {
           enabled: true,
           color: tc.glow,
-          size: 12,
+          size: isCentral ? 24 : 12,
           x: 0, y: 0,
         },
         // Store metadata for click events
         _entityType: type,
-        _entityTypeLabel: getTypeLabel(type),
+        _entityTypeLabel: isCentral ? 'You' : getTypeLabel(type),
         _degree: degree,
         _description: n.description || '',
         _mentionCount: mentions,
+        _isCentral: isCentral,
       };
+
+      // Pin the central (user) node at the origin so the force layout
+      // arranges every other entity around it.
+      if (isCentral) {
+        node.x = 0;
+        node.y = 0;
+        node.fixed = { x: true, y: true };
+        node.physics = false;
+      }
+
+      return node;
     });
 
     // Build vis.js edges — always visible with clear connection lines

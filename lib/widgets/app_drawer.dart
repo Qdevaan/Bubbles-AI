@@ -168,6 +168,16 @@ class AppDrawer extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 _DrawerItem(
+                  icon: Icons.help_outline_rounded,
+                  label: 'Help & tips',
+                  isDark: isDark,
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.pushNamed(context, '/help');
+                  },
+                ),
+                const SizedBox(height: 4),
+                _DrawerItem(
                   icon: Icons.settings_rounded,
                   label: 'Settings',
                   isDark: isDark,

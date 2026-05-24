@@ -4,11 +4,13 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../data/help_content.dart';
 import '../models/scenario_models.dart';
 import '../providers/scenarios_provider.dart';
 import '../routes/app_routes.dart';
 import '../theme/design_tokens.dart';
 import '../widgets/app_snack_bar.dart';
+import '../widgets/help_sheet.dart';
 import '../widgets/skeleton_loader.dart';
 
 class PracticeScreen extends StatefulWidget {
@@ -156,6 +158,9 @@ class _PracticeScreenState extends State<PracticeScreen> {
         iconTheme: IconThemeData(
           color: isDark ? Colors.white : AppColors.slate900,
         ),
+        actions: const [
+          HelpIconButton(screen: HelpScreen.practice),
+        ],
       ),
       floatingActionButton: Consumer<ScenariosProvider>(
         builder: (_, p, __) => FloatingActionButton.extended(

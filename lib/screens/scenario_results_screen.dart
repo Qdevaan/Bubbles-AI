@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 
+import '../data/help_content.dart';
 import '../models/scenario_models.dart';
 import '../providers/scenarios_provider.dart';
 import '../routes/app_routes.dart';
 import '../theme/design_tokens.dart';
+import '../widgets/help_sheet.dart';
 
 class ScenarioResultsScreen extends StatefulWidget {
   const ScenarioResultsScreen({
@@ -64,6 +66,9 @@ class _ScenarioResultsScreenState extends State<ScenarioResultsScreen> {
         iconTheme: IconThemeData(
           color: isDark ? Colors.white : AppColors.slate900,
         ),
+        actions: const [
+          HelpIconButton(screen: HelpScreen.scenarioResults),
+        ],
       ),
       body: SafeArea(
         child: Padding(

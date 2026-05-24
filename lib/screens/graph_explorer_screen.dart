@@ -9,6 +9,7 @@ import 'package:provider/provider.dart';
 import '../services/auth_service.dart';
 import '../services/api_service.dart';
 import '../services/connection_service.dart';
+import '../providers/persona_provider.dart';
 import '../repositories/graph_repository.dart';
 import '../widgets/animated_background.dart';
 import '../widgets/skeleton_loader.dart';
@@ -178,9 +179,15 @@ class _GraphExplorerScreenState extends State<GraphExplorerScreen> {
       final nodesData = data['nodes'] as List<dynamic>? ?? [];
       final linksData = data['links'] as List<dynamic>? ?? [];
 
+      final loadedNodes =
+          nodesData.map((n) => Map<String, dynamic>.from(n)).toList();
+      final loadedLinks =
+          linksData.map((l) => Map<String, dynamic>.from(l)).toList();
+      _injectUserRoot(loadedNodes, loadedLinks);
+
       setState(() {
-        _rawNodes = nodesData.map((n) => Map<String, dynamic>.from(n)).toList();
-        _rawLinks = linksData.map((l) => Map<String, dynamic>.from(l)).toList();
+        _rawNodes = loadedNodes;
+        _rawLinks = loadedLinks;
         _isLoading = false;
       });
 
@@ -197,6 +204,63 @@ class _GraphExplorerScreenState extends State<GraphExplorerScreen> {
   Future<void> _loadTemplate() async {
     final template = await rootBundle.loadString('assets/text/graph_template.html');
     _webViewController?.loadHtmlString(template);
+  }
+
+  /// Prepends a synthetic user node to [nodes] and wires it to the top
+  /// most-connected entities in [links]. The vis.js template treats nodes
+  /// flagged `isCentral: true` as the fixed-position graph center, so this
+  /// guarantees the user sits at the heart of their relational graph.
+  void _injectUserRoot(
+    List<Map<String, dynamic>> nodes,
+    List<Map<String, dynamic>> links,
+  ) {
+    if (nodes.isEmpty) return;
+
+    const userId = '__user_root__';
+    // Avoid duplicate injection if the server ever ships a user node.
+    if (nodes.any((n) => n['id'] == userId)) return;
+
+    final persona = context.read<PersonaProvider>().persona;
+    final authUser = AuthService.instance.currentUser;
+    final label = (persona?.displayName?.trim().isNotEmpty ?? false)
+        ? persona!.displayName!.trim()
+        : ((authUser?.userMetadata?['full_name'] as String?)?.trim().isNotEmpty
+                ?? false)
+            ? (authUser!.userMetadata!['full_name'] as String).trim()
+            : (authUser?.email?.split('@').first ?? 'You');
+
+    // Compute degree to pick the top entities the user should link to.
+    final degree = <String, int>{};
+    for (final l in links) {
+      final f = (l['from'] ?? l['source'])?.toString();
+      final t = (l['to'] ?? l['target'])?.toString();
+      if (f != null) degree[f] = (degree[f] ?? 0) + 1;
+      if (t != null) degree[t] = (degree[t] ?? 0) + 1;
+    }
+    final ranked = nodes
+        .map((n) => n['id']?.toString())
+        .whereType<String>()
+        .toList()
+      ..sort((a, b) => (degree[b] ?? 0).compareTo(degree[a] ?? 0));
+    final topConnections = ranked.take(8).toList();
+
+    nodes.insert(0, {
+      'id': userId,
+      'label': label,
+      'type': 'user',
+      'isCentral': true,
+      'description': 'You — center of your knowledge graph',
+      'degree': topConnections.length,
+    });
+
+    for (final targetId in topConnections) {
+      links.add({
+        'from': userId,
+        'to': targetId,
+        'label': 'you',
+        'strength': 1.5,
+      });
+    }
   }
 
   void _onNodeTap(Map<String, dynamic> data) {

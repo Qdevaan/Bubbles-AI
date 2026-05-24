@@ -71,6 +71,8 @@ import 'screens/drills_screen.dart';
 import 'screens/progress_screen.dart';
 import 'screens/practice_screen.dart';
 import 'screens/scenario_results_screen.dart';
+import 'screens/onboarding_screen.dart';
+import 'screens/help_index_screen.dart';
 import 'providers/confidence_provider.dart';
 import 'widgets/auth_guard.dart';
 import 'routes/app_routes.dart';
@@ -520,6 +522,10 @@ class BubblesApp extends StatelessWidget {
                   const AuthGuard(child: ProgressScreen()),
               AppRoutes.practice: (context) =>
                   const AuthGuard(child: PracticeScreen()),
+              AppRoutes.onboarding: (context) =>
+                  const AuthGuard(child: OnboardingScreen()),
+              AppRoutes.help: (context) =>
+                  const AuthGuard(child: HelpIndexScreen()),
             },
           );
         },

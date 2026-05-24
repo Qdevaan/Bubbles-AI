@@ -4,10 +4,12 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
+import '../data/help_content.dart';
 import '../models/drill_models.dart';
 import '../providers/drills_provider.dart';
 import '../theme/design_tokens.dart';
 import '../widgets/app_snack_bar.dart';
+import '../widgets/help_sheet.dart';
 import '../widgets/skeleton_loader.dart';
 
 class DrillsScreen extends StatefulWidget {
@@ -191,6 +193,7 @@ class _DrillsScreenState extends State<DrillsScreen> {
               );
             },
           ),
+          const HelpIconButton(screen: HelpScreen.drills),
         ],
       ),
       body: SafeArea(

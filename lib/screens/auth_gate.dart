@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../providers/persona_provider.dart';
+import '../routes/app_routes.dart';
+import '../services/onboarding_service.dart';
+import '../services/persona_skip_service.dart';
 import '../widgets/skeleton_loader.dart';
 
 /// Post-login routing gate.
@@ -48,8 +51,21 @@ class _AuthGateState extends State<AuthGate> {
     }
     if (!mounted || _decided) return;
     _decided = true;
-    final route = persona.needsWizard ? '/performa-wizard' : '/home';
-    Navigator.of(context).pushReplacementNamed(route);
+
+    final skipped = await PersonaSkipService.instance.isSkipped();
+    if (!mounted) return;
+
+    if (persona.needsWizard && !skipped) {
+      Navigator.of(context).pushReplacementNamed(AppRoutes.performaWizard);
+      return;
+    }
+
+    // Persona complete (or skipped) — check onboarding tutorial flag.
+    final seenTutorial = await OnboardingService.instance.hasSeen();
+    if (!mounted) return;
+    Navigator.of(context).pushReplacementNamed(
+      seenTutorial ? AppRoutes.home : AppRoutes.onboarding,
+    );
   }
 
   @override
