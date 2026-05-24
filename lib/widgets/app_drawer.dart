@@ -75,6 +75,36 @@ class AppDrawer extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 _DrawerItem(
+                  icon: Icons.theater_comedy_rounded,
+                  label: 'Practice',
+                  isDark: isDark,
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.pushNamed(context, '/practice');
+                  },
+                ),
+                const SizedBox(height: 4),
+                _DrawerItem(
+                  icon: Icons.style_rounded,
+                  label: 'Drills',
+                  isDark: isDark,
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.pushNamed(context, '/drills');
+                  },
+                ),
+                const SizedBox(height: 4),
+                _DrawerItem(
+                  icon: Icons.show_chart_rounded,
+                  label: 'Progress',
+                  isDark: isDark,
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.pushNamed(context, '/progress');
+                  },
+                ),
+                const SizedBox(height: 4),
+                _DrawerItem(
                   icon: Icons.forum_rounded,
                   label: 'Consultant',
                   isDark: isDark,

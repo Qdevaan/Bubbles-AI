@@ -27,6 +27,9 @@ import '../widgets/mistake_badge.dart';
 import '../providers/persona_provider.dart';
 import '../services/voice_assistant_service.dart';
 import 'session/session_context_dialog.dart';
+import '../providers/confidence_provider.dart';
+import '../widgets/confidence_meter.dart';
+import '../routes/app_routes.dart';
 
 import '../widgets/app_snack_bar.dart';
 // ============================================================================
@@ -168,6 +171,13 @@ class _NewSessionScreenState extends State<NewSessionScreen>
         final sid = _session.sessionId;
         if (sid != null && uid.isNotEmpty) {
           _mistakeProvider?.onUserTurnFinal(uid, sid, transcript);
+          // F4 — snapshot the meter for this turn (live heuristic is
+          // already fed by the interim stream below).
+          try {
+            final cp = context.read<ConfidenceProvider>();
+            cp.onTranscriptChunk(transcript);
+            cp.captureTurn();
+          } catch (_) {}
         }
       }
     }
@@ -192,6 +202,14 @@ class _NewSessionScreenState extends State<NewSessionScreen>
     final dg = context.read<DeepgramService>();
     _interimSub = dg.interimStream.listen((text) {
       _suggestionCtrl?.onInterimTranscript(text);
+      // F4 — feed the live confidence meter only when the user is
+      // currently speaking. Partner speech that leaks through Deepgram
+      // would otherwise pollute the rolling-window heuristic.
+      if (dg.currentSpeaker == 'user') {
+        try {
+          context.read<ConfidenceProvider>().onTranscriptChunk(text);
+        } catch (_) {}
+      }
     });
     _mistakeProvider =
         MistakeProvider(service: MistakeService(connection.serverUrl, jwt));
@@ -353,19 +371,50 @@ class _NewSessionScreenState extends State<NewSessionScreen>
             AppSnackBar.success(context, "Session Saved!");
           }
 
+          // F4 — fire-and-forget bulk confidence POST. Failure is
+          // non-fatal and must not block end-of-session navigation.
+          if (completedSessionId != null) {
+            try {
+              final cp = context.read<ConfidenceProvider>();
+              // Don't await — the spec calls for fire-and-forget.
+              unawaited(cp.flushToServer(completedSessionId).then((_) {
+                cp.reset();
+              }));
+            } catch (_) {}
+          }
+
           await FeedbackDialog.show(context, sessionId: completedSessionId);
 
           if (mounted) {
             if (completedSessionId != null) {
-              Navigator.pop(context); // Close new session screen
-              Navigator.pushNamed(
-                context,
-                '/session_analytics',
-                arguments: {
-                  'sessionId': completedSessionId,
-                  'sessionTitle': 'Live Session',
-                },
-              );
+              // F1 — if this session was launched from a scenario, route
+              // to the scenario-results screen (polls for score) instead
+              // of straight to analytics.
+              final scenarioId = args?['scenarioId']?.toString();
+              if (scenarioId != null) {
+                Navigator.pop(context); // close session screen
+                Navigator.pushNamed(
+                  context,
+                  AppRoutes.scenarioResults,
+                  arguments: <String, dynamic>{
+                    'scenarioId': scenarioId,
+                    'scenarioTitle':
+                        args?['targetEntityName']?.toString() ??
+                            'Scenario',
+                    'sessionId': completedSessionId,
+                  },
+                );
+              } else {
+                Navigator.pop(context); // Close new session screen
+                Navigator.pushNamed(
+                  context,
+                  '/session_analytics',
+                  arguments: {
+                    'sessionId': completedSessionId,
+                    'sessionTitle': 'Live Session',
+                  },
+                );
+              }
             } else {
               Navigator.pop(context);
             }
@@ -375,11 +424,43 @@ class _NewSessionScreenState extends State<NewSessionScreen>
         }
       }
     } else {
-      // Optional: collect quick scenario context before starting the session.
-      // Skipping returns null and we proceed without context (default scenario).
-      final ctxResult =
-          mounted ? await showSessionContextDialog(context) : null;
+      // F1 — when launched from a Practice scenario, skip the manual
+      // context dialog and synthesise the session context from the
+      // scenario brief (situation / goal / role_mode).
+      final scenarioId = args?['scenarioId']?.toString();
+      Map<String, dynamic>? ctxResult;
+      if (scenarioId != null) {
+        final situation = args?['situation']?.toString() ?? '';
+        final goal = args?['goal']?.toString();
+        final roleMode = args?['roleMode']?.toString() ?? 'default';
+        final opening = args?['openingLine']?.toString();
+        final criteria = (args?['successCriteria'] as List?)
+            ?.map((e) => e.toString())
+            .toList();
+        final notesParts = <String>[
+          if (goal != null && goal.isNotEmpty) 'Goal: $goal',
+          if (opening != null && opening.isNotEmpty)
+            'Opening line: "$opening"',
+          if (criteria != null && criteria.isNotEmpty)
+            "What 'good' looks like:\n- ${criteria.join('\n- ')}",
+        ];
+        ctxResult = <String, dynamic>{
+          'scenario': situation,
+          'role_mode': roleMode,
+          'notes': notesParts.isEmpty ? null : notesParts.join('\n\n'),
+        };
+      } else {
+        // Optional: collect quick scenario context before starting the
+        // session. Skipping returns null and we proceed without context.
+        ctxResult =
+            mounted ? await showSessionContextDialog(context) : null;
+      }
       if (!mounted) return;
+
+      // F4 — wipe any prior session's confidence buffer.
+      try {
+        context.read<ConfidenceProvider>().reset();
+      } catch (_) {}
 
       final serverUrl = context.read<ConnectionService>().serverUrl;
       final jwt = Supabase.instance.client.auth.currentSession?.accessToken ?? '';
@@ -856,7 +937,7 @@ class _NewSessionScreenState extends State<NewSessionScreen>
   Widget _buildActiveSession(bool isDark) {
     return Column(
       children: [
-        // Header with LIVE badge
+        // Header with LIVE badge + live confidence meter
         Padding(
           padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
           child: Row(
@@ -900,7 +981,10 @@ class _NewSessionScreenState extends State<NewSessionScreen>
                   ),
                 ),
               ),
-              const SizedBox(width: 48),
+              const Padding(
+                padding: EdgeInsets.only(right: 8),
+                child: ConfidenceMeter(compact: true),
+              ),
             ],
           ),
         ),

@@ -949,4 +949,251 @@ class ApiService {
     }
   }
 
+  // ───────────────────────── F2 — Drill cards ─────────────────────────
+
+  Future<Map<String, dynamic>?> getDrillsQueue({
+    int limit = 20,
+    int offset = 0,
+    bool includeUpcoming = false,
+  }) async {
+    if (_baseUrl.isEmpty) return null;
+    final uri = Uri.parse('$_baseUrl/v1/drills/queue').replace(
+      queryParameters: {
+        'limit': '$limit',
+        'offset': '$offset',
+        'include_upcoming': includeUpcoming ? 'true' : 'false',
+      },
+    );
+    try {
+      final res = await http
+          .get(uri, headers: await _authHeaders())
+          .timeout(const Duration(seconds: 15));
+      if (res.statusCode == 200) {
+        return jsonDecode(res.body) as Map<String, dynamic>;
+      }
+      debugPrint('getDrillsQueue ${res.statusCode}: ${res.body}');
+      return null;
+    } catch (e) {
+      debugPrint('getDrillsQueue error: $e');
+      return null;
+    }
+  }
+
+  /// Returns `(data, statusCode, retryAfterSeconds)`. `data` is null on
+  /// non-200; caller branches on `statusCode` (404/403/409/429/5xx).
+  Future<({Map<String, dynamic>? data, int statusCode, int? retryAfter})>
+      reviewDrill({
+    required String cardId,
+    required String result, // "correct" | "wrong"
+  }) async {
+    if (_baseUrl.isEmpty) {
+      return (data: null, statusCode: 0, retryAfter: null);
+    }
+    try {
+      final res = await http
+          .post(
+            Uri.parse('$_baseUrl/v1/drills/$cardId/review'),
+            headers: await _authHeaders(),
+            body: jsonEncode({'result': result}),
+          )
+          .timeout(const Duration(seconds: 15));
+      final retry = int.tryParse(res.headers['retry-after'] ?? '');
+      if (res.statusCode == 200) {
+        return (
+          data: jsonDecode(res.body) as Map<String, dynamic>,
+          statusCode: 200,
+          retryAfter: retry,
+        );
+      }
+      return (data: null, statusCode: res.statusCode, retryAfter: retry);
+    } catch (e) {
+      debugPrint('reviewDrill error: $e');
+      return (data: null, statusCode: 0, retryAfter: null);
+    }
+  }
+
+  Future<({Map<String, dynamic>? data, int statusCode})> retireDrill(
+    String cardId,
+  ) async {
+    if (_baseUrl.isEmpty) return (data: null, statusCode: 0);
+    try {
+      final res = await http
+          .post(
+            Uri.parse('$_baseUrl/v1/drills/$cardId/retire'),
+            headers: await _authHeaders(),
+          )
+          .timeout(const Duration(seconds: 15));
+      if (res.statusCode == 200) {
+        return (
+          data: jsonDecode(res.body) as Map<String, dynamic>,
+          statusCode: 200,
+        );
+      }
+      return (data: null, statusCode: res.statusCode);
+    } catch (e) {
+      debugPrint('retireDrill error: $e');
+      return (data: null, statusCode: 0);
+    }
+  }
+
+  // ───────────────────────── F3 — Dashboard ─────────────────────────
+
+  Future<({Map<String, dynamic>? data, int statusCode})> getDashboard({
+    String range = '30d',
+  }) async {
+    if (_baseUrl.isEmpty) return (data: null, statusCode: 0);
+    final uri = Uri.parse('$_baseUrl/v1/dashboard')
+        .replace(queryParameters: {'range': range});
+    try {
+      final res = await http
+          .get(uri, headers: await _authHeaders())
+          .timeout(const Duration(seconds: 20));
+      if (res.statusCode == 200) {
+        return (
+          data: jsonDecode(res.body) as Map<String, dynamic>,
+          statusCode: 200,
+        );
+      }
+      debugPrint('getDashboard ${res.statusCode}: ${res.body}');
+      return (data: null, statusCode: res.statusCode);
+    } catch (e) {
+      debugPrint('getDashboard error: $e');
+      return (data: null, statusCode: 0);
+    }
+  }
+
+  // ───────────────────────── F1 — Scenarios ─────────────────────────
+
+  Future<List<Map<String, dynamic>>?> getScenarios({
+    String status = 'suggested',
+    int limit = 20,
+    int offset = 0,
+  }) async {
+    if (_baseUrl.isEmpty) return null;
+    final uri = Uri.parse('$_baseUrl/v1/scenarios').replace(
+      queryParameters: {
+        'status': status,
+        'limit': '$limit',
+        'offset': '$offset',
+      },
+    );
+    try {
+      final res = await http
+          .get(uri, headers: await _authHeaders())
+          .timeout(const Duration(seconds: 15));
+      if (res.statusCode == 200) {
+        final body = jsonDecode(res.body);
+        if (body is List) {
+          return [
+            for (final s in body)
+              if (s is Map<String, dynamic>) s,
+          ];
+        }
+        if (body is Map<String, dynamic> && body['scenarios'] is List) {
+          return [
+            for (final s in (body['scenarios'] as List))
+              if (s is Map<String, dynamic>) s,
+          ];
+        }
+      }
+      debugPrint('getScenarios ${res.statusCode}: ${res.body}');
+      return null;
+    } catch (e) {
+      debugPrint('getScenarios error: $e');
+      return null;
+    }
+  }
+
+  Future<({Map<String, dynamic>? data, int statusCode})> generateScenario(
+    String targetEntityId,
+  ) async {
+    if (_baseUrl.isEmpty) return (data: null, statusCode: 0);
+    try {
+      final res = await http
+          .post(
+            Uri.parse('$_baseUrl/v1/scenarios/generate'),
+            headers: await _authHeaders(),
+            body: jsonEncode({'target_entity_id': targetEntityId}),
+          )
+          .timeout(const Duration(seconds: 30));
+      if (res.statusCode == 201 || res.statusCode == 200) {
+        return (
+          data: jsonDecode(res.body) as Map<String, dynamic>,
+          statusCode: res.statusCode,
+        );
+      }
+      return (data: null, statusCode: res.statusCode);
+    } catch (e) {
+      debugPrint('generateScenario error: $e');
+      return (data: null, statusCode: 0);
+    }
+  }
+
+  Future<({Map<String, dynamic>? data, int statusCode})> startScenario(
+    String scenarioId,
+  ) async {
+    if (_baseUrl.isEmpty) return (data: null, statusCode: 0);
+    try {
+      final res = await http
+          .post(
+            Uri.parse('$_baseUrl/v1/scenarios/$scenarioId/start'),
+            headers: await _authHeaders(),
+          )
+          .timeout(const Duration(seconds: 15));
+      if (res.statusCode == 200 || res.statusCode == 201) {
+        return (
+          data: jsonDecode(res.body) as Map<String, dynamic>,
+          statusCode: res.statusCode,
+        );
+      }
+      return (data: null, statusCode: res.statusCode);
+    } catch (e) {
+      debugPrint('startScenario error: $e');
+      return (data: null, statusCode: 0);
+    }
+  }
+
+  Future<int> dismissScenario(String scenarioId) async {
+    if (_baseUrl.isEmpty) return 0;
+    try {
+      final res = await http
+          .post(
+            Uri.parse('$_baseUrl/v1/scenarios/$scenarioId/dismiss'),
+            headers: await _authHeaders(),
+          )
+          .timeout(const Duration(seconds: 15));
+      return res.statusCode;
+    } catch (e) {
+      debugPrint('dismissScenario error: $e');
+      return 0;
+    }
+  }
+
+  // ─────────────────── F4 — Per-turn confidence sync ───────────────────
+
+  /// Fire-and-forget bulk update for `session_logs.confidence`. Returns
+  /// the HTTP status code (0 on network error) so the caller can log it.
+  Future<int> setSessionConfidence({
+    required String sessionId,
+    required List<Map<String, dynamic>> items,
+  }) async {
+    if (_baseUrl.isEmpty || items.isEmpty) return 0;
+    try {
+      final res = await http
+          .post(
+            Uri.parse('$_baseUrl/v1/sessions/$sessionId/confidence'),
+            headers: await _authHeaders(),
+            body: jsonEncode({'confidence_by_turn': items}),
+          )
+          .timeout(const Duration(seconds: 10));
+      if (res.statusCode != 200) {
+        debugPrint('setSessionConfidence ${res.statusCode}: ${res.body}');
+      }
+      return res.statusCode;
+    } catch (e) {
+      debugPrint('setSessionConfidence error: $e');
+      return 0;
+    }
+  }
+
 }
