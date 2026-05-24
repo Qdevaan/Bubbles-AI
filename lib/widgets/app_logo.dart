@@ -13,7 +13,7 @@ class AppLogo extends StatelessWidget {
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
 
     return Image.asset(
-      isDarkMode ? 'assets/logos/logo_dark.png' : 'assets/logos/logo_light.png',
+      isDarkMode ? 'assets/logos/logo_dark.webp' : 'assets/logos/logo_light.webp',
       width: size,
       height: size,
       fit: BoxFit.contain,

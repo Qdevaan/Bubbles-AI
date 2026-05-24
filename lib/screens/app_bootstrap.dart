@@ -70,8 +70,8 @@ class _AppBootstrapState extends State<AppBootstrap> {
     _imagesPrecached = true;
     // Warm the image cache for the brand logos so the home-screen header
     // does not pop a fresh decode on the user's first paint.
-    precacheImage(const AssetImage('assets/logos/logo_light.png'), context);
-    precacheImage(const AssetImage('assets/logos/logo_dark.png'), context);
+    precacheImage(const AssetImage('assets/logos/logo_light.webp'), context);
+    precacheImage(const AssetImage('assets/logos/logo_dark.webp'), context);
     // Pre-load every Manrope weight used across the app. google_fonts caches
     // the TTF on disk after the first successful fetch — pulling them in
     // parallel during the boot frame means the home screen's first text
@@ -245,7 +245,7 @@ class _AppBootstrapState extends State<AppBootstrap> {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final logoPath =
-        isDark ? 'assets/logos/logo_dark.png' : 'assets/logos/logo_light.png';
+        isDark ? 'assets/logos/logo_dark.webp' : 'assets/logos/logo_light.webp';
 
     return Scaffold(
       backgroundColor:
