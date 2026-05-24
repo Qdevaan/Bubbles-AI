@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../services/device_perf_tier.dart';
+import 'motion_scope.dart';
+
 /// Shimmer skeleton loader for content that's still loading.
 /// Provides a premium loading experience instead of plain spinners.
 class SkeletonLoader extends StatefulWidget {
@@ -55,10 +58,14 @@ class _SkeletonLoaderState extends State<SkeletonLoader>
   @override
   void initState() {
     super.initState();
+    final perfTier = DevicePerfTier.instance.tier;
+    final shimmerDuration = perfTier == PerfTier.low
+        ? const Duration(milliseconds: 900)
+        : const Duration(milliseconds: 1500);
     _ctrl = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1500),
-    )..repeat();
+      duration: shimmerDuration,
+    )..repeat(reverse: perfTier == PerfTier.low);
     _shimmer = Tween(begin: -1.0, end: 2.0).animate(
       CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut),
     );
@@ -77,6 +84,28 @@ class _SkeletonLoaderState extends State<SkeletonLoader>
         isDark ? Colors.white.withAlpha(13) : Colors.grey.shade200;
     final highlightColor =
         isDark ? Colors.white.withAlpha(26) : Colors.grey.shade100;
+    final reduce = MotionScope.reduceMotion(context);
+
+    // Low-tier and reduce-motion devices fall back to a cheap opacity pulse —
+    // a single AnimatedBuilder driving `Container.color.opacity` costs an
+    // order of magnitude less than the per-frame gradient interpolation.
+    if (reduce) {
+      final pulse = Tween<double>(begin: 0.4, end: 0.85).animate(
+        CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut),
+      );
+      return AnimatedBuilder(
+        animation: pulse,
+        builder: (_, __) => Container(
+          width: widget.width,
+          height: widget.height,
+          margin: widget.margin,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(widget.borderRadius),
+            color: Color.lerp(baseColor, highlightColor, pulse.value),
+          ),
+        ),
+      );
+    }
 
     return AnimatedBuilder(
       animation: _shimmer,
