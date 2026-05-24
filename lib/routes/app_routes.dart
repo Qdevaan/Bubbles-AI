@@ -30,4 +30,8 @@ class AppRoutes {
   static const authGate = '/auth-gate';
   static const performaWizard = '/performa-wizard';
   static const performa = '/settings/performa';
+  static const drills = '/drills';
+  static const progress = '/progress';
+  static const practice = '/practice';
+  static const scenarioResults = '/scenario-results';
 }

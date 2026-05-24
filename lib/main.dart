@@ -63,7 +63,15 @@ import 'providers/tags_provider.dart';
 import 'providers/profile_provider.dart';
 import 'providers/task_event_provider.dart';
 import 'providers/persona_provider.dart';
+import 'providers/drills_provider.dart';
+import 'providers/dashboard_provider.dart';
+import 'providers/scenarios_provider.dart';
 import 'services/persona_service.dart';
+import 'screens/drills_screen.dart';
+import 'screens/progress_screen.dart';
+import 'screens/practice_screen.dart';
+import 'screens/scenario_results_screen.dart';
+import 'providers/confidence_provider.dart';
 import 'widgets/auth_guard.dart';
 import 'routes/app_routes.dart';
 
@@ -303,6 +311,26 @@ class BubblesApp extends StatelessWidget {
             service: PersonaService(ctx.read<ApiService>()),
           ),
         ),
+
+        // 16. Drills (spaced-repetition cards)
+        ChangeNotifierProvider<DrillsProvider>(
+          create: (ctx) => DrillsProvider(ctx.read<ApiService>()),
+        ),
+
+        // 17. Dashboard (longitudinal progress)
+        ChangeNotifierProvider<DashboardProvider>(
+          create: (ctx) => DashboardProvider(ctx.read<ApiService>()),
+        ),
+
+        // 18. Scenarios (personalized roleplay)
+        ChangeNotifierProvider<ScenariosProvider>(
+          create: (ctx) => ScenariosProvider(ctx.read<ApiService>()),
+        ),
+
+        // 19. Live confidence meter (per-session)
+        ChangeNotifierProvider<ConfidenceProvider>(
+          create: (ctx) => ConfidenceProvider(ctx.read<ApiService>()),
+        ),
       ],
       child: Consumer2<ThemeProvider, SettingsProvider>(
         builder: (context, themeProvider, settingsProvider, child) {
@@ -406,6 +434,19 @@ class BubblesApp extends StatelessWidget {
                         );
                       },
                 );
+              } else if (settings.name == AppRoutes.scenarioResults) {
+                final args = settings.arguments as Map<String, dynamic>?;
+                return MaterialPageRoute(
+                  settings: settings,
+                  builder: (_) => AuthGuard(
+                    child: ScenarioResultsScreen(
+                      scenarioId: args?['scenarioId']?.toString() ?? '',
+                      scenarioTitle:
+                          args?['scenarioTitle']?.toString() ?? 'Scenario',
+                      sessionId: args?['sessionId']?.toString(),
+                    ),
+                  ),
+                );
               }
               return null; // Let the 'routes' map handle the rest
             },
@@ -473,6 +514,12 @@ class BubblesApp extends StatelessWidget {
                   const AuthGuard(child: PerformaWizardScreen()),
               AppRoutes.performa: (context) =>
                   const AuthGuard(child: SettingsPerformaScreen()),
+              AppRoutes.drills: (context) =>
+                  const AuthGuard(child: DrillsScreen()),
+              AppRoutes.progress: (context) =>
+                  const AuthGuard(child: ProgressScreen()),
+              AppRoutes.practice: (context) =>
+                  const AuthGuard(child: PracticeScreen()),
             },
           );
         },
