@@ -12,60 +12,65 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..600&family=Hanken+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script>
+  /* set theme before paint — stored choice wins, else by local time (19:00–06:59 = dark) */
+  (function(){
+    try{
+      var s = localStorage.getItem('bubbles-theme');
+      var h = new Date().getHours();
+      document.documentElement.setAttribute('data-theme', s || ((h>=19||h<7)?'dark':'light'));
+    }catch(e){ document.documentElement.setAttribute('data-theme','light'); }
+  })();
+</script>
 <style>
-  :root{
-    --paper:#f4f0e6;
-    --paper-2:#ece5d6;
-    --ink:#191613;
-    --ink-soft:#5b544a;
-    --ink-faint:#8b8275;
-    --line:#d9d0bf;
-    --line-strong:#c8bca4;
+  :root, [data-theme="light"]{
+    --paper:#f4f0e6;  --paper-2:#ece5d6;
+    --ink:#191613;    --ink-soft:#5b544a; --ink-faint:#8b8275;
+    --line:#d9d0bf;   --line-strong:#c8bca4;
     --grid:rgba(25,22,19,.045);
-    --accent:#2436c8;      /* cobalt ink */
-    --accent-deep:#19267e;
-    --maxw:1180px;
-    --serif:'Fraunces',Georgia,'Times New Roman',serif;
-    --sans:'Hanken Grotesk',system-ui,-apple-system,sans-serif;
-    --mono:'JetBrains Mono',ui-monospace,'SFMono-Regular',Menlo,monospace;
+    --accent:#2436c8; --accent-deep:#19267e;
+    --grain-blend:multiply; --grain-op:.045;
+  }
+  [data-theme="dark"]{
+    --paper:#14120e;  --paper-2:#1d1a14;
+    --ink:#ece6d8;    --ink-soft:#a79e8c; --ink-faint:#7b7464;
+    --line:#2b271f;   --line-strong:#3a3528;
+    --grid:rgba(236,230,216,.045);
+    --accent:#8d9bff; --accent-deep:#aab2ff;
+    --grain-blend:screen; --grain-op:.05;
   }
   *{box-sizing:border-box;margin:0;padding:0}
   html{scroll-behavior:smooth}
   body{
-    font-family:var(--sans);
-    color:var(--ink);
-    line-height:1.6;
-    -webkit-font-smoothing:antialiased;
-    font-optical-sizing:auto;
-    overflow-x:hidden;
+    font-family:var(--sans);color:var(--ink);line-height:1.6;
+    -webkit-font-smoothing:antialiased;font-optical-sizing:auto;overflow-x:hidden;
     background-color:var(--paper);
     background-image:
       linear-gradient(var(--grid) 1px,transparent 1px),
       linear-gradient(90deg,var(--grid) 1px,transparent 1px);
-    background-size:74px 74px;
-    background-position:center top;
+    background-size:74px 74px;background-position:center top;
+    transition:background-color .45s ease,color .45s ease;
+    --serif:'Fraunces',Georgia,'Times New Roman',serif;
+    --sans:'Hanken Grotesk',system-ui,-apple-system,sans-serif;
+    --mono:'JetBrains Mono',ui-monospace,'SFMono-Regular',Menlo,monospace;
+    --maxw:1180px;
   }
   ::selection{background:var(--accent);color:var(--paper)}
   a{color:inherit;text-decoration:none}
 
-  /* paper grain overlay */
   body::before{
-    content:"";position:fixed;inset:0;z-index:9999;pointer-events:none;opacity:.045;
-    mix-blend-mode:multiply;
+    content:"";position:fixed;inset:0;z-index:9999;pointer-events:none;
+    opacity:var(--grain-op);mix-blend-mode:var(--grain-blend);
     background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
   }
 
   .wrap{max-width:var(--maxw);margin:0 auto;padding:0 28px}
 
-  /* mono system label — // comment style */
-  .eyebrow{
-    font-family:var(--mono);font-size:.74rem;font-weight:500;letter-spacing:.04em;
-    color:var(--ink-faint);display:inline-flex;align-items:center;gap:8px;
-  }
+  .eyebrow{font-family:var(--mono);font-size:.74rem;font-weight:500;letter-spacing:.04em;
+    color:var(--ink-faint);display:inline-flex;align-items:center;gap:8px}
   .eyebrow::before{content:"//";color:var(--accent);font-weight:600}
   .tag{font-family:var(--mono);font-size:.74rem;font-weight:500;color:var(--ink-faint)}
   .tag b{color:var(--accent)}
-  .accent{color:var(--accent)}
 
   /* ---------- NAV ---------- */
   nav{position:sticky;top:0;z-index:100;background:color-mix(in srgb,var(--paper) 88%,transparent);
@@ -75,28 +80,25 @@
   .brand img{width:28px;height:28px}
   .brand .v{font-family:var(--mono);font-size:.66rem;font-weight:500;color:var(--ink-faint);
     border:1px solid var(--line-strong);border-radius:5px;padding:2px 6px;align-self:center;letter-spacing:0}
-  .navlinks{display:flex;gap:30px;align-items:center}
+  .navlinks{display:flex;gap:28px;align-items:center}
   .navlinks a{font-family:var(--mono);font-size:.82rem;font-weight:500;color:var(--ink-soft);position:relative;transition:color .25s}
-  .navlinks a:not(.nav-cta)::before{content:"";color:var(--ink-faint)}
   .navlinks a::after{content:"";position:absolute;left:0;bottom:-5px;width:100%;height:1.5px;background:var(--accent);transform:scaleX(0);transform-origin:left;transition:transform .3s}
   .navlinks a:hover{color:var(--ink)}
   .navlinks a:not(.nav-cta):hover::after{transform:scaleX(1)}
   .nav-cta{padding:8px 18px;border:1px solid var(--ink);border-radius:7px;color:var(--ink)!important}
   .nav-cta:hover{background:var(--ink);color:var(--paper)!important}
+  .theme-toggle{font-size:1.05rem;width:38px;height:38px;border:1px solid var(--line-strong);border-radius:8px;
+    background:transparent;color:var(--ink);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;transition:.2s;line-height:1}
+  .theme-toggle:hover{border-color:var(--accent);color:var(--accent);transform:rotate(-12deg)}
   @media(max-width:720px){.navlinks a:not(.nav-cta){display:none}}
 
   /* ---------- HERO ---------- */
   .hero{padding:clamp(64px,10vw,128px) 0 64px;position:relative}
-  /* crosshair tick top-left of hero */
   .crosshair{position:relative}
-  .crosshair::before{content:"+";position:absolute;left:-6px;top:-26px;font-family:var(--mono);
-    color:var(--accent);font-size:1rem;opacity:.6}
+  .crosshair::before{content:"+";position:absolute;left:-6px;top:-26px;font-family:var(--mono);color:var(--accent);font-size:1rem;opacity:.6}
   .hero .eyebrow{opacity:0;animation:rise .9s .1s cubic-bezier(.2,.7,.2,1) forwards}
-  .hero h1{
-    font-family:var(--serif);font-weight:540;font-optical-sizing:auto;
-    font-size:clamp(3.1rem,9.2vw,7.2rem);line-height:.96;letter-spacing:-.03em;
-    margin:24px 0 0;max-width:14ch;
-  }
+  .hero h1{font-family:var(--serif);font-weight:540;font-optical-sizing:auto;
+    font-size:clamp(3.1rem,9.2vw,7.2rem);line-height:.96;letter-spacing:-.03em;margin:24px 0 0;max-width:14ch}
   .hero h1 .ln{display:block;overflow:hidden}
   .hero h1 .ln > span{display:block;transform:translateY(105%);animation:lineUp 1s cubic-bezier(.16,1,.3,1) forwards}
   .hero h1 .ln:nth-child(1) > span{animation-delay:.18s}
@@ -110,15 +112,14 @@
   .hero .actions{display:flex;gap:18px;align-items:center;margin-top:40px;flex-wrap:wrap;
     opacity:0;animation:rise .9s .85s cubic-bezier(.2,.7,.2,1) forwards}
   .btn{display:inline-flex;align-items:center;gap:10px;padding:14px 26px;border-radius:8px;
-    font-family:var(--sans);font-weight:600;font-size:.96rem;background:var(--ink);color:var(--paper);
-    transition:transform .2s,background .2s}
+    font-family:var(--sans);font-weight:600;font-size:.96rem;background:var(--ink);color:var(--paper);transition:transform .2s,background .2s}
   .btn:hover{transform:translateY(-2px);background:var(--accent-deep)}
+  [data-theme="dark"] .btn{color:#14120e}
   .btn .arr{transition:transform .25s}.btn:hover .arr{transform:translate(3px,-3px)}
   .link-cta{font-family:var(--mono);font-weight:500;font-size:.86rem;color:var(--ink);display:inline-flex;align-items:center;gap:8px;position:relative}
   .link-cta::after{content:"";position:absolute;left:0;bottom:-4px;width:100%;height:1.5px;background:var(--ink);transform:scaleX(0);transform-origin:right;transition:transform .3s}
   .link-cta:hover::after{transform:scaleX(1);transform-origin:left}
 
-  /* listening waveform + mono readout */
   .wave-wrap{margin-top:60px;opacity:0;animation:rise 1s 1.05s cubic-bezier(.2,.7,.2,1) forwards}
   .wave{display:flex;align-items:center;gap:4px;height:62px}
   .wave .bar{width:4px;border-radius:4px;background:var(--ink);animation:eq 1.5s ease-in-out infinite;transform-origin:center}
@@ -128,47 +129,35 @@
   .readout .sep{color:var(--line-strong)}
   @keyframes blink{50%{opacity:.25}}
   @keyframes eq{0%,100%{transform:scaleY(.16)}50%{transform:scaleY(1)}}
-
   @keyframes lineUp{to{transform:translateY(0)}}
   @keyframes rise{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:none}}
   @keyframes swash{to{transform:scaleX(1)}}
-  @media (prefers-reduced-motion:reduce){
-    *{animation:none!important}
-    .hero h1 .ln>span{transform:none}.hero .eyebrow,.hero .sub,.hero .actions,.wave-wrap{opacity:1}
-  }
+  @media (prefers-reduced-motion:reduce){*{animation:none!important}.hero h1 .ln>span{transform:none}.hero .eyebrow,.hero .sub,.hero .actions,.wave-wrap{opacity:1}}
 
-  /* ---------- shared section ---------- */
   section{position:relative;z-index:1}
   .band{padding:clamp(70px,9vw,120px) 0;border-top:1px solid var(--line)}
   .sec-head{display:flex;align-items:baseline;justify-content:space-between;gap:24px;flex-wrap:wrap;margin-bottom:52px}
   .sec-head h2{font-family:var(--serif);font-weight:520;font-size:clamp(2rem,4.4vw,3.2rem);line-height:1.02;letter-spacing:-.025em;max-width:18ch}
   .sec-head h2 em{font-style:italic;color:var(--accent);font-weight:440}
 
-  /* ---------- PLAIN ENGLISH ---------- */
-  .lede{font-family:var(--serif);font-weight:340;font-size:clamp(1.5rem,3.2vw,2.45rem);line-height:1.32;
-    letter-spacing:-.015em;max-width:24ch;}
-  .lede.wide{max-width:30ch}
-  .lede p{margin:0}
+  .lede{font-family:var(--serif);font-weight:340;font-size:clamp(1.5rem,3.2vw,2.45rem);line-height:1.32;letter-spacing:-.015em;max-width:24ch}
+  .lede.wide{max-width:30ch}.lede p{margin:0}
   .lede .dropcap{float:left;font-size:3.6em;line-height:.72;padding:.06em .12em 0 0;font-weight:600;color:var(--accent)}
   .plain-grid{display:grid;grid-template-columns:1fr;gap:30px}
   @media(min-width:880px){.plain-grid{grid-template-columns:1.4fr .9fr;align-items:end}}
   .plain-aside{color:var(--ink-soft);font-size:1.02rem;border-left:1px solid var(--line-strong);padding-left:24px}
   .plain-aside b{color:var(--ink);font-weight:600}
 
-  /* ---------- FEATURES (technical index) ---------- */
   .index{border-top:1px solid var(--ink)}
-  .row{display:grid;grid-template-columns:auto 1fr;gap:20px;padding:24px 4px;border-bottom:1px solid var(--line);
-    align-items:baseline;transition:background .3s,padding .3s}
-  @media(min-width:860px){.row{grid-template-columns:92px 1.1fr 1.5fr;gap:34px;align-items:baseline}}
-  .row:hover{background:var(--paper-2)}
-  .row:hover .num{color:var(--accent)}
-  .row .num{font-family:var(--mono);font-size:.92rem;font-weight:500;color:var(--ink-faint);letter-spacing:0;transition:color .3s}
+  .row{display:grid;grid-template-columns:auto 1fr;gap:20px;padding:24px 4px;border-bottom:1px solid var(--line);align-items:baseline;transition:background .3s}
+  @media(min-width:860px){.row{grid-template-columns:92px 1.1fr 1.5fr;gap:34px}}
+  .row:hover{background:var(--paper-2)}.row:hover .num{color:var(--accent)}
+  .row .num{font-family:var(--mono);font-size:.92rem;font-weight:500;color:var(--ink-faint);transition:color .3s}
   .row .ttl{font-family:var(--serif);font-size:clamp(1.3rem,2.4vw,1.65rem);font-weight:480;letter-spacing:-.01em;display:flex;align-items:center;gap:12px}
-  .row .ttl .ic{font-size:1.05rem;filter:grayscale(.2)}
+  .row .ttl .ic{font-size:1.05rem}
   .row .desc{color:var(--ink-soft);font-size:1rem;line-height:1.55}
   @media(max-width:859px){.row .desc{grid-column:1/-1;margin-top:-6px}.row .num{grid-row:1;align-self:start}}
 
-  /* ---------- HOW ---------- */
   .steps{display:grid;gap:0;border-top:1px solid var(--line)}
   @media(min-width:880px){.steps{grid-template-columns:repeat(4,1fr);border-top:none}}
   .step{padding:30px 4px;border-bottom:1px solid var(--line)}
@@ -178,30 +167,33 @@
   .step p{color:var(--ink-soft);font-size:.96rem;line-height:1.55}
   .step code{font-family:var(--mono);font-size:.85em;color:var(--accent);background:var(--paper-2);padding:1px 6px;border-radius:5px}
 
-  /* ---------- COLOPHON / TECH ---------- */
+  /* ---------- TECH GRID (official icons) ---------- */
+  .techgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(146px,1fr));gap:14px;margin-bottom:50px}
+  .tech{display:flex;align-items:center;gap:13px;padding:15px 17px;border:1px solid var(--line);border-radius:10px;
+    background:var(--paper-2);transition:transform .22s,border-color .22s,box-shadow .22s}
+  .tech:hover{transform:translateY(-3px);border-color:var(--accent);box-shadow:0 10px 24px rgba(0,0,0,.06)}
+  .tech img{width:26px;height:26px;flex:none;object-fit:contain}
+  .tech span{font-family:var(--mono);font-size:.8rem;color:var(--ink-soft);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
   .colophon{display:grid;grid-template-columns:1fr;gap:30px}
   @media(min-width:820px){.colophon{grid-template-columns:1fr 1fr;gap:30px 56px}}
-  .stack-list dt{font-family:var(--mono);font-size:.78rem;font-weight:600;text-transform:uppercase;letter-spacing:.08em;
-    color:var(--accent);margin-top:22px;padding-bottom:8px;border-bottom:1px solid var(--line)}
+  .stack-list dt{font-family:var(--mono);font-size:.78rem;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--accent);margin-top:22px;padding-bottom:8px;border-bottom:1px solid var(--line)}
   .stack-list dt:first-child{margin-top:0}
   .stack-list dd{color:var(--ink-soft);font-size:1rem;line-height:1.7;margin-top:12px}
   .stack-list dd b{color:var(--ink);font-weight:600}
 
-  /* ---------- CTA ---------- */
   .cta{text-align:center;padding:clamp(86px,12vw,150px) 0}
   .cta h2{font-family:var(--serif);font-weight:520;font-size:clamp(2.6rem,7vw,5.3rem);line-height:1;letter-spacing:-.03em}
   .cta h2 em{font-style:italic;font-weight:420}
   .cta .sub{color:var(--ink-soft);font-size:1.12rem;margin:24px auto 0;max-width:44ch}
   .cta .actions{display:flex;gap:18px;justify-content:center;margin-top:40px;flex-wrap:wrap}
 
-  /* ---------- FOOTER ---------- */
   footer{border-top:1px solid var(--ink);padding:38px 0}
   footer .wrap{display:flex;justify-content:space-between;align-items:center;gap:18px;flex-wrap:wrap}
   footer .fb{font-family:var(--serif);font-size:1.2rem;font-weight:600;display:flex;align-items:center;gap:9px}
   footer .meta{font-family:var(--mono);color:var(--ink-faint);font-size:.78rem}
   footer a:hover{color:var(--accent)}
 
-  /* scroll reveal */
   .reveal{opacity:0;transform:translateY(26px);transition:opacity .8s cubic-bezier(.2,.7,.2,1),transform .8s cubic-bezier(.2,.7,.2,1)}
   .reveal.in{opacity:1;transform:none}
 </style>
@@ -212,7 +204,7 @@
 <nav>
   <div class="wrap">
     <a class="brand" href="#top">
-      <img src="../assets/logos/logo_dark.webp" alt="" onerror="this.style.display='none'">
+      <img class="theme-logo" src="../assets/logos/logo_dark.webp" alt="" onerror="this.style.display='none'">
       Bubbles <span class="v">v1.0</span>
     </a>
     <div class="navlinks">
@@ -220,6 +212,7 @@
       <a href="#features">features</a>
       <a href="#how">how_it_works</a>
       <a href="#stack">built_with</a>
+      <button class="theme-toggle" id="themeBtn" type="button" aria-label="Toggle light / dark theme">☾</button>
       <a class="nav-cta" href="https://github.com/Qdevaan/Bubbles-AI">GitHub ↗</a>
     </div>
   </div>
@@ -240,7 +233,6 @@
       <a class="btn" href="https://github.com/Qdevaan/Bubbles-AI">Explore on GitHub <span class="arr">↗</span></a>
       <a class="link-cta" href="#how">$ see how it works →</a>
     </div>
-
     <div class="wave-wrap" aria-hidden="true">
       <div class="wave" id="wave"></div>
       <div class="readout">
@@ -310,25 +302,28 @@
   </div>
 </section>
 
-<!-- STACK / COLOPHON -->
+<!-- STACK -->
 <section class="band" id="stack">
   <div class="wrap reveal">
     <div class="sec-head">
       <h2>Built with a <em>modern</em> stack.</h2>
       <span class="tag">// colophon</span>
     </div>
+
+    <div class="techgrid" id="techgrid"></div>
+
     <div class="colophon">
       <dl class="stack-list">
-        <dt>Client</dt>
-        <dd><b>Flutter</b> &amp; <b>Dart</b> — one codebase, six platforms · <b>Riverpod</b> state · local SQLite cache with stale-while-revalidate · <b>LiveKit</b> for realtime audio · wake-word, STT &amp; TTS.</dd>
-        <dt>Server</dt>
-        <dd><b>FastAPI</b> async on <b>Python 3.11+</b> · <b>SQLAlchemy 2</b> &amp; <b>asyncpg</b> · <b>Alembic</b> migrations · circuit-breaking <b>LLM router</b> · <b>Redis</b> + <b>ARQ</b> background jobs.</dd>
+        <dt>Also on the client</dt>
+        <dd><b>Riverpod</b> state · local SQLite cache with stale-while-revalidate · wake-word, speech-to-text &amp; text-to-speech · <b>fl_chart</b> &amp; force-directed graph views.</dd>
+        <dt>Also on the server</dt>
+        <dd>circuit-breaking <b>LLM router</b> · <b>ARQ</b> background jobs over Redis · <b>text-embedding-004</b> with local ONNX fallback · <b>NetworkX</b> knowledge graph · <b>Edge-TTS</b>.</dd>
       </dl>
       <dl class="stack-list">
-        <dt>Intelligence</dt>
-        <dd><b>Gemini</b>, <b>Cerebras</b> &amp; <b>Groq</b> behind one router · <b>text-embedding-004</b> with local ONNX fallback · <b>Groq Whisper</b> STT · <b>Edge-TTS</b> · knowledge graph via NetworkX.</dd>
-        <dt>Foundations</dt>
-        <dd><b>Supabase</b> Postgres with row-level security · <b>Docker</b> · observability with <b>Sentry</b>, <b>Prometheus</b> &amp; <b>OpenTelemetry</b> · tooling: uv, ruff, mypy, pytest.</dd>
+        <dt>Cerebras &amp; Groq</dt>
+        <dd>Ultra-low-latency inference for the real-time <b>Wingman</b> — they sit behind the same router as Gemini, with automatic failover between providers.</dd>
+        <dt>Tooling</dt>
+        <dd><b>uv</b> package manager · <b>ruff</b> lint + format · <b>mypy --strict</b> types · <b>pytest</b> · pre-commit hooks · multi-stage Docker images.</dd>
       </dl>
     </div>
   </div>
@@ -350,7 +345,7 @@
 <footer>
   <div class="wrap">
     <span class="fb">
-      <img src="../assets/logos/logo_dark.webp" alt="" width="22" height="22" onerror="this.style.display='none'">
+      <img class="theme-logo" src="../assets/logos/logo_dark.webp" alt="" width="22" height="22" onerror="this.style.display='none'">
       Bubbles
     </span>
     <span class="meta">MIT · © 2026 Muhammad Ahmad · <a href="https://github.com/Qdevaan/Bubbles-AI">github.com/Qdevaan/Bubbles-AI</a></span>
@@ -358,28 +353,69 @@
 </footer>
 
 <script>
-  // build the listening waveform (deterministic heights by index — no Math.random)
+  /* ----- THEME: toggle + logo swap (auto-by-time already applied in <head>) ----- */
   (function(){
-    var wave = document.getElementById('wave');
-    if(!wave) return;
-    var N = 56;
-    for (var i=0;i<N;i++){
-      var b = document.createElement('span');
-      b.className = 'bar';
-      var h = 14 + Math.abs(Math.sin(i*0.55) * 0.6 + Math.sin(i*0.17) * 0.4) * 46;
-      b.style.height = h.toFixed(1) + 'px';
-      b.style.animationDelay = (-(i * 0.045)).toFixed(3) + 's';
-      b.style.animationDuration = (1.3 + (i % 5) * 0.12).toFixed(2) + 's';
-      if (i > N - 10) b.style.background = 'var(--accent)';
-      wave.appendChild(b);
+    var root = document.documentElement, btn = document.getElementById('themeBtn');
+    function syncIcon(t){ if(btn) btn.textContent = (t==='dark') ? '☀' : '☾'; }
+    function syncLogo(t){
+      var src = (t==='dark') ? '../assets/logos/logo_light.webp' : '../assets/logos/logo_dark.webp';
+      document.querySelectorAll('.theme-logo').forEach(function(img){ img.src = src; });
     }
+    function apply(t){ root.setAttribute('data-theme',t); syncIcon(t); syncLogo(t); }
+    apply(root.getAttribute('data-theme') || 'light');
+    if(btn) btn.addEventListener('click', function(){
+      var next = (root.getAttribute('data-theme')==='dark') ? 'light' : 'dark';
+      try{ localStorage.setItem('bubbles-theme', next); }catch(e){}
+      apply(next);
+    });
   })();
 
-  // scroll reveal
+  /* ----- tech grid with official brand icons (Simple Icons CDN) ----- */
+  (function(){
+    var grid = document.getElementById('techgrid');
+    if(!grid) return;
+    // [label, simpleicons-slug]
+    var techs = [
+      ['Flutter','flutter'],['Dart','dart'],['Python','python'],['FastAPI','fastapi'],
+      ['Supabase','supabase'],['PostgreSQL','postgresql'],['Redis','redis'],['Docker','docker'],
+      ['Gemini','googlegemini'],['SQLAlchemy','sqlalchemy'],['LiveKit','livekit'],['Sentry','sentry'],
+      ['Prometheus','prometheus'],['OpenTelemetry','opentelemetry'],['Grafana','grafana'],
+      ['pytest','pytest'],['Ruff','ruff']
+    ];
+    techs.forEach(function(t){
+      var el = document.createElement('div');
+      el.className = 'tech';
+      var img = document.createElement('img');
+      img.src = 'https://cdn.simpleicons.org/' + t[1];
+      img.alt = t[0]; img.loading = 'lazy';
+      img.onerror = function(){ el.remove(); }; // drop gracefully if icon is unavailable
+      var span = document.createElement('span');
+      span.textContent = t[0];
+      el.appendChild(img); el.appendChild(span);
+      grid.appendChild(el);
+    });
+  })();
+
+  /* ----- scroll reveal ----- */
   var io = new IntersectionObserver(function(es){
     es.forEach(function(e){ if(e.isIntersecting){ e.target.classList.add('in'); io.unobserve(e.target); } });
   }, {threshold:.12});
   document.querySelectorAll('.reveal').forEach(function(el){ io.observe(el); });
+
+  /* ----- waveform ----- */
+  (function(){
+    var wave = document.getElementById('wave'); if(!wave) return;
+    var N = 56;
+    for (var i=0;i<N;i++){
+      var b = document.createElement('span'); b.className='bar';
+      var h = 14 + Math.abs(Math.sin(i*0.55)*0.6 + Math.sin(i*0.17)*0.4) * 46;
+      b.style.height = h.toFixed(1)+'px';
+      b.style.animationDelay = (-(i*0.045)).toFixed(3)+'s';
+      b.style.animationDuration = (1.3 + (i%5)*0.12).toFixed(2)+'s';
+      if (i > N-10) b.style.background = 'var(--accent)';
+      wave.appendChild(b);
+    }
+  })();
 </script>
 </body>
 </html>
