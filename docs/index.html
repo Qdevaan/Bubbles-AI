@@ -8,7 +8,7 @@
 <meta property="og:title" content="Bubbles — Never be lost for words again">
 <meta property="og:description" content="A calm AI co-pilot for every conversation. Live coaching while you talk, and a smart assistant that remembers. Built with Flutter + FastAPI.">
 <meta property="og:type" content="website">
-<link rel="icon" href="../assets/logos/logo_dark.webp">
+<link rel="icon" href="logos/logo_dark.webp">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..600&family=Hanken+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -204,7 +204,7 @@
 <nav>
   <div class="wrap">
     <a class="brand" href="#top">
-      <img class="theme-logo" src="../assets/logos/logo_dark.webp" alt="" onerror="this.style.display='none'">
+      <img class="theme-logo" src="logos/logo_dark.webp" alt="" onerror="this.style.display='none'">
       Bubbles <span class="v">v1.0</span>
     </a>
     <div class="navlinks">
@@ -345,7 +345,7 @@
 <footer>
   <div class="wrap">
     <span class="fb">
-      <img class="theme-logo" src="../assets/logos/logo_dark.webp" alt="" width="22" height="22" onerror="this.style.display='none'">
+      <img class="theme-logo" src="logos/logo_dark.webp" alt="" width="22" height="22" onerror="this.style.display='none'">
       Bubbles
     </span>
     <span class="meta">MIT · © 2026 Muhammad Ahmad · <a href="https://github.com/Qdevaan/Bubbles-AI">github.com/Qdevaan/Bubbles-AI</a></span>
@@ -358,7 +358,7 @@
     var root = document.documentElement, btn = document.getElementById('themeBtn');
     function syncIcon(t){ if(btn) btn.textContent = (t==='dark') ? '☀' : '☾'; }
     function syncLogo(t){
-      var src = (t==='dark') ? '../assets/logos/logo_light.webp' : '../assets/logos/logo_dark.webp';
+      var src = (t==='dark') ? 'logos/logo_light.webp' : 'logos/logo_dark.webp';
       document.querySelectorAll('.theme-logo').forEach(function(img){ img.src = src; });
     }
     function apply(t){ root.setAttribute('data-theme',t); syncIcon(t); syncLogo(t); }

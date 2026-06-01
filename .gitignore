@@ -99,6 +99,8 @@ docs/*
 !docs/.nojekyll
 !docs/screenshots/
 !docs/screenshots/**
+!docs/logos/
+!docs/logos/**
 todos.md
 .vscode/.worktrees/
 
