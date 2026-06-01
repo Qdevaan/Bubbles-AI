@@ -168,8 +168,8 @@
   .step code{font-family:var(--mono);font-size:.85em;color:var(--accent);background:var(--paper-2);padding:1px 6px;border-radius:5px}
 
   /* ---------- TECH GRID (official icons) ---------- */
-  .techgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(146px,1fr));gap:14px;margin-bottom:50px}
-  .tech{display:flex;align-items:center;gap:13px;padding:15px 17px;border:1px solid var(--line);border-radius:10px;
+  .techgrid{display:flex;flex-wrap:wrap;justify-content:center;gap:14px;margin-bottom:50px}
+  .tech{flex:0 1 150px;display:flex;align-items:center;gap:13px;padding:15px 17px;border:1px solid var(--line);border-radius:10px;
     background:var(--paper-2);transition:transform .22s,border-color .22s,box-shadow .22s}
   .tech:hover{transform:translateY(-3px);border-color:var(--accent);box-shadow:0 10px 24px rgba(0,0,0,.06)}
   .tech img{width:26px;height:26px;flex:none;object-fit:contain}
@@ -196,6 +196,30 @@
 
   .reveal{opacity:0;transform:translateY(26px);transition:opacity .8s cubic-bezier(.2,.7,.2,1),transform .8s cubic-bezier(.2,.7,.2,1)}
   .reveal.in{opacity:1;transform:none}
+
+  /* ---------- MOBILE ---------- */
+  @media(max-width:640px){
+    .wrap{padding:0 20px}
+    nav .wrap{height:62px}
+    .brand{font-size:1.25rem}
+    .hero{padding:24px 0 48px}
+    .hero h1{font-size:clamp(2.5rem,12.5vw,3.4rem);max-width:100%;margin-top:20px}
+    .hero .sub{margin-top:26px;font-size:1.04rem}
+    .hero .actions{margin-top:32px;gap:14px}
+    .actions .btn{flex:1 1 100%;justify-content:center}
+    .wave-wrap{margin-top:46px}
+    .wave{height:48px;gap:3px}
+    .readout{font-size:.68rem;gap:6px 10px}
+    .sec-head{margin-bottom:38px}
+    .sec-head .tag{font-size:.7rem}
+    .tech{flex:0 1 calc(50% - 7px);padding:13px 14px;gap:10px}
+    .tech span{font-size:.76rem}
+    .plain-aside{padding-left:18px}
+    .cta .actions .btn{flex:0 1 auto}
+  }
+  @media(max-width:380px){
+    .tech{flex:0 1 100%}
+  }
 </style>
 </head>
 <body>
