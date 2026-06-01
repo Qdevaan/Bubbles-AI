@@ -96,6 +96,7 @@ graphify-out/
 docs/*
 !docs/superpowers/
 !docs/index.html
+!docs/.nojekyll
 !docs/screenshots/
 !docs/screenshots/**
 todos.md
