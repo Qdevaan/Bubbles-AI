@@ -11,74 +11,91 @@
 <link rel="icon" href="../assets/logos/logo_dark.webp">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..600&family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..600&family=Hanken+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
   :root{
-    --paper:#f5f1e8;
-    --paper-2:#efe9db;
-    --ink:#1b1714;
-    --ink-soft:#5d564a;
-    --ink-faint:#8a8174;
-    --line:#ddd4c3;
-    --line-strong:#cabfa8;
+    --paper:#f4f0e6;
+    --paper-2:#ece5d6;
+    --ink:#191613;
+    --ink-soft:#5b544a;
+    --ink-faint:#8b8275;
+    --line:#d9d0bf;
+    --line-strong:#c8bca4;
+    --grid:rgba(25,22,19,.045);
     --accent:#2436c8;      /* cobalt ink */
-    --accent-deep:#1a288f;
+    --accent-deep:#19267e;
     --maxw:1180px;
     --serif:'Fraunces',Georgia,'Times New Roman',serif;
     --sans:'Hanken Grotesk',system-ui,-apple-system,sans-serif;
+    --mono:'JetBrains Mono',ui-monospace,'SFMono-Regular',Menlo,monospace;
   }
   *{box-sizing:border-box;margin:0;padding:0}
   html{scroll-behavior:smooth}
   body{
     font-family:var(--sans);
-    background:var(--paper);
     color:var(--ink);
     line-height:1.6;
     -webkit-font-smoothing:antialiased;
     font-optical-sizing:auto;
     overflow-x:hidden;
+    background-color:var(--paper);
+    background-image:
+      linear-gradient(var(--grid) 1px,transparent 1px),
+      linear-gradient(90deg,var(--grid) 1px,transparent 1px);
+    background-size:74px 74px;
+    background-position:center top;
   }
   ::selection{background:var(--accent);color:var(--paper)}
   a{color:inherit;text-decoration:none}
 
   /* paper grain overlay */
   body::before{
-    content:"";position:fixed;inset:0;z-index:9999;pointer-events:none;opacity:.04;
+    content:"";position:fixed;inset:0;z-index:9999;pointer-events:none;opacity:.045;
     mix-blend-mode:multiply;
     background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
   }
 
   .wrap{max-width:var(--maxw);margin:0 auto;padding:0 28px}
+
+  /* mono system label — // comment style */
   .eyebrow{
-    font-family:var(--sans);font-size:.72rem;font-weight:600;letter-spacing:.22em;
-    text-transform:uppercase;color:var(--ink-faint);display:inline-flex;align-items:center;gap:10px;
+    font-family:var(--mono);font-size:.74rem;font-weight:500;letter-spacing:.04em;
+    color:var(--ink-faint);display:inline-flex;align-items:center;gap:8px;
   }
-  .eyebrow::before{content:"";width:24px;height:1px;background:var(--accent)}
+  .eyebrow::before{content:"//";color:var(--accent);font-weight:600}
+  .tag{font-family:var(--mono);font-size:.74rem;font-weight:500;color:var(--ink-faint)}
+  .tag b{color:var(--accent)}
   .accent{color:var(--accent)}
 
   /* ---------- NAV ---------- */
-  nav{position:sticky;top:0;z-index:100;background:color-mix(in srgb,var(--paper) 86%,transparent);
+  nav{position:sticky;top:0;z-index:100;background:color-mix(in srgb,var(--paper) 88%,transparent);
     backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
-  nav .wrap{display:flex;align-items:center;justify-content:space-between;height:72px}
+  nav .wrap{display:flex;align-items:center;justify-content:space-between;height:70px}
   .brand{display:flex;align-items:center;gap:11px;font-family:var(--serif);font-weight:600;font-size:1.45rem;letter-spacing:-.01em}
   .brand img{width:28px;height:28px}
-  .navlinks{display:flex;gap:34px;align-items:center}
-  .navlinks a{font-size:.9rem;font-weight:500;color:var(--ink-soft);position:relative;transition:color .25s}
+  .brand .v{font-family:var(--mono);font-size:.66rem;font-weight:500;color:var(--ink-faint);
+    border:1px solid var(--line-strong);border-radius:5px;padding:2px 6px;align-self:center;letter-spacing:0}
+  .navlinks{display:flex;gap:30px;align-items:center}
+  .navlinks a{font-family:var(--mono);font-size:.82rem;font-weight:500;color:var(--ink-soft);position:relative;transition:color .25s}
+  .navlinks a:not(.nav-cta)::before{content:"";color:var(--ink-faint)}
   .navlinks a::after{content:"";position:absolute;left:0;bottom:-5px;width:100%;height:1.5px;background:var(--accent);transform:scaleX(0);transform-origin:left;transition:transform .3s}
   .navlinks a:hover{color:var(--ink)}
-  .navlinks a:hover::after{transform:scaleX(1)}
-  .nav-cta{padding:9px 20px;border:1px solid var(--ink);border-radius:999px;color:var(--ink)!important}
-  .nav-cta::after{display:none}
+  .navlinks a:not(.nav-cta):hover::after{transform:scaleX(1)}
+  .nav-cta{padding:8px 18px;border:1px solid var(--ink);border-radius:7px;color:var(--ink)!important}
   .nav-cta:hover{background:var(--ink);color:var(--paper)!important}
   @media(max-width:720px){.navlinks a:not(.nav-cta){display:none}}
 
   /* ---------- HERO ---------- */
-  .hero{padding:clamp(70px,11vw,140px) 0 70px;position:relative}
+  .hero{padding:clamp(64px,10vw,128px) 0 64px;position:relative}
+  /* crosshair tick top-left of hero */
+  .crosshair{position:relative}
+  .crosshair::before{content:"+";position:absolute;left:-6px;top:-26px;font-family:var(--mono);
+    color:var(--accent);font-size:1rem;opacity:.6}
   .hero .eyebrow{opacity:0;animation:rise .9s .1s cubic-bezier(.2,.7,.2,1) forwards}
   .hero h1{
     font-family:var(--serif);font-weight:540;font-optical-sizing:auto;
-    font-size:clamp(3.2rem,9.5vw,7.4rem);line-height:.96;letter-spacing:-.03em;
-    margin:26px 0 0;max-width:14ch;
+    font-size:clamp(3.1rem,9.2vw,7.2rem);line-height:.96;letter-spacing:-.03em;
+    margin:24px 0 0;max-width:14ch;
   }
   .hero h1 .ln{display:block;overflow:hidden}
   .hero h1 .ln > span{display:block;transform:translateY(105%);animation:lineUp 1s cubic-bezier(.16,1,.3,1) forwards}
@@ -88,45 +105,47 @@
   .hero h1 em{font-style:italic;font-weight:420;position:relative;white-space:nowrap}
   .hero h1 em .swash{position:absolute;left:0;right:0;bottom:.08em;height:.09em;background:var(--accent);
     transform:scaleX(0);transform-origin:left;animation:swash 1s 1.0s cubic-bezier(.16,1,.3,1) forwards;border-radius:2px}
-  .hero .sub{font-size:clamp(1.08rem,1.9vw,1.32rem);color:var(--ink-soft);max-width:46ch;margin-top:34px;
+  .hero .sub{font-size:clamp(1.08rem,1.9vw,1.3rem);color:var(--ink-soft);max-width:46ch;margin-top:32px;
     opacity:0;animation:rise .9s .7s cubic-bezier(.2,.7,.2,1) forwards}
-  .hero .actions{display:flex;gap:18px;align-items:center;margin-top:42px;flex-wrap:wrap;
+  .hero .actions{display:flex;gap:18px;align-items:center;margin-top:40px;flex-wrap:wrap;
     opacity:0;animation:rise .9s .85s cubic-bezier(.2,.7,.2,1) forwards}
-  .btn{display:inline-flex;align-items:center;gap:10px;padding:15px 28px;border-radius:999px;
+  .btn{display:inline-flex;align-items:center;gap:10px;padding:14px 26px;border-radius:8px;
     font-family:var(--sans);font-weight:600;font-size:.96rem;background:var(--ink);color:var(--paper);
     transition:transform .2s,background .2s}
   .btn:hover{transform:translateY(-2px);background:var(--accent-deep)}
   .btn .arr{transition:transform .25s}.btn:hover .arr{transform:translate(3px,-3px)}
-  .link-cta{font-weight:600;font-size:.96rem;color:var(--ink);display:inline-flex;align-items:center;gap:9px;position:relative}
+  .link-cta{font-family:var(--mono);font-weight:500;font-size:.86rem;color:var(--ink);display:inline-flex;align-items:center;gap:8px;position:relative}
   .link-cta::after{content:"";position:absolute;left:0;bottom:-4px;width:100%;height:1.5px;background:var(--ink);transform:scaleX(0);transform-origin:right;transition:transform .3s}
   .link-cta:hover::after{transform:scaleX(1);transform-origin:left}
 
-  /* listening waveform */
-  .wave{display:flex;align-items:center;gap:4px;height:64px;margin-top:66px;
-    opacity:0;animation:rise 1s 1.05s cubic-bezier(.2,.7,.2,1) forwards}
-  .wave .bar{width:4px;border-radius:4px;background:var(--ink);
-    animation:eq 1.5s ease-in-out infinite;transform-origin:center}
-  .wave .lbl{font-size:.72rem;letter-spacing:.2em;text-transform:uppercase;color:var(--ink-faint);margin-left:18px;font-weight:600}
-  .wave .lbl b{color:var(--accent)}
-  @keyframes eq{0%,100%{transform:scaleY(.18)}50%{transform:scaleY(1)}}
+  /* listening waveform + mono readout */
+  .wave-wrap{margin-top:60px;opacity:0;animation:rise 1s 1.05s cubic-bezier(.2,.7,.2,1) forwards}
+  .wave{display:flex;align-items:center;gap:4px;height:62px}
+  .wave .bar{width:4px;border-radius:4px;background:var(--ink);animation:eq 1.5s ease-in-out infinite;transform-origin:center}
+  .readout{font-family:var(--mono);font-size:.74rem;color:var(--ink-faint);margin-top:16px;display:flex;gap:14px;flex-wrap:wrap;align-items:center}
+  .readout .rec{color:var(--accent);display:inline-flex;align-items:center;gap:7px}
+  .readout .rec::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--accent);animation:blink 1.4s steps(1) infinite}
+  .readout .sep{color:var(--line-strong)}
+  @keyframes blink{50%{opacity:.25}}
+  @keyframes eq{0%,100%{transform:scaleY(.16)}50%{transform:scaleY(1)}}
 
   @keyframes lineUp{to{transform:translateY(0)}}
   @keyframes rise{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:none}}
   @keyframes swash{to{transform:scaleX(1)}}
   @media (prefers-reduced-motion:reduce){
     *{animation:none!important}
-    .hero h1 .ln>span{transform:none}.hero .eyebrow,.hero .sub,.hero .actions,.wave{opacity:1}
+    .hero h1 .ln>span{transform:none}.hero .eyebrow,.hero .sub,.hero .actions,.wave-wrap{opacity:1}
   }
 
   /* ---------- shared section ---------- */
   section{position:relative;z-index:1}
-  .band{padding:clamp(72px,10vw,128px) 0;border-top:1px solid var(--line)}
-  .sec-head{display:flex;align-items:baseline;justify-content:space-between;gap:24px;flex-wrap:wrap;margin-bottom:54px}
-  .sec-head h2{font-family:var(--serif);font-weight:520;font-size:clamp(2rem,4.4vw,3.3rem);line-height:1.02;letter-spacing:-.025em;max-width:18ch}
+  .band{padding:clamp(70px,9vw,120px) 0;border-top:1px solid var(--line)}
+  .sec-head{display:flex;align-items:baseline;justify-content:space-between;gap:24px;flex-wrap:wrap;margin-bottom:52px}
+  .sec-head h2{font-family:var(--serif);font-weight:520;font-size:clamp(2rem,4.4vw,3.2rem);line-height:1.02;letter-spacing:-.025em;max-width:18ch}
   .sec-head h2 em{font-style:italic;color:var(--accent);font-weight:440}
 
   /* ---------- PLAIN ENGLISH ---------- */
-  .lede{font-family:var(--serif);font-weight:340;font-size:clamp(1.5rem,3.3vw,2.5rem);line-height:1.32;
+  .lede{font-family:var(--serif);font-weight:340;font-size:clamp(1.5rem,3.2vw,2.45rem);line-height:1.32;
     letter-spacing:-.015em;max-width:24ch;}
   .lede.wide{max-width:30ch}
   .lede p{margin:0}
@@ -136,47 +155,50 @@
   .plain-aside{color:var(--ink-soft);font-size:1.02rem;border-left:1px solid var(--line-strong);padding-left:24px}
   .plain-aside b{color:var(--ink);font-weight:600}
 
-  /* ---------- FEATURES (editorial index) ---------- */
+  /* ---------- FEATURES (technical index) ---------- */
   .index{border-top:1px solid var(--ink)}
-  .row{display:grid;grid-template-columns:auto 1fr;gap:22px;padding:26px 4px;border-bottom:1px solid var(--line);
+  .row{display:grid;grid-template-columns:auto 1fr;gap:20px;padding:24px 4px;border-bottom:1px solid var(--line);
     align-items:baseline;transition:background .3s,padding .3s}
-  @media(min-width:860px){.row{grid-template-columns:90px 1.1fr 1.5fr;gap:34px;align-items:baseline}}
+  @media(min-width:860px){.row{grid-template-columns:92px 1.1fr 1.5fr;gap:34px;align-items:baseline}}
   .row:hover{background:var(--paper-2)}
-  .row .num{font-family:var(--serif);font-size:1.5rem;font-weight:500;color:var(--accent);font-feature-settings:"tnum"}
-  .row .ttl{font-family:var(--serif);font-size:clamp(1.3rem,2.4vw,1.7rem);font-weight:480;letter-spacing:-.01em;display:flex;align-items:center;gap:12px}
-  .row .ttl .ic{font-size:1.1rem;filter:grayscale(.2)}
+  .row:hover .num{color:var(--accent)}
+  .row .num{font-family:var(--mono);font-size:.92rem;font-weight:500;color:var(--ink-faint);letter-spacing:0;transition:color .3s}
+  .row .ttl{font-family:var(--serif);font-size:clamp(1.3rem,2.4vw,1.65rem);font-weight:480;letter-spacing:-.01em;display:flex;align-items:center;gap:12px}
+  .row .ttl .ic{font-size:1.05rem;filter:grayscale(.2)}
   .row .desc{color:var(--ink-soft);font-size:1rem;line-height:1.55}
-  @media(max-width:859px){.row .desc{grid-column:1/-1;margin-top:-8px}.row .num{grid-row:1;align-self:start}}
+  @media(max-width:859px){.row .desc{grid-column:1/-1;margin-top:-6px}.row .num{grid-row:1;align-self:start}}
 
   /* ---------- HOW ---------- */
   .steps{display:grid;gap:0;border-top:1px solid var(--line)}
   @media(min-width:880px){.steps{grid-template-columns:repeat(4,1fr);border-top:none}}
   .step{padding:30px 4px;border-bottom:1px solid var(--line)}
   @media(min-width:880px){.step{border-bottom:none;border-left:1px solid var(--line);padding:0 28px 0 26px}.step:first-child{border-left:none;padding-left:0}}
-  .step .k{font-family:var(--serif);font-size:1.4rem;color:var(--accent);display:block;margin-bottom:14px}
+  .step .k{font-family:var(--mono);font-size:.82rem;font-weight:500;color:var(--accent);display:block;margin-bottom:16px}
   .step h3{font-size:1.08rem;font-weight:600;margin-bottom:8px;letter-spacing:-.01em}
   .step p{color:var(--ink-soft);font-size:.96rem;line-height:1.55}
-  .step code{font-family:var(--serif);font-style:italic;color:var(--ink);background:var(--paper-2);padding:0 6px;border-radius:4px}
+  .step code{font-family:var(--mono);font-size:.85em;color:var(--accent);background:var(--paper-2);padding:1px 6px;border-radius:5px}
 
   /* ---------- COLOPHON / TECH ---------- */
-  .colophon{display:grid;grid-template-columns:1fr;gap:34px}
-  @media(min-width:820px){.colophon{grid-template-columns:1fr 1fr}}
-  .stack-list dt{font-family:var(--serif);font-style:italic;color:var(--accent);font-size:1.05rem;margin-top:20px}
-  .stack-list dd{color:var(--ink-soft);font-size:1rem;line-height:1.7;margin-top:4px}
+  .colophon{display:grid;grid-template-columns:1fr;gap:30px}
+  @media(min-width:820px){.colophon{grid-template-columns:1fr 1fr;gap:30px 56px}}
+  .stack-list dt{font-family:var(--mono);font-size:.78rem;font-weight:600;text-transform:uppercase;letter-spacing:.08em;
+    color:var(--accent);margin-top:22px;padding-bottom:8px;border-bottom:1px solid var(--line)}
+  .stack-list dt:first-child{margin-top:0}
+  .stack-list dd{color:var(--ink-soft);font-size:1rem;line-height:1.7;margin-top:12px}
   .stack-list dd b{color:var(--ink);font-weight:600}
 
   /* ---------- CTA ---------- */
-  .cta{text-align:center;padding:clamp(90px,13vw,160px) 0}
-  .cta h2{font-family:var(--serif);font-weight:520;font-size:clamp(2.6rem,7vw,5.4rem);line-height:1;letter-spacing:-.03em}
+  .cta{text-align:center;padding:clamp(86px,12vw,150px) 0}
+  .cta h2{font-family:var(--serif);font-weight:520;font-size:clamp(2.6rem,7vw,5.3rem);line-height:1;letter-spacing:-.03em}
   .cta h2 em{font-style:italic;font-weight:420}
   .cta .sub{color:var(--ink-soft);font-size:1.12rem;margin:24px auto 0;max-width:44ch}
-  .cta .actions{display:flex;gap:18px;justify-content:center;margin-top:42px;flex-wrap:wrap}
+  .cta .actions{display:flex;gap:18px;justify-content:center;margin-top:40px;flex-wrap:wrap}
 
   /* ---------- FOOTER ---------- */
-  footer{border-top:1px solid var(--ink);padding:40px 0}
+  footer{border-top:1px solid var(--ink);padding:38px 0}
   footer .wrap{display:flex;justify-content:space-between;align-items:center;gap:18px;flex-wrap:wrap}
   footer .fb{font-family:var(--serif);font-size:1.2rem;font-weight:600;display:flex;align-items:center;gap:9px}
-  footer .meta{color:var(--ink-faint);font-size:.86rem}
+  footer .meta{font-family:var(--mono);color:var(--ink-faint);font-size:.78rem}
   footer a:hover{color:var(--accent)}
 
   /* scroll reveal */
@@ -191,22 +213,22 @@
   <div class="wrap">
     <a class="brand" href="#top">
       <img src="../assets/logos/logo_dark.webp" alt="" onerror="this.style.display='none'">
-      Bubbles
+      Bubbles <span class="v">v1.0</span>
     </a>
     <div class="navlinks">
-      <a href="#what">What it is</a>
-      <a href="#features">Features</a>
-      <a href="#how">How it works</a>
-      <a href="#stack">Built with</a>
-      <a class="nav-cta" href="https://github.com/Qdevaan/Bubbles-AI">GitHub</a>
+      <a href="#what">what_it_is</a>
+      <a href="#features">features</a>
+      <a href="#how">how_it_works</a>
+      <a href="#stack">built_with</a>
+      <a class="nav-cta" href="https://github.com/Qdevaan/Bubbles-AI">GitHub ↗</a>
     </div>
   </div>
 </nav>
 
 <!-- HERO -->
 <header class="hero" id="top">
-  <div class="wrap">
-    <span class="eyebrow">AI conversation co-pilot</span>
+  <div class="wrap crosshair">
+    <span class="eyebrow">ai_conversation_co-pilot</span>
     <h1>
       <span class="ln"><span>Never be</span></span>
       <span class="ln"><span>lost for words</span></span>
@@ -216,11 +238,18 @@
       you talk, tells you what to say next, and remembers it all afterwards.</p>
     <div class="actions">
       <a class="btn" href="https://github.com/Qdevaan/Bubbles-AI">Explore on GitHub <span class="arr">↗</span></a>
-      <a class="link-cta" href="#how">See how it works →</a>
+      <a class="link-cta" href="#how">$ see how it works →</a>
     </div>
 
-    <div class="wave" id="wave" aria-hidden="true">
-      <span class="lbl">Listening<b>.</b></span>
+    <div class="wave-wrap" aria-hidden="true">
+      <div class="wave" id="wave"></div>
+      <div class="readout">
+        <span class="rec">listening</span>
+        <span class="sep">·</span><span>16&nbsp;kHz</span>
+        <span class="sep">·</span><span>whisper-v3</span>
+        <span class="sep">·</span><span>gemini&nbsp;→&nbsp;cerebras&nbsp;→&nbsp;groq</span>
+        <span class="sep">·</span><span>latency&nbsp;~120ms</span>
+      </div>
     </div>
   </div>
 </header>
@@ -228,8 +257,8 @@
 <!-- WHAT -->
 <section class="band" id="what">
   <div class="wrap reveal">
-    <span class="eyebrow">In plain English</span>
-    <div class="plain-grid" style="margin-top:34px">
+    <span class="eyebrow">in_plain_english</span>
+    <div class="plain-grid" style="margin-top:32px">
       <div class="lede wide">
         <p><span class="dropcap">T</span>hink of a calm, clever friend in your ear during any
         important conversation — an interview, a hard negotiation, a tense call. Bubbles listens
@@ -249,18 +278,18 @@
   <div class="wrap reveal">
     <div class="sec-head">
       <h2>Everything you need to <em>speak well</em>, in one quiet app.</h2>
-      <span class="eyebrow">Nine&nbsp;capabilities</span>
+      <span class="tag">[ <b>09</b> capabilities ]</span>
     </div>
     <div class="index">
-      <div class="row"><span class="num">01</span><span class="ttl"><span class="ic">🎧</span>Live Wingman</span><span class="desc">Real-time advice generated from the live transcript, while you're still talking.</span></div>
-      <div class="row"><span class="num">02</span><span class="ttl"><span class="ic">💬</span>Consultant Mode</span><span class="desc">Ask deep, context-aware questions about your conversations — streaming or batched.</span></div>
-      <div class="row"><span class="num">03</span><span class="ttl"><span class="ic">🎙️</span>Voice &amp; Wake-word</span><span class="desc">Hands-free: wake-word detection, speech-to-text, text-to-speech, speaker enrollment.</span></div>
-      <div class="row"><span class="num">04</span><span class="ttl"><span class="ic">🧠</span>Long-term Memory</span><span class="desc">Vector-based recall, so Bubbles remembers what mattered across every session.</span></div>
-      <div class="row"><span class="num">05</span><span class="ttl"><span class="ic">🕸️</span>Knowledge Graph</span><span class="desc">Auto-maps the people, topics, and entities you mention — explore them on a timeline.</span></div>
-      <div class="row"><span class="num">06</span><span class="ttl"><span class="ic">📈</span>Coaching Reports</span><span class="desc">Per-session analytics, sentiment, talk-time, and trends with auto-generated reports.</span></div>
-      <div class="row"><span class="num">07</span><span class="ttl"><span class="ic">🃏</span>Practice Drills</span><span class="desc">Spaced-repetition flashcards, built automatically from your real mistakes.</span></div>
-      <div class="row"><span class="num">08</span><span class="ttl"><span class="ic">🎮</span>Gamification</span><span class="desc">Daily quests, achievements, rewards, streaks, and an opt-in leaderboard.</span></div>
-      <div class="row"><span class="num">09</span><span class="ttl"><span class="ic">📱</span>Cross-platform</span><span class="desc">One Flutter codebase → Android, iOS, Web, Windows, macOS, and Linux.</span></div>
+      <div class="row"><span class="num">001</span><span class="ttl"><span class="ic">🎧</span>Live Wingman</span><span class="desc">Real-time advice generated from the live transcript, while you're still talking.</span></div>
+      <div class="row"><span class="num">002</span><span class="ttl"><span class="ic">💬</span>Consultant Mode</span><span class="desc">Ask deep, context-aware questions about your conversations — streaming or batched.</span></div>
+      <div class="row"><span class="num">003</span><span class="ttl"><span class="ic">🎙️</span>Voice &amp; Wake-word</span><span class="desc">Hands-free: wake-word detection, speech-to-text, text-to-speech, speaker enrollment.</span></div>
+      <div class="row"><span class="num">004</span><span class="ttl"><span class="ic">🧠</span>Long-term Memory</span><span class="desc">Vector-based recall, so Bubbles remembers what mattered across every session.</span></div>
+      <div class="row"><span class="num">005</span><span class="ttl"><span class="ic">🕸️</span>Knowledge Graph</span><span class="desc">Auto-maps the people, topics, and entities you mention — explore them on a timeline.</span></div>
+      <div class="row"><span class="num">006</span><span class="ttl"><span class="ic">📈</span>Coaching Reports</span><span class="desc">Per-session analytics, sentiment, talk-time, and trends with auto-generated reports.</span></div>
+      <div class="row"><span class="num">007</span><span class="ttl"><span class="ic">🃏</span>Practice Drills</span><span class="desc">Spaced-repetition flashcards, built automatically from your real mistakes.</span></div>
+      <div class="row"><span class="num">008</span><span class="ttl"><span class="ic">🎮</span>Gamification</span><span class="desc">Daily quests, achievements, rewards, streaks, and an opt-in leaderboard.</span></div>
+      <div class="row"><span class="num">009</span><span class="ttl"><span class="ic">📱</span>Cross-platform</span><span class="desc">One Flutter codebase → Android, iOS, Web, Windows, macOS, and Linux.</span></div>
     </div>
   </div>
 </section>
@@ -270,13 +299,13 @@
   <div class="wrap reveal">
     <div class="sec-head">
       <h2>A simple loop, <em>quietly</em> doing the hard part.</h2>
-      <span class="eyebrow">How it works</span>
+      <span class="tag">runtime&nbsp;<b>·</b>&nbsp;async</span>
     </div>
     <div class="steps">
-      <div class="step"><span class="k">i.</span><h3>You talk</h3><p>The Flutter app captures the conversation by voice or text, on any device.</p></div>
-      <div class="step"><span class="k">ii.</span><h3>The brain listens</h3><p>A fast async FastAPI backend routes each request through its <code>/v1</code> API.</p></div>
-      <div class="step"><span class="k">iii.</span><h3>AI responds</h3><p>An LLM router picks the best model — Gemini → Cerebras → Groq — with graceful failover and your memory in context.</p></div>
-      <div class="step"><span class="k">iv.</span><h3>Bubbles remembers</h3><p>Everything is stored in Supabase; background workers extract entities and build your drills.</p></div>
+      <div class="step"><span class="k">01 / 04</span><h3>You talk</h3><p>The Flutter app captures the conversation by voice or text, on any device.</p></div>
+      <div class="step"><span class="k">02 / 04</span><h3>The brain listens</h3><p>A fast async FastAPI backend routes each request through its <code>/v1</code> API.</p></div>
+      <div class="step"><span class="k">03 / 04</span><h3>AI responds</h3><p>An LLM router picks the best model — <code>gemini → cerebras → groq</code> — with failover and your memory in context.</p></div>
+      <div class="step"><span class="k">04 / 04</span><h3>Bubbles remembers</h3><p>Everything is stored in Supabase; background workers extract entities and build your drills.</p></div>
     </div>
   </div>
 </section>
@@ -286,7 +315,7 @@
   <div class="wrap reveal">
     <div class="sec-head">
       <h2>Built with a <em>modern</em> stack.</h2>
-      <span class="eyebrow">Colophon</span>
+      <span class="tag">// colophon</span>
     </div>
     <div class="colophon">
       <dl class="stack-list">
@@ -312,7 +341,7 @@
     <p class="sub">Open-source, cross-platform, and built to make every conversation count.</p>
     <div class="actions">
       <a class="btn" href="https://github.com/Qdevaan/Bubbles-AI">Star on GitHub <span class="arr">↗</span></a>
-      <a class="link-cta" href="https://github.com/Qdevaan/Bubbles-AI#-quick-start">Read the docs →</a>
+      <a class="link-cta" href="https://github.com/Qdevaan/Bubbles-AI#-quick-start">$ read the docs →</a>
     </div>
   </div>
 </section>
@@ -324,7 +353,7 @@
       <img src="../assets/logos/logo_dark.webp" alt="" width="22" height="22" onerror="this.style.display='none'">
       Bubbles
     </span>
-    <span class="meta">MIT License © 2026 Muhammad Ahmad · <a href="https://github.com/Qdevaan/Bubbles-AI">github.com/Qdevaan/Bubbles-AI</a></span>
+    <span class="meta">MIT · © 2026 Muhammad Ahmad · <a href="https://github.com/Qdevaan/Bubbles-AI">github.com/Qdevaan/Bubbles-AI</a></span>
   </div>
 </footer>
 
@@ -333,19 +362,16 @@
   (function(){
     var wave = document.getElementById('wave');
     if(!wave) return;
-    var lbl = wave.querySelector('.lbl');
     var N = 56;
     for (var i=0;i<N;i++){
       var b = document.createElement('span');
       b.className = 'bar';
-      // smooth pseudo-random envelope from sine layers
       var h = 14 + Math.abs(Math.sin(i*0.55) * 0.6 + Math.sin(i*0.17) * 0.4) * 46;
       b.style.height = h.toFixed(1) + 'px';
       b.style.animationDelay = (-(i * 0.045)).toFixed(3) + 's';
       b.style.animationDuration = (1.3 + (i % 5) * 0.12).toFixed(2) + 's';
-      // first bars darker, fading toward accent at the tail
       if (i > N - 10) b.style.background = 'var(--accent)';
-      wave.insertBefore(b, lbl);
+      wave.appendChild(b);
     }
   })();
 
