@@ -11,11 +11,20 @@
 <link rel="icon" href="../assets/logos/logo_light.webp">
 <style>
   :root{
-    --bg:#0a0b14; --bg2:#0f1120; --panel:#151728; --panel2:#1b1e34;
-    --txt:#e8eaf6; --muted:#9aa0c2; --line:#26294a;
+    --bg:#070812; --bg2:#0c0e1c; --panel:rgba(255,255,255,.04); --panel-solid:#13152a;
+    --txt:#eef0ff; --muted:#9aa0c9; --line:rgba(255,255,255,.09);
     --brand:#6ea8ff; --brand2:#9b7bff; --accent:#3fe0c5;
     --grad:linear-gradient(120deg,#6ea8ff 0%,#9b7bff 55%,#3fe0c5 100%);
-    --radius:18px; --maxw:1120px;
+    --radius:20px; --maxw:1140px;
+
+    /* gooey blob palette (r,g,b) */
+    --b1:110,168,255;
+    --b2:155,123,255;
+    --b3:63,224,197;
+    --b4:120,150,255;
+    --b5:90,200,255;
+    --blob-size:78vmax;
+    --blend:hard-light;
   }
   *{box-sizing:border-box;margin:0;padding:0}
   html{scroll-behavior:smooth}
@@ -28,146 +37,161 @@
   .wrap{max-width:var(--maxw);margin:0 auto;padding:0 22px}
   .grad-text{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
 
-  /* ---------- floating bubble background ---------- */
-  .bubbles{position:fixed;inset:0;z-index:0;overflow:hidden;pointer-events:none}
-  .bubbles span{
-    position:absolute;bottom:-160px;border-radius:50%;
-    background:radial-gradient(circle at 30% 30%,rgba(155,123,255,.30),rgba(110,168,255,.10) 60%,transparent 70%);
-    border:1px solid rgba(110,168,255,.12);
-    animation:rise linear infinite;
+  /* ============ GOOEY BUBBLE BACKGROUND ============ */
+  .goo-bg{
+    position:fixed; inset:0; z-index:0; overflow:hidden;
+    background:linear-gradient(40deg,#070812,#0c0e1c);
+    pointer-events:none;
   }
-  @keyframes rise{
-    0%{transform:translateY(0) translateX(0) scale(.6);opacity:0}
-    10%{opacity:.9}
-    90%{opacity:.7}
-    100%{transform:translateY(-115vh) translateX(40px) scale(1.1);opacity:0}
+  .goo-bg .blobs{
+    position:absolute; inset:0; width:100%; height:100%;
+    filter:url(#goo) blur(46px);
   }
-  @media (prefers-reduced-motion:reduce){.bubbles span{animation:none;display:none}}
+  .goo-bg .blob{
+    position:absolute; width:var(--blob-size); height:var(--blob-size);
+    top:calc(50% - var(--blob-size)/2); left:calc(50% - var(--blob-size)/2);
+    mix-blend-mode:var(--blend); opacity:.55;
+    background:radial-gradient(circle at center, rgba(var(--c),.85) 0, rgba(var(--c),0) 55%) no-repeat;
+  }
+  .b1{--c:var(--b1); transform-origin:center center;        animation:moveV 32s ease infinite}
+  .b2{--c:var(--b2); transform-origin:calc(50% - 420px);    animation:moveC 24s reverse infinite}
+  .b3{--c:var(--b3); transform-origin:calc(50% + 420px);    animation:moveC 44s linear  infinite}
+  .b4{--c:var(--b4); transform-origin:calc(50% - 220px);    animation:moveH 42s ease infinite; opacity:.4}
+  .b5{--c:var(--b5); transform-origin:calc(50% - 820px) calc(50% + 820px); animation:moveC 22s ease infinite}
+  @keyframes moveV{0%{transform:translateY(-22%)}50%{transform:translateY(22%)}100%{transform:translateY(-22%)}}
+  @keyframes moveH{0%{transform:translateX(-28%) translateY(-8%)}50%{transform:translateX(28%) translateY(8%)}100%{transform:translateX(-28%) translateY(-8%)}}
+  @keyframes moveC{0%{transform:rotate(0)}100%{transform:rotate(360deg)}}
+  @media (prefers-reduced-motion:reduce){.goo-bg .blob{animation:none}}
 
-  /* ---------- nav ---------- */
-  nav{
-    position:sticky;top:0;z-index:50;backdrop-filter:blur(12px);
-    background:rgba(10,11,20,.72);border-bottom:1px solid var(--line);
-  }
-  nav .wrap{display:flex;align-items:center;justify-content:space-between;height:64px}
-  .brand{display:flex;align-items:center;gap:10px;font-weight:800;font-size:1.15rem}
-  .brand img{width:30px;height:30px;border-radius:8px}
+  section{position:relative;z-index:1}
+
+  /* ============ NAV ============ */
+  nav{position:sticky;top:0;z-index:50;backdrop-filter:blur(14px);
+    background:rgba(7,8,18,.6);border-bottom:1px solid var(--line)}
+  nav .wrap{display:flex;align-items:center;justify-content:space-between;height:66px}
+  .brand{display:flex;align-items:center;gap:10px;font-weight:800;font-size:1.18rem}
+  .brand img{width:30px;height:30px;border-radius:9px}
   .navlinks{display:flex;gap:26px;align-items:center}
   .navlinks a{color:var(--muted);font-weight:600;font-size:.93rem;transition:color .2s}
   .navlinks a:hover{color:var(--txt)}
-  .btn{
-    display:inline-block;padding:11px 20px;border-radius:999px;font-weight:700;
-    background:var(--grad);color:#0a0b14;transition:transform .15s,box-shadow .2s;
-    box-shadow:0 6px 22px rgba(110,168,255,.25)
-  }
-  .btn:hover{transform:translateY(-2px);box-shadow:0 10px 30px rgba(155,123,255,.4)}
+  .btn{display:inline-block;padding:11px 22px;border-radius:999px;font-weight:700;
+    background:var(--grad);color:#070812;transition:transform .15s,box-shadow .2s;
+    box-shadow:0 6px 24px rgba(110,168,255,.3)}
+  .btn:hover{transform:translateY(-2px);box-shadow:0 12px 34px rgba(155,123,255,.45)}
   .btn.ghost{background:transparent;color:var(--txt);border:1px solid var(--line);box-shadow:none}
   .btn.ghost:hover{border-color:var(--brand)}
   @media(max-width:760px){.navlinks a:not(.btn){display:none}}
 
-  section{position:relative;z-index:1}
-
-  /* ---------- hero ---------- */
-  .hero{padding:84px 0 60px;text-align:center}
-  .pill{
-    display:inline-flex;gap:8px;align-items:center;padding:7px 16px;border-radius:999px;
+  /* ============ HERO ============ */
+  .hero{padding:96px 0 60px;text-align:center}
+  .pill{display:inline-flex;gap:9px;align-items:center;padding:8px 17px;border-radius:999px;
     border:1px solid var(--line);background:var(--panel);color:var(--muted);
-    font-size:.82rem;font-weight:600;margin-bottom:26px
-  }
-  .pill .dot{width:8px;height:8px;border-radius:50%;background:var(--accent);box-shadow:0 0 10px var(--accent)}
-  .hero h1{font-size:clamp(2.4rem,6vw,4rem);line-height:1.08;font-weight:800;letter-spacing:-1.5px}
-  .hero p.sub{max-width:660px;margin:22px auto 0;font-size:clamp(1.05rem,2.4vw,1.25rem);color:var(--muted)}
-  .cta-row{display:flex;gap:14px;justify-content:center;margin-top:34px;flex-wrap:wrap}
-  .badges{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:30px}
-  .badges img{height:24px}
+    font-size:.82rem;font-weight:600;margin-bottom:28px;backdrop-filter:blur(8px)}
+  .pill .dot{width:8px;height:8px;border-radius:50%;background:var(--accent);box-shadow:0 0 12px var(--accent);animation:pulse 2s ease infinite}
+  @keyframes pulse{50%{opacity:.4}}
+  .hero h1{font-size:clamp(2.5rem,6.5vw,4.4rem);line-height:1.05;font-weight:800;letter-spacing:-2px}
+  .hero p.sub{max-width:660px;margin:24px auto 0;font-size:clamp(1.05rem,2.4vw,1.28rem);color:var(--muted)}
+  .cta-row{display:flex;gap:14px;justify-content:center;margin-top:36px;flex-wrap:wrap}
+  .badges{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:32px}
+  .badges img{height:24px;opacity:.92}
 
-  /* ---------- mockup frame ---------- */
-  .mockup{
-    margin:54px auto 0;max-width:920px;border-radius:16px;overflow:hidden;
-    border:1px solid var(--line);background:var(--panel);
-    box-shadow:0 30px 90px rgba(0,0,0,.55);
-  }
-  .mockup .bar{display:flex;gap:7px;padding:13px 16px;background:var(--panel2);border-bottom:1px solid var(--line)}
-  .mockup .bar i{width:12px;height:12px;border-radius:50%;display:inline-block}
-  .mockup .bar i:nth-child(1){background:#ff5f57}
-  .mockup .bar i:nth-child(2){background:#febc2e}
-  .mockup .bar i:nth-child(3){background:#28c840}
+  /* rotating word */
+  .rotor{display:inline-grid;text-align:center}
+  .rotor span{grid-area:1/1;opacity:0;transform:translateY(18px);
+    background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent;
+    animation:rot 10s infinite}
+  .rotor span:nth-child(1){animation-delay:0s}
+  .rotor span:nth-child(2){animation-delay:2s}
+  .rotor span:nth-child(3){animation-delay:4s}
+  .rotor span:nth-child(4){animation-delay:6s}
+  .rotor span:nth-child(5){animation-delay:8s}
+  @keyframes rot{0%{opacity:0;transform:translateY(18px)}4%{opacity:1;transform:translateY(0)}18%{opacity:1;transform:translateY(0)}22%{opacity:0;transform:translateY(-18px)}100%{opacity:0;transform:translateY(-18px)}}
+
+  /* mockup frame */
+  .mockup{margin:58px auto 0;max-width:940px;border-radius:18px;overflow:hidden;
+    border:1px solid var(--line);background:var(--panel-solid);
+    box-shadow:0 40px 110px rgba(0,0,0,.6), inset 0 1px 1px rgba(255,255,255,.06)}
+  .mockup .bar{display:flex;gap:7px;padding:13px 16px;background:rgba(255,255,255,.03);border-bottom:1px solid var(--line)}
+  .mockup .bar i{width:12px;height:12px;border-radius:50%}
+  .mockup .bar i:nth-child(1){background:#ff5f57}.mockup .bar i:nth-child(2){background:#febc2e}.mockup .bar i:nth-child(3){background:#28c840}
   .shot{display:block;width:100%;height:auto}
-  .placeholder{
-    aspect-ratio:16/9;display:flex;flex-direction:column;gap:10px;align-items:center;justify-content:center;
-    background:
-      radial-gradient(circle at 20% 20%,rgba(155,123,255,.18),transparent 40%),
-      radial-gradient(circle at 80% 60%,rgba(63,224,197,.14),transparent 45%),
-      var(--bg2);
-    color:var(--muted);text-align:center;padding:24px
-  }
-  .placeholder .big{font-size:2.6rem}
-  .placeholder code{background:var(--panel2);padding:3px 9px;border-radius:7px;color:var(--brand);font-size:.85rem}
+  .placeholder{aspect-ratio:16/9;display:flex;flex-direction:column;gap:12px;align-items:center;justify-content:center;
+    background:radial-gradient(circle at 25% 25%,rgba(155,123,255,.2),transparent 42%),radial-gradient(circle at 78% 62%,rgba(63,224,197,.16),transparent 46%),var(--bg2);
+    color:var(--muted);text-align:center;padding:24px}
+  .placeholder .big{font-size:2.8rem;animation:float 4s ease infinite}
+  @keyframes float{50%{transform:translateY(-10px)}}
+  .placeholder code{background:rgba(255,255,255,.07);padding:3px 9px;border-radius:7px;color:var(--brand);font-size:.85rem}
 
-  /* ---------- section heading ---------- */
-  .sec{padding:72px 0}
-  .sec h2{font-size:clamp(1.8rem,4vw,2.5rem);font-weight:800;text-align:center;letter-spacing:-1px}
+  /* ============ SECTIONS ============ */
+  .sec{padding:78px 0}
+  .sec h2{font-size:clamp(1.9rem,4vw,2.6rem);font-weight:800;text-align:center;letter-spacing:-1px}
   .sec .lead{text-align:center;color:var(--muted);max-width:620px;margin:14px auto 0}
 
-  .plain{
-    max-width:760px;margin:30px auto 0;padding:30px;border-radius:var(--radius);
-    border:1px solid var(--line);background:linear-gradient(180deg,var(--panel),var(--bg2));
-    text-align:center;font-size:1.12rem;color:var(--txt)
-  }
+  .plain{max-width:780px;margin:32px auto 0;padding:34px;border-radius:var(--radius);
+    border:1px solid var(--line);background:var(--panel);backdrop-filter:blur(10px);
+    text-align:center;font-size:1.14rem}
   .plain b{color:var(--brand)}
 
-  /* ---------- feature cards ---------- */
-  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:18px;margin-top:46px}
-  .card{
-    padding:26px;border-radius:var(--radius);border:1px solid var(--line);
-    background:var(--panel);transition:transform .2s,border-color .2s,box-shadow .2s
-  }
-  .card:hover{transform:translateY(-5px);border-color:var(--brand);box-shadow:0 16px 40px rgba(110,168,255,.16)}
-  .card .ico{font-size:1.9rem;margin-bottom:12px}
-  .card h3{font-size:1.12rem;margin-bottom:7px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(264px,1fr));gap:18px;margin-top:48px}
+  .card{padding:28px;border-radius:var(--radius);border:1px solid var(--line);
+    background:var(--panel);backdrop-filter:blur(10px);
+    transition:transform .25s,border-color .25s,box-shadow .25s}
+  .card:hover{transform:translateY(-6px);border-color:var(--brand);box-shadow:0 20px 48px rgba(110,168,255,.18)}
+  .card .ico{font-size:2rem;margin-bottom:13px}
+  .card h3{font-size:1.13rem;margin-bottom:7px}
   .card p{color:var(--muted);font-size:.95rem}
 
-  /* ---------- steps ---------- */
-  .steps{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:18px;margin-top:46px;counter-reset:s}
-  .step{position:relative;padding:28px 24px 24px;border-radius:var(--radius);border:1px solid var(--line);background:var(--panel)}
-  .step::before{
-    counter-increment:s;content:counter(s);
-    position:absolute;top:-18px;left:24px;width:38px;height:38px;border-radius:11px;
-    display:flex;align-items:center;justify-content:center;font-weight:800;color:#0a0b14;
-    background:var(--grad);box-shadow:0 8px 22px rgba(155,123,255,.35)
-  }
-  .step h3{margin:10px 0 6px;font-size:1.08rem}
+  .steps{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:18px;margin-top:50px;counter-reset:s}
+  .step{position:relative;padding:30px 24px 24px;border-radius:var(--radius);border:1px solid var(--line);background:var(--panel);backdrop-filter:blur(10px)}
+  .step::before{counter-increment:s;content:counter(s);
+    position:absolute;top:-19px;left:24px;width:40px;height:40px;border-radius:12px;
+    display:flex;align-items:center;justify-content:center;font-weight:800;color:#070812;
+    background:var(--grad);box-shadow:0 8px 24px rgba(155,123,255,.4)}
+  .step h3{margin:12px 0 6px;font-size:1.08rem}
   .step p{color:var(--muted);font-size:.93rem}
 
-  /* ---------- tech tags ---------- */
-  .tags{display:flex;flex-wrap:wrap;gap:11px;justify-content:center;margin-top:40px}
-  .tag{
-    padding:9px 16px;border-radius:999px;border:1px solid var(--line);
-    background:var(--panel);color:var(--muted);font-weight:600;font-size:.9rem;transition:.2s
-  }
+  .tags{display:flex;flex-wrap:wrap;gap:11px;justify-content:center;margin-top:42px}
+  .tag{padding:9px 17px;border-radius:999px;border:1px solid var(--line);
+    background:var(--panel);color:var(--muted);font-weight:600;font-size:.9rem;transition:.2s;backdrop-filter:blur(8px)}
   .tag:hover{color:var(--txt);border-color:var(--brand2);transform:translateY(-2px)}
 
-  /* ---------- final CTA ---------- */
-  .final{
-    margin:30px auto;max-width:var(--maxw);text-align:center;padding:64px 24px;border-radius:26px;
-    border:1px solid var(--line);
-    background:
-      radial-gradient(circle at 25% 20%,rgba(110,168,255,.20),transparent 45%),
-      radial-gradient(circle at 80% 80%,rgba(63,224,197,.16),transparent 45%),
-      var(--bg2)
-  }
-  .final h2{font-size:clamp(1.9rem,4vw,2.7rem);font-weight:800;letter-spacing:-1px}
+  .final{margin:30px auto;max-width:var(--maxw);text-align:center;padding:70px 24px;border-radius:28px;
+    border:1px solid var(--line);overflow:hidden;position:relative;
+    background:radial-gradient(circle at 25% 20%,rgba(110,168,255,.22),transparent 46%),radial-gradient(circle at 80% 80%,rgba(63,224,197,.18),transparent 46%),var(--bg2)}
+  .final h2{font-size:clamp(2rem,4.4vw,2.9rem);font-weight:800;letter-spacing:-1px}
   .final p{color:var(--muted);margin:14px auto 0;max-width:520px}
 
-  /* ---------- footer ---------- */
-  footer{border-top:1px solid var(--line);padding:40px 0;color:var(--muted);font-size:.9rem}
+  footer{border-top:1px solid var(--line);padding:42px 0;color:var(--muted);font-size:.9rem}
   footer .wrap{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:14px}
-  footer a{color:var(--muted)}footer a:hover{color:var(--txt)}
+  footer a:hover{color:var(--txt)}
+
+  /* scroll reveal */
+  .reveal{opacity:0;transform:translateY(28px);transition:opacity .7s ease,transform .7s ease}
+  .reveal.in{opacity:1;transform:none}
 </style>
 </head>
 <body>
 
-<div class="bubbles" id="bubbles" aria-hidden="true"></div>
+<!-- gooey SVG filter (hidden) -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <filter id="goo">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="22" result="blur"/>
+      <feColorMatrix in="blur" mode="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 20 -9" result="goo"/>
+      <feBlend in="SourceGraphic" in2="goo"/>
+    </filter>
+  </defs>
+</svg>
+
+<div class="goo-bg" aria-hidden="true">
+  <div class="blobs">
+    <div class="blob b1"></div>
+    <div class="blob b2"></div>
+    <div class="blob b3"></div>
+    <div class="blob b4"></div>
+    <div class="blob b5"></div>
+  </div>
+</div>
 
 <!-- NAV -->
 <nav>
@@ -190,7 +214,12 @@
 <section class="hero" id="top">
   <div class="wrap">
     <span class="pill"><span class="dot"></span> AI conversation co-pilot</span>
-    <h1>Talk with <span class="grad-text">confidence.</span><br>Bubbles has your back.</h1>
+    <h1>
+      Talk with
+      <span class="rotor">
+        <span>confidence.</span><span>clarity.</span><span>charm.</span><span>presence.</span><span>ease.</span>
+      </span><br>Bubbles has your back.
+    </h1>
     <p class="sub">Bubbles listens while you talk and quietly suggests what to say next — then
       remembers everything afterwards, so you can ask, review, and keep getting better.</p>
 
@@ -207,8 +236,7 @@
       <img alt="License"  src="https://img.shields.io/badge/License-MIT-yellow.svg">
     </div>
 
-    <!-- MOCKUP -->
-    <div class="mockup">
+    <div class="mockup reveal">
       <div class="bar"><i></i><i></i><i></i></div>
       <img class="shot" src="screenshots/hero.png" alt="Bubbles app preview"
            onerror="this.outerHTML='&lt;div class=&quot;placeholder&quot;&gt;&lt;div class=&quot;big&quot;&gt;🫧&lt;/div&gt;&lt;div&gt;Add &lt;code&gt;docs/screenshots/hero.png&lt;/code&gt; to show the app preview here&lt;/div&gt;&lt;/div&gt;'">
@@ -216,9 +244,9 @@
   </div>
 </section>
 
-<!-- WHAT IS IT -->
+<!-- WHAT -->
 <section class="sec" id="what">
-  <div class="wrap">
+  <div class="wrap reveal">
     <h2>What is Bubbles, <span class="grad-text">in plain English?</span></h2>
     <div class="plain">
       Think of <b>a calm, clever friend in your ear</b> during any important conversation —
@@ -232,7 +260,7 @@
 
 <!-- FEATURES -->
 <section class="sec" id="features">
-  <div class="wrap">
+  <div class="wrap reveal">
     <h2>Everything in <span class="grad-text">one app</span></h2>
     <p class="lead">From live coaching to long-term memory — Bubbles is a full communication toolkit.</p>
     <div class="grid">
@@ -249,9 +277,9 @@
   </div>
 </section>
 
-<!-- HOW IT WORKS -->
+<!-- HOW -->
 <section class="sec" id="how">
-  <div class="wrap">
+  <div class="wrap reveal">
     <h2>How it <span class="grad-text">works</span></h2>
     <p class="lead">A Flutter client, a fast async brain, and AI that fails over gracefully.</p>
     <div class="steps">
@@ -263,9 +291,9 @@
   </div>
 </section>
 
-<!-- TECH STACK -->
+<!-- STACK -->
 <section class="sec" id="stack">
-  <div class="wrap">
+  <div class="wrap reveal">
     <h2>Built with a <span class="grad-text">modern stack</span></h2>
     <p class="lead">Production-grade tooling on both the client and the server.</p>
     <div class="tags">
@@ -282,7 +310,7 @@
 
 <!-- FINAL CTA -->
 <section class="sec">
-  <div class="final">
+  <div class="final reveal">
     <h2>Get better at talking. 🫧</h2>
     <p>Open-source, cross-platform, and built to make every conversation count.</p>
     <div class="cta-row">
@@ -292,7 +320,6 @@
   </div>
 </section>
 
-<!-- FOOTER -->
 <footer>
   <div class="wrap">
     <span>🫧 Bubbles — AI conversation co-pilot</span>
@@ -301,21 +328,21 @@
 </footer>
 
 <script>
-  // generate floating bubbles
-  (function(){
-    var c = document.getElementById('bubbles');
-    var N = 14;
-    for (var i=0;i<N;i++){
-      var b = document.createElement('span');
-      var size = 18 + Math.round(Math.random()*90);
-      b.style.width = size+'px';
-      b.style.height = size+'px';
-      b.style.left = Math.round(Math.random()*100)+'%';
-      b.style.animationDuration = (14 + Math.random()*18).toFixed(1)+'s';
-      b.style.animationDelay = (-Math.random()*20).toFixed(1)+'s';
-      c.appendChild(b);
-    }
-  })();
+  // scroll reveal
+  var io = new IntersectionObserver(function(es){
+    es.forEach(function(e){ if(e.isIntersecting){ e.target.classList.add('in'); io.unobserve(e.target); } });
+  }, {threshold:.12});
+  document.querySelectorAll('.reveal').forEach(function(el){ io.observe(el); });
+
+  // subtle parallax: nudge gooey blobs toward the cursor
+  var blobs = document.querySelector('.blobs');
+  if (blobs && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    window.addEventListener('mousemove', function(e){
+      var x = (e.clientX / window.innerWidth - .5) * 26;
+      var y = (e.clientY / window.innerHeight - .5) * 26;
+      blobs.style.transform = 'translate(' + x + 'px,' + y + 'px)';
+    }, {passive:true});
+  }
 </script>
 </body>
 </html>
