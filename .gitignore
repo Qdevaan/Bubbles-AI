@@ -87,6 +87,7 @@ stitch
 Documentation/
 
 .claude/
+.design_bundle/
 graphify-out/
 .graphify_ast.json
 .graphify_cached.json
@@ -94,6 +95,9 @@ graphify-out/
 .graphify_uncached.txt
 docs/*
 !docs/superpowers/
+!docs/index.html
+!docs/screenshots/
+!docs/screenshots/**
 todos.md
 .vscode/.worktrees/
 

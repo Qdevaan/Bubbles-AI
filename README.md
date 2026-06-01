@@ -1,147 +1,168 @@
-# Bubbles
+<!-- ===================== HERO ===================== -->
+<div align="center">
 
-An AI-powered conversation assistant platform built with Flutter (multi-platform client) and FastAPI (Python backend).
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/logos/logo_light.webp">
+  <source media="(prefers-color-scheme: light)" srcset="assets/logos/logo_dark.webp">
+  <img src="assets/logos/logo_dark.webp" alt="Bubbles logo" width="140">
+</picture>
 
-Bubbles combines live conversation support, consultant-style Q&A, voice workflows, memory retrieval, and knowledge graph capabilities into one product.
+# 🫧 Bubbles
 
-## Base Repository
+### Your AI conversation co-pilot — live coaching while you talk, and a smart assistant that remembers.
 
-This repository is a fresh start and is based on the previous codebase:
+<p>
+  <img alt="Flutter"   src="https://img.shields.io/badge/Flutter-3.10+-02569B?logo=flutter&logoColor=white">
+  <img alt="FastAPI"   src="https://img.shields.io/badge/FastAPI-async-009688?logo=fastapi&logoColor=white">
+  <img alt="Python"    src="https://img.shields.io/badge/Python-3.11+-3776AB?logo=python&logoColor=white">
+  <img alt="Supabase"  src="https://img.shields.io/badge/Supabase-Postgres-3FCF8E?logo=supabase&logoColor=white">
+  <img alt="License"   src="https://img.shields.io/badge/License-MIT-yellow.svg">
+  <img alt="PRs Welcome" src="https://img.shields.io/badge/PRs-welcome-brightgreen.svg">
+</p>
 
-- https://github.com/Qdevaan/fyp_app
+<p>
+  <a href="#-quick-start"><b>Quick Start</b></a> ·
+  <a href="#-how-it-works"><b>How it works</b></a> ·
+  <a href="#-api-reference">API</a> ·
+  <a href="https://qdevaan.github.io/Bubbles-AI/">Website</a>
+</p>
 
-No commit history was carried over. The project files were re-initialized into a new clean history.
+</div>
 
-## Table of Contents
+---
 
-1. [Project Overview](#project-overview)
-2. [Core Features](#core-features)
-3. [Architecture](#architecture)
-4. [Tech Stack](#tech-stack)
-5. [Repository Structure](#repository-structure)
-6. [Prerequisites](#prerequisites)
-7. [Environment Configuration](#environment-configuration)
-8. [Quick Start](#quick-start)
-9. [Running the App](#running-the-app)
-10. [Backend API Summary](#backend-api-summary)
-11. [Database](#database)
-12. [Development Commands](#development-commands)
-13. [Troubleshooting](#troubleshooting)
-14. [Production Notes](#production-notes)
+## 🌍 What is Bubbles? (in plain English)
 
-## Project Overview
+> **Bubbles is like having a calm, clever friend in your ear during any conversation — and a sharp assistant that remembers everything afterwards.**
 
-Bubbles is a full-stack AI assistant application designed around real-time and asynchronous communication support:
+Imagine you're in an important chat — a job interview, a tough negotiation, a first date, a
+difficult call. Bubbles **listens along** and quietly suggests what to say next, so you never
+freeze or fumble. That's **Wingman mode**.
 
-- Live Wingman mode for in-session advice.
-- Consultant mode for deeper, context-aware Q&A.
-- Voice command handling, wake-word support, and speaker enrollment.
-- Persistent memory and entity graph extraction across sessions.
-- Analytics and coaching reports for communication improvement.
+When the conversation is over, you can **ask Bubbles questions** about it — "How did I come
+across?", "What should I have said differently?", "Remind me what we agreed on." That's
+**Consultant mode**.
 
-The frontend is a Flutter app (Android, iOS, Web, Desktop), and the backend is a FastAPI service that integrates with Supabase, Groq, LiveKit, and embedding-based retrieval.
+Over time, Bubbles **remembers the people and topics** you talk about, tracks how your
+communication is improving, turns your slip-ups into **flashcard-style practice drills**, and
+even makes it fun with **quests, streaks, and rewards**. It works by **voice** (just say the
+wake word) and runs on your **phone, web, and desktop** from one app.
 
-## Core Features
+No jargon, no setup ritual — open it, talk, and get better at talking. 🫧
 
-- Multi-mode AI interactions:
-  - Live wingman advice during active conversations.
-  - Consultant Q&A (blocking and streaming).
-- Voice capabilities:
-  - Voice command intent routing.
-  - LiveKit token issuance for real-time sessions.
-  - Voice enrollment endpoint for speaker embedding.
-- Long-term memory and context:
-  - Vector-based memory retrieval.
-  - Knowledge graph updates from extracted entities and relations.
-- Session intelligence:
-  - Session logs and summaries.
-  - Sentiment and turn-level analytics.
-  - Auto-generated coaching reports.
-- Broad app surface areas in Flutter:
-  - Sessions, consultant, entities, graph explorer, health dashboard, tasks, expenses, integrations, smart-home, and more.
+---
 
-## Architecture
+## ✨ Features
 
-High-level flow:
+| | Feature | What it does for you |
+|---|---|---|
+| 🎧 | **Live Wingman** | Real-time, in-the-moment advice generated from the live transcript while you're still talking. |
+| 💬 | **Consultant Mode** | Ask deep, context-aware questions about your conversations — blocking, streaming, or batched. |
+| 🎙️ | **Voice & Wake-word** | Hands-free interaction: wake-word detection, speech-to-text, text-to-speech, speaker enrollment. |
+| 🧠 | **Long-term Memory** | Vector-based recall so Bubbles remembers what mattered across all your sessions. |
+| 🕸️ | **Knowledge Graph** | Automatically maps the people, topics, and entities you mention — browse them on a timeline. |
+| 📈 | **Coaching Reports** | Per-session analytics, sentiment, talk-time, trends, and auto-generated coaching reports. |
+| 🃏 | **Practice Drills** | Spaced-repetition (Leitner-box) flashcards built from your real mistakes. |
+| 🎮 | **Gamification** | Daily quests, achievements, rewards, streaks, and an opt-in leaderboard. |
+| 📱 | **Cross-platform** | One Flutter codebase → Android, iOS, Web, Windows, macOS, Linux. |
 
-1. Flutter client authenticates users and manages UI state with Provider.
-2. Client calls FastAPI endpoints under `/v1` for AI, sessions, voice, analytics, and entities.
-3. Backend orchestrates:
-   - LLM calls (Groq)
-   - embeddings and memory retrieval
-   - graph/entity persistence
-   - session and analytics storage in Supabase
-4. Real-time voice/video capabilities are supported through LiveKit token generation and client integration.
+---
 
-## Tech Stack
+## 📸 Screenshots
 
-Client (Flutter):
+> Drop images into `docs/screenshots/` and they'll appear here. See
+> [`docs/screenshots/README.md`](docs/screenshots/README.md) for the exact filenames.
 
-- Flutter / Dart
-- Provider state management
-- Supabase Flutter
-- LiveKit client
-- Speech and audio packages (speech_to_text, flutter_tts, record, porcupine_flutter)
+<p align="center">
+  <img src="docs/screenshots/home.png"      alt="Home"       width="24%">
+  <img src="docs/screenshots/wingman.png"   alt="Wingman"    width="24%">
+  <img src="docs/screenshots/consultant.png" alt="Consultant" width="24%">
+  <img src="docs/screenshots/graph.png"     alt="Knowledge graph" width="24%">
+</p>
 
-Server (Python) — `server/` (Bubbles Brain API v5, async-only):
+---
 
-- FastAPI + Uvicorn (async top to bottom)
-- `asyncpg` over PgBouncer; Alembic migrations; repository + Unit-of-Work layer
-- LLM router with per-provider circuit breaker: Gemini → Cerebras → Groq (per task)
-- ARQ workers over Redis for background jobs + cron
-- Gemini `text-embedding-004` embeddings (bge-small ONNX offline fallback)
-- Groq Whisper STT + Edge-TTS; LiveKit tokens
-- structlog JSON logs, Prometheus `/metrics`, Sentry, OpenTelemetry; atomic Lua token-bucket rate limiting
-- `uv` (deps), `ruff`, `mypy --strict`, `pytest`
+## 🧭 How it works
 
-> The previous backend (`server_v2/`, sync `supabase-py` + `networkx` + APScheduler) is retired — see `Documentation/server-vs-server_v2-review.md`. It now lives at `legacy/server_v2/` for reference only.
+```mermaid
+flowchart TD
+    U["🧑 User"] --> APP["📱 Flutter App<br/>Android · iOS · Web · Desktop"]
+    APP -->|REST / SSE / WebSocket| API["⚡ FastAPI — Bubbles Brain v5<br/>/v1 endpoints"]
 
-Infrastructure:
+    API --> ROUTER["🧠 LLM Router<br/>per-provider circuit breaker"]
+    ROUTER --> G["Gemini"]
+    ROUTER --> C["Cerebras"]
+    ROUTER --> Q["Groq"]
 
-- Docker / Docker Compose for backend containerization
-- Supabase as primary data platform
+    API --> MEM["🧠 Memory + Embeddings<br/>text-embedding-004"]
+    API --> KG["🕸️ Knowledge Graph<br/>entity / relation extraction"]
+    API --> VOICE["🎙️ Voice<br/>Whisper STT · Edge-TTS · LiveKit"]
+    API --> JOBS["⚙️ ARQ Workers<br/>Redis-backed background jobs"]
 
-## Repository Structure
-
-```text
-fyp_app/
-|- lib/                     # Flutter app code (screens, providers, services, models)
-|- assets/                  # App assets (logos, text, wake-word model)
-|- server/                  # Bubbles Brain API v5 (active backend) — see server/README.md
-|  |- src/bubbles/          # application code (api, ai, db, jobs, voice, core)
-|  |- alembic/              # database migrations (versioned, reversible)
-|  |- tests/                # unit / integration / e2e
-|  |- ops/                  # Grafana dashboard JSON, alert rules
-|  |- pyproject.toml        # deps + tooling (uv, ruff, mypy, pytest)
-|  |- Dockerfile            # multi-stage, distroless (runtime + worker targets)
-|  |- docker-compose.yml    # dev: app + redis + caddy
-|- legacy/server_v2/        # retired previous backend, kept for reference only
-|- Documentation/
-|  |- db_schema_final_v2.sql # Unified database schema reference
-|- env/                     # Local environment files (ignored by git)
-|- android/ ios/ web/ macos/ linux/ windows/
+    MEM --> DB[("🗄️ Supabase<br/>Postgres + RLS")]
+    KG --> DB
+    API --> DB
+    JOBS --> DB
 ```
 
-## Prerequisites
+**The flow:** the Flutter app talks to the FastAPI backend under `/v1`. The backend's **LLM
+router** picks the best available model (Gemini → Cerebras → Groq) with automatic failover,
+pulls relevant **memory/embeddings** and **knowledge-graph** context, handles **voice** via
+Whisper/Edge-TTS/LiveKit, offloads heavy work to **ARQ background workers**, and persists
+everything in **Supabase**.
 
-Install the following before local development:
+---
 
-- Flutter SDK (latest stable)
-- Dart SDK (included with Flutter)
-- Python 3.11+
-- Pip
-- Docker Desktop (optional, for containerized backend)
-- Supabase project (URL + keys)
-- Groq API key
-- LiveKit credentials (if using realtime voice/video flows)
+## 🛠 Tech Stack
 
-## Environment Configuration
+<table>
+<tr>
+<th align="left">📱 Client (Flutter)</th>
+<th align="left">⚙️ Server (Bubbles Brain v5)</th>
+</tr>
+<tr valign="top">
+<td>
 
-Create this file:
+- **Flutter 3.10+ / Dart 3.10+** — one codebase, 6 platforms
+- **Provider / Riverpod** — state management
+- **supabase_flutter** — auth, data, realtime
+- **livekit_client** — realtime audio/video
+- **speech_to_text · flutter_tts · record · flutter_sound** — audio
+- **porcupine_flutter** — wake-word detection
+- **sqflite · shared_preferences** — local cache (stale-while-revalidate)
+- **fl_chart · force_directed_graphview** — charts & graph viz
+- **webview_flutter · flutter_markdown_plus · pdf**
 
-`env/.env`
+</td>
+<td>
 
-Recommended variables:
+- **FastAPI + Uvicorn** — async top to bottom (Python 3.11+)
+- **LLM router w/ circuit breaker** — Gemini → Cerebras → Groq per task
+- **asyncpg over PgBouncer · SQLAlchemy 2 · Alembic** migrations
+- **Supabase** — Postgres + Auth + Row-Level Security
+- **Redis + ARQ** — cache, queue, cron background jobs
+- **Gemini `text-embedding-004`** (bge-small ONNX offline fallback)
+- **Groq Whisper STT · Edge-TTS · LiveKit** tokens
+- **structlog · Prometheus · Sentry · OpenTelemetry**
+- **uv · ruff · mypy --strict · pytest**
+
+</td>
+</tr>
+</table>
+
+---
+
+## 🚀 Quick Start
+
+> **Prerequisites:** Flutter SDK (latest stable), Python 3.11+, [`uv`](https://docs.astral.sh/uv/),
+> optionally Docker Desktop, and a Supabase project. Groq + LiveKit keys for AI/voice flows.
+
+<details>
+<summary><b>1 · Configure your environment (<code>env/.env</code>)</b></summary>
+
+<br>
+
+Create `env/.env` in the repo root:
 
 ```env
 # Supabase
@@ -165,30 +186,38 @@ LIVEKIT_API_SECRET=
 ALLOWED_ORIGINS=*
 ```
 
-Notes:
+- The Flutter app loads `env/.env` in development.
+- The backend reads `env/.env` first, then falls back to `server/.env`.
+- For production Flutter builds, prefer `--dart-define` for secrets.
 
-- The Flutter app attempts to load `env/.env` in development.
-- For production Flutter builds, prefer `--dart-define` for sensitive values.
-- The backend loads env values from `env/.env` first, with fallback to `server/.env`.
+</details>
 
-## Quick Start
+<details>
+<summary><b>2 · Run the backend with Docker (recommended)</b></summary>
 
-### Option A: Run Backend with Docker (recommended)
+<br>
 
-From the `server` directory:
+From the `server/` directory:
 
 ```bash
 docker compose up --build
 ```
 
-Backend will be available at:
+Backend is then available at:
 
-- `http://localhost:8000`
-- Health check: `http://localhost:8000/health`
+- API: `http://localhost:8000`
+- Health: `http://localhost:8000/health`
 
-### Option B: Run Backend Locally (without Docker)
+The `worker` service in `docker-compose.yml` runs the ARQ background-job worker.
 
-From the `server` directory (needs [`uv`](https://docs.astral.sh/uv/)):
+</details>
+
+<details>
+<summary><b>2b · Run the backend locally (without Docker)</b></summary>
+
+<br>
+
+From the `server/` directory (needs [`uv`](https://docs.astral.sh/uv/)):
 
 ```bash
 uv sync                # create venv + install deps from pyproject/uv.lock
@@ -196,9 +225,17 @@ cp .env.example .env   # fill in secrets
 make dev               # uvicorn --reload on :8000
 ```
 
-`make test` runs `ruff` + `mypy --strict` + `pytest`; `make migrate` applies Alembic migrations. Full DX in `server/README.md`. Background jobs (ARQ worker) run via the `worker` service in `docker-compose.yml`.
+- `make test` → `ruff` + `mypy --strict` + `pytest`
+- `make migrate` → apply Alembic migrations
 
-## Running the App
+Full developer experience is documented in [`server/README.md`](server/README.md).
+
+</details>
+
+<details>
+<summary><b>3 · Run the Flutter app</b></summary>
+
+<br>
 
 From the repository root:
 
@@ -207,7 +244,7 @@ flutter pub get
 flutter run
 ```
 
-If you want to inject secrets at runtime (recommended for release and CI):
+Inject secrets at runtime (recommended for release & CI):
 
 ```bash
 flutter run \
@@ -215,96 +252,200 @@ flutter run \
   --dart-define=SUPABASE_ANON_KEY=your_supabase_anon_key
 ```
 
-## Backend API Summary
+</details>
 
-Base:
+---
 
-- Root: `GET /`
-- Health: `GET /health`
+## 📡 API Reference
 
-Versioned business endpoints:
+Routers are mounted as: health (`/live`, `/ready`, `/deep`), metrics (`/metrics`), and
+business endpoints under **`/v1`**.
 
-- Sessions
-  - `POST /v1/start_session`
-  - `POST /v1/process_transcript_wingman`
-  - `POST /v1/save_session`
-- Consultant
-  - `POST /v1/ask_consultant`
-  - `POST /v1/ask_consultant_stream`
-  - `POST /v1/ask_consultant/batch`
-- Voice
-  - `POST /v1/getToken`
-  - `POST /v1/voice_command`
-  - `POST /v1/enroll`
-- Analytics
-  - `POST /v1/save_feedback`
-  - `GET /v1/session_analytics/{session_id}`
-  - `GET /v1/coaching_report/{session_id}`
-  - `GET /v1/digest/{user_id}`
-  - `GET /v1/communication_trends/{user_id}`
-- Entities
-  - `POST /v1/ask_entity`
-  - `GET /v1/graph_export/{user_id}`
-  - `DELETE /v1/entities/{entity_id}`
-  - `DELETE /v1/sessions/{session_id}`
-  - `DELETE /v1/memories/{memory_id}`
-- Gamification
-  - `GET /v1/gamification/{user_id}`
-  - `GET /v1/quests/{user_id}`
-  - `GET /v1/rewards/{user_id}`
-  - `POST /v1/rewards/{user_id}/redeem`
-  - `GET /v1/leaderboard`
-  - `POST /v1/leaderboard/{user_id}/opt_in`
+<details>
+<summary><b>Full <code>/v1</code> endpoint list</b> (click to expand)</summary>
 
-## Database
+<br>
 
-Schema reference:
+**Sessions**
 
-- `Documentation/db_schema_final_v2.sql`
+| Method | Path |
+|--------|------|
+| POST | `/v1/start_session` |
+| POST | `/v1/save_session` |
+| POST | `/v1/end_session` |
+| POST | `/v1/log_turn` |
+| GET  | `/v1/session_replay/{session_id}` |
+| POST | `/v1/sessions/{session_id}/context` |
+| POST | `/v1/sessions/{session_id}/confidence` |
+| POST | `/v1/suggest_reply` |
+| DELETE | `/v1/sessions/{session_id}` |
 
-This schema includes:
+**Wingman**
 
-- User identity and settings
-- Sessions and logs
-- Consultant logs and sentiment records
-- Entity graph tables
-- Tasks, events, health, expenses, trips, integrations
-- Analytics and coaching reports
+| Method | Path |
+|--------|------|
+| POST | `/v1/process_transcript_wingman` |
 
-Apply and adapt the SQL to your Supabase/PostgreSQL environment as needed.
+**Consultant**
 
-## Development Commands
+| Method | Path |
+|--------|------|
+| POST | `/v1/ask_consultant` (streaming) |
+| POST | `/v1/ask` |
+| POST | `/v1/ask_consultant/batch` |
 
-Flutter:
+**Voice & Speaker**
 
-```bash
-flutter analyze
-flutter test
+| Method | Path |
+|--------|------|
+| POST | `/v1/getToken` |
+| POST | `/v1/process_audio` |
+| POST | `/v1/tts` |
+| POST | `/v1/voice_command` |
+| POST | `/v1/enroll` |
+| POST | `/v1/identify_speaker` |
+
+**Grammar**
+
+| Method | Path |
+|--------|------|
+| POST | `/v1/check_user_turn` |
+| GET  | `/v1/user_mistakes` |
+
+**Analytics & Dashboard**
+
+| Method | Path |
+|--------|------|
+| POST | `/v1/save_feedback` |
+| GET  | `/v1/session_analytics/{session_id}` |
+| GET  | `/v1/coaching_report/{session_id}` |
+| GET  | `/v1/digest/{user_id}` |
+| GET  | `/v1/communication_trends/{user_id}` |
+| GET  | `/v1/performance_summary/{user_id}` |
+| GET  | `/v1/dashboard` |
+
+**Entities & Memory**
+
+| Method | Path |
+|--------|------|
+| POST | `/v1/ask_entity` |
+| GET  | `/v1/graph_export/{user_id}` |
+| GET  | `/v1/entity_timeline/{entity_id}` |
+| DELETE | `/v1/entities/{entity_id}` |
+| DELETE | `/v1/memories/{memory_id}` |
+
+**Drills**
+
+| Method | Path |
+|--------|------|
+| GET  | `/v1/drills/queue` |
+| POST | `/v1/drills/{card_id}/review` |
+| POST | `/v1/drills/{card_id}/retire` |
+
+**Scenarios**
+
+| Method | Path |
+|--------|------|
+| GET  | `/v1/scenarios` |
+| POST | `/v1/scenarios/generate` |
+| POST | `/v1/scenarios/{scenario_id}/start` |
+| POST | `/v1/scenarios/{scenario_id}/dismiss` |
+
+**Gamification**
+
+| Method | Path |
+|--------|------|
+| GET  | `/v1/gamification/{user_id}` |
+| GET  | `/v1/quests/{user_id}` |
+| GET  | `/v1/rewards/{user_id}` |
+| POST | `/v1/rewards/{user_id}/redeem` |
+| GET  | `/v1/leaderboard` |
+| POST | `/v1/leaderboard/{user_id}/opt_in` |
+| POST | `/v1/quests/{user_id}/{user_quest_id}/answer` |
+| POST | `/v1/quests/{user_id}/{user_quest_id}/attach_session` |
+
+**Persona**
+
+| Method | Path |
+|--------|------|
+| GET  | `/v1/me/persona` |
+| PUT  | `/v1/me/persona` |
+
+</details>
+
+---
+
+## 📂 Repository Structure
+
+<details>
+<summary><b>Project tree</b> (click to expand)</summary>
+
+<br>
+
+```text
+Bubbles-AI/
+├─ lib/                      # Flutter app (screens, providers, repositories, services, models)
+│  ├─ app/                   # bootstrap, routing, global providers
+│  ├─ screens/               # 25+ UI screens
+│  ├─ providers/             # state holders
+│  ├─ repositories/          # data access over a custom cache
+│  ├─ cache/                 # BaseRepository + stale-while-revalidate policies
+│  └─ services/              # API client, auth, voice, STT/TTS, notifications
+├─ assets/                   # logos, fonts (Manrope), wake-word model, text
+├─ server/                   # Bubbles Brain API v5 (active backend)
+│  ├─ src/bubbles/
+│  │  ├─ api/                # health, metrics, and /v1 routers
+│  │  ├─ ai/                 # LLM router, providers, embeddings, extraction, prompts
+│  │  ├─ voice/              # STT, TTS, LiveKit
+│  │  ├─ db/                 # SQLAlchemy models + repository layer
+│  │  ├─ core/               # circuit breaker, rate limit, logging, tracing
+│  │  └─ workers/            # ARQ background jobs
+│  ├─ alembic/               # versioned, reversible migrations
+│  ├─ tests/                 # unit / integration / e2e
+│  ├─ ops/                   # Grafana dashboards, alert rules
+│  ├─ pyproject.toml         # deps + tooling (uv, ruff, mypy, pytest)
+│  ├─ Dockerfile             # multi-stage (runtime + worker targets)
+│  └─ docker-compose.yml     # dev: app + redis + caddy
+├─ docs/                     # GitHub Pages landing site + screenshots
+├─ Documentation/            # design notes, reviews, schema reference
+├─ env/                      # local environment files (git-ignored)
+└─ android/ ios/ web/ macos/ linux/ windows/
 ```
 
-Python server (from `server/`):
+</details>
 
-```bash
-uv sync
-make dev
-```
+---
 
-Docker backend:
+## 🧰 Troubleshooting
 
-```bash
-cd server
-docker compose up --build
-```
+<details>
+<summary><b>Common issues</b></summary>
 
-## Troubleshooting
+<br>
 
-- App fails at startup with Supabase errors:
-  - Confirm `SUPABASE_URL` and `SUPABASE_ANON_KEY` are set correctly.
-- Backend `/health` returns degraded:
-  - Verify DB credentials, `GROQ_API_KEY`, and model download availability.
-- CORS issues in web builds:
-  - Set `ALLOWED_ORIGINS` to include your frontend origin(s).
-- Voice features not working:
-  - Validate LiveKit keys and ensure microphone permissions are granted.
-- Slow first backend startup:
-  - Initial model downloads (torch/sentence-transformers) can take time.
+| Symptom | Fix |
+|---------|-----|
+| App fails at startup with Supabase errors | Confirm `SUPABASE_URL` and `SUPABASE_ANON_KEY` are set correctly. |
+| Backend `/health` returns degraded | Verify DB credentials, `GROQ_API_KEY`, and model availability. |
+| CORS errors in web builds | Set `ALLOWED_ORIGINS` to include your frontend origin(s). |
+| Voice features not working | Validate LiveKit keys; ensure microphone permission is granted. |
+| Slow first backend startup | Initial model/embedding downloads can take time on first boot. |
+
+</details>
+
+---
+
+## 🤝 Contributing
+
+Contributions are welcome!
+
+1. Fork the repo and create a feature branch.
+2. Backend: run `make test` (`ruff` + `mypy --strict` + `pytest`) before pushing.
+3. Flutter: run `flutter analyze` and `flutter test`.
+4. Open a PR with a clear description. PRs are welcome. 🎉
+
+---
+
+## 📄 License
+
+Released under the [MIT License](LICENSE) © 2026 Muhammad Ahmad.

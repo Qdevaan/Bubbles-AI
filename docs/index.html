@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bubbles — Your AI Conversation Co-pilot</title>
+<meta name="description" content="Bubbles listens while you talk and quietly suggests what to say next — then remembers everything afterwards. Live wingman advice, consultant Q&A, voice, memory, and a knowledge graph.">
+<meta property="og:title" content="🫧 Bubbles — Your AI Conversation Co-pilot">
+<meta property="og:description" content="Live coaching while you talk, and a smart assistant that remembers. Built with Flutter + FastAPI.">
+<meta property="og:type" content="website">
+<link rel="icon" href="../assets/logos/logo_light.webp">
+<style>
+  :root{
+    --bg:#0a0b14; --bg2:#0f1120; --panel:#151728; --panel2:#1b1e34;
+    --txt:#e8eaf6; --muted:#9aa0c2; --line:#26294a;
+    --brand:#6ea8ff; --brand2:#9b7bff; --accent:#3fe0c5;
+    --grad:linear-gradient(120deg,#6ea8ff 0%,#9b7bff 55%,#3fe0c5 100%);
+    --radius:18px; --maxw:1120px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{
+    font-family:'Manrope',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+    background:var(--bg); color:var(--txt); line-height:1.6;
+    overflow-x:hidden; -webkit-font-smoothing:antialiased;
+  }
+  a{color:inherit;text-decoration:none}
+  .wrap{max-width:var(--maxw);margin:0 auto;padding:0 22px}
+  .grad-text{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+
+  /* ---------- floating bubble background ---------- */
+  .bubbles{position:fixed;inset:0;z-index:0;overflow:hidden;pointer-events:none}
+  .bubbles span{
+    position:absolute;bottom:-160px;border-radius:50%;
+    background:radial-gradient(circle at 30% 30%,rgba(155,123,255,.30),rgba(110,168,255,.10) 60%,transparent 70%);
+    border:1px solid rgba(110,168,255,.12);
+    animation:rise linear infinite;
+  }
+  @keyframes rise{
+    0%{transform:translateY(0) translateX(0) scale(.6);opacity:0}
+    10%{opacity:.9}
+    90%{opacity:.7}
+    100%{transform:translateY(-115vh) translateX(40px) scale(1.1);opacity:0}
+  }
+  @media (prefers-reduced-motion:reduce){.bubbles span{animation:none;display:none}}
+
+  /* ---------- nav ---------- */
+  nav{
+    position:sticky;top:0;z-index:50;backdrop-filter:blur(12px);
+    background:rgba(10,11,20,.72);border-bottom:1px solid var(--line);
+  }
+  nav .wrap{display:flex;align-items:center;justify-content:space-between;height:64px}
+  .brand{display:flex;align-items:center;gap:10px;font-weight:800;font-size:1.15rem}
+  .brand img{width:30px;height:30px;border-radius:8px}
+  .navlinks{display:flex;gap:26px;align-items:center}
+  .navlinks a{color:var(--muted);font-weight:600;font-size:.93rem;transition:color .2s}
+  .navlinks a:hover{color:var(--txt)}
+  .btn{
+    display:inline-block;padding:11px 20px;border-radius:999px;font-weight:700;
+    background:var(--grad);color:#0a0b14;transition:transform .15s,box-shadow .2s;
+    box-shadow:0 6px 22px rgba(110,168,255,.25)
+  }
+  .btn:hover{transform:translateY(-2px);box-shadow:0 10px 30px rgba(155,123,255,.4)}
+  .btn.ghost{background:transparent;color:var(--txt);border:1px solid var(--line);box-shadow:none}
+  .btn.ghost:hover{border-color:var(--brand)}
+  @media(max-width:760px){.navlinks a:not(.btn){display:none}}
+
+  section{position:relative;z-index:1}
+
+  /* ---------- hero ---------- */
+  .hero{padding:84px 0 60px;text-align:center}
+  .pill{
+    display:inline-flex;gap:8px;align-items:center;padding:7px 16px;border-radius:999px;
+    border:1px solid var(--line);background:var(--panel);color:var(--muted);
+    font-size:.82rem;font-weight:600;margin-bottom:26px
+  }
+  .pill .dot{width:8px;height:8px;border-radius:50%;background:var(--accent);box-shadow:0 0 10px var(--accent)}
+  .hero h1{font-size:clamp(2.4rem,6vw,4rem);line-height:1.08;font-weight:800;letter-spacing:-1.5px}
+  .hero p.sub{max-width:660px;margin:22px auto 0;font-size:clamp(1.05rem,2.4vw,1.25rem);color:var(--muted)}
+  .cta-row{display:flex;gap:14px;justify-content:center;margin-top:34px;flex-wrap:wrap}
+  .badges{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:30px}
+  .badges img{height:24px}
+
+  /* ---------- mockup frame ---------- */
+  .mockup{
+    margin:54px auto 0;max-width:920px;border-radius:16px;overflow:hidden;
+    border:1px solid var(--line);background:var(--panel);
+    box-shadow:0 30px 90px rgba(0,0,0,.55);
+  }
+  .mockup .bar{display:flex;gap:7px;padding:13px 16px;background:var(--panel2);border-bottom:1px solid var(--line)}
+  .mockup .bar i{width:12px;height:12px;border-radius:50%;display:inline-block}
+  .mockup .bar i:nth-child(1){background:#ff5f57}
+  .mockup .bar i:nth-child(2){background:#febc2e}
+  .mockup .bar i:nth-child(3){background:#28c840}
+  .shot{display:block;width:100%;height:auto}
+  .placeholder{
+    aspect-ratio:16/9;display:flex;flex-direction:column;gap:10px;align-items:center;justify-content:center;
+    background:
+      radial-gradient(circle at 20% 20%,rgba(155,123,255,.18),transparent 40%),
+      radial-gradient(circle at 80% 60%,rgba(63,224,197,.14),transparent 45%),
+      var(--bg2);
+    color:var(--muted);text-align:center;padding:24px
+  }
+  .placeholder .big{font-size:2.6rem}
+  .placeholder code{background:var(--panel2);padding:3px 9px;border-radius:7px;color:var(--brand);font-size:.85rem}
+
+  /* ---------- section heading ---------- */
+  .sec{padding:72px 0}
+  .sec h2{font-size:clamp(1.8rem,4vw,2.5rem);font-weight:800;text-align:center;letter-spacing:-1px}
+  .sec .lead{text-align:center;color:var(--muted);max-width:620px;margin:14px auto 0}
+
+  .plain{
+    max-width:760px;margin:30px auto 0;padding:30px;border-radius:var(--radius);
+    border:1px solid var(--line);background:linear-gradient(180deg,var(--panel),var(--bg2));
+    text-align:center;font-size:1.12rem;color:var(--txt)
+  }
+  .plain b{color:var(--brand)}
+
+  /* ---------- feature cards ---------- */
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:18px;margin-top:46px}
+  .card{
+    padding:26px;border-radius:var(--radius);border:1px solid var(--line);
+    background:var(--panel);transition:transform .2s,border-color .2s,box-shadow .2s
+  }
+  .card:hover{transform:translateY(-5px);border-color:var(--brand);box-shadow:0 16px 40px rgba(110,168,255,.16)}
+  .card .ico{font-size:1.9rem;margin-bottom:12px}
+  .card h3{font-size:1.12rem;margin-bottom:7px}
+  .card p{color:var(--muted);font-size:.95rem}
+
+  /* ---------- steps ---------- */
+  .steps{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:18px;margin-top:46px;counter-reset:s}
+  .step{position:relative;padding:28px 24px 24px;border-radius:var(--radius);border:1px solid var(--line);background:var(--panel)}
+  .step::before{
+    counter-increment:s;content:counter(s);
+    position:absolute;top:-18px;left:24px;width:38px;height:38px;border-radius:11px;
+    display:flex;align-items:center;justify-content:center;font-weight:800;color:#0a0b14;
+    background:var(--grad);box-shadow:0 8px 22px rgba(155,123,255,.35)
+  }
+  .step h3{margin:10px 0 6px;font-size:1.08rem}
+  .step p{color:var(--muted);font-size:.93rem}
+
+  /* ---------- tech tags ---------- */
+  .tags{display:flex;flex-wrap:wrap;gap:11px;justify-content:center;margin-top:40px}
+  .tag{
+    padding:9px 16px;border-radius:999px;border:1px solid var(--line);
+    background:var(--panel);color:var(--muted);font-weight:600;font-size:.9rem;transition:.2s
+  }
+  .tag:hover{color:var(--txt);border-color:var(--brand2);transform:translateY(-2px)}
+
+  /* ---------- final CTA ---------- */
+  .final{
+    margin:30px auto;max-width:var(--maxw);text-align:center;padding:64px 24px;border-radius:26px;
+    border:1px solid var(--line);
+    background:
+      radial-gradient(circle at 25% 20%,rgba(110,168,255,.20),transparent 45%),
+      radial-gradient(circle at 80% 80%,rgba(63,224,197,.16),transparent 45%),
+      var(--bg2)
+  }
+  .final h2{font-size:clamp(1.9rem,4vw,2.7rem);font-weight:800;letter-spacing:-1px}
+  .final p{color:var(--muted);margin:14px auto 0;max-width:520px}
+
+  /* ---------- footer ---------- */
+  footer{border-top:1px solid var(--line);padding:40px 0;color:var(--muted);font-size:.9rem}
+  footer .wrap{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:14px}
+  footer a{color:var(--muted)}footer a:hover{color:var(--txt)}
+</style>
+</head>
+<body>
+
+<div class="bubbles" id="bubbles" aria-hidden="true"></div>
+
+<!-- NAV -->
+<nav>
+  <div class="wrap">
+    <a class="brand" href="#top">
+      <img src="../assets/logos/logo_light.webp" alt="Bubbles logo" onerror="this.style.display='none'">
+      <span>🫧 Bubbles</span>
+    </a>
+    <div class="navlinks">
+      <a href="#what">What is it</a>
+      <a href="#features">Features</a>
+      <a href="#how">How it works</a>
+      <a href="#stack">Tech</a>
+      <a class="btn" href="https://github.com/Qdevaan/Bubbles-AI">GitHub</a>
+    </div>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section class="hero" id="top">
+  <div class="wrap">
+    <span class="pill"><span class="dot"></span> AI conversation co-pilot</span>
+    <h1>Talk with <span class="grad-text">confidence.</span><br>Bubbles has your back.</h1>
+    <p class="sub">Bubbles listens while you talk and quietly suggests what to say next — then
+      remembers everything afterwards, so you can ask, review, and keep getting better.</p>
+
+    <div class="cta-row">
+      <a class="btn" href="https://github.com/Qdevaan/Bubbles-AI">⭐ View on GitHub</a>
+      <a class="btn ghost" href="#how">See how it works</a>
+    </div>
+
+    <div class="badges">
+      <img alt="Flutter"  src="https://img.shields.io/badge/Flutter-3.10+-02569B?logo=flutter&logoColor=white">
+      <img alt="FastAPI"  src="https://img.shields.io/badge/FastAPI-async-009688?logo=fastapi&logoColor=white">
+      <img alt="Python"   src="https://img.shields.io/badge/Python-3.11+-3776AB?logo=python&logoColor=white">
+      <img alt="Supabase" src="https://img.shields.io/badge/Supabase-Postgres-3FCF8E?logo=supabase&logoColor=white">
+      <img alt="License"  src="https://img.shields.io/badge/License-MIT-yellow.svg">
+    </div>
+
+    <!-- MOCKUP -->
+    <div class="mockup">
+      <div class="bar"><i></i><i></i><i></i></div>
+      <img class="shot" src="screenshots/hero.png" alt="Bubbles app preview"
+           onerror="this.outerHTML='&lt;div class=&quot;placeholder&quot;&gt;&lt;div class=&quot;big&quot;&gt;🫧&lt;/div&gt;&lt;div&gt;Add &lt;code&gt;docs/screenshots/hero.png&lt;/code&gt; to show the app preview here&lt;/div&gt;&lt;/div&gt;'">
+    </div>
+  </div>
+</section>
+
+<!-- WHAT IS IT -->
+<section class="sec" id="what">
+  <div class="wrap">
+    <h2>What is Bubbles, <span class="grad-text">in plain English?</span></h2>
+    <div class="plain">
+      Think of <b>a calm, clever friend in your ear</b> during any important conversation —
+      an interview, a negotiation, a tough call. Bubbles listens along and suggests what to
+      say next, so you never freeze. Afterwards, just <b>ask it questions</b> about how it
+      went. It remembers the people and topics you discuss, tracks your progress, and turns
+      your slip-ups into practice. 🫧
+    </div>
+  </div>
+</section>
+
+<!-- FEATURES -->
+<section class="sec" id="features">
+  <div class="wrap">
+    <h2>Everything in <span class="grad-text">one app</span></h2>
+    <p class="lead">From live coaching to long-term memory — Bubbles is a full communication toolkit.</p>
+    <div class="grid">
+      <div class="card"><div class="ico">🎧</div><h3>Live Wingman</h3><p>Real-time advice generated from the live transcript while you're still talking.</p></div>
+      <div class="card"><div class="ico">💬</div><h3>Consultant Mode</h3><p>Ask deep, context-aware questions about your conversations — streaming or batched.</p></div>
+      <div class="card"><div class="ico">🎙️</div><h3>Voice &amp; Wake-word</h3><p>Hands-free: wake-word, speech-to-text, text-to-speech, and speaker enrollment.</p></div>
+      <div class="card"><div class="ico">🧠</div><h3>Long-term Memory</h3><p>Vector-based recall so Bubbles remembers what mattered across every session.</p></div>
+      <div class="card"><div class="ico">🕸️</div><h3>Knowledge Graph</h3><p>Auto-maps the people, topics, and entities you mention — explore them on a timeline.</p></div>
+      <div class="card"><div class="ico">📈</div><h3>Coaching Reports</h3><p>Per-session analytics, sentiment, talk-time, and trends with auto-generated reports.</p></div>
+      <div class="card"><div class="ico">🃏</div><h3>Practice Drills</h3><p>Spaced-repetition flashcards built automatically from your real mistakes.</p></div>
+      <div class="card"><div class="ico">🎮</div><h3>Gamification</h3><p>Daily quests, achievements, rewards, streaks, and an opt-in leaderboard.</p></div>
+      <div class="card"><div class="ico">📱</div><h3>Cross-platform</h3><p>One Flutter codebase → Android, iOS, Web, Windows, macOS, and Linux.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- HOW IT WORKS -->
+<section class="sec" id="how">
+  <div class="wrap">
+    <h2>How it <span class="grad-text">works</span></h2>
+    <p class="lead">A Flutter client, a fast async brain, and AI that fails over gracefully.</p>
+    <div class="steps">
+      <div class="step"><h3>📱 You talk</h3><p>The Flutter app captures the conversation by voice or text on any device.</p></div>
+      <div class="step"><h3>⚡ Brain processes</h3><p>The FastAPI backend routes the request through its <code>/v1</code> API.</p></div>
+      <div class="step"><h3>🧠 AI responds</h3><p>An LLM router picks the best model — Gemini → Cerebras → Groq — with auto-failover, using your memory + knowledge graph.</p></div>
+      <div class="step"><h3>🗄️ Bubbles remembers</h3><p>Everything is stored in Supabase; background workers extract entities, score sessions, and build drills.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- TECH STACK -->
+<section class="sec" id="stack">
+  <div class="wrap">
+    <h2>Built with a <span class="grad-text">modern stack</span></h2>
+    <p class="lead">Production-grade tooling on both the client and the server.</p>
+    <div class="tags">
+      <span class="tag">Flutter</span><span class="tag">Dart</span><span class="tag">Riverpod</span>
+      <span class="tag">FastAPI</span><span class="tag">Python 3.11+</span><span class="tag">SQLAlchemy</span>
+      <span class="tag">Supabase</span><span class="tag">PostgreSQL</span><span class="tag">Redis</span>
+      <span class="tag">ARQ</span><span class="tag">Gemini</span><span class="tag">Cerebras</span>
+      <span class="tag">Groq</span><span class="tag">LiveKit</span><span class="tag">Whisper STT</span>
+      <span class="tag">Edge-TTS</span><span class="tag">Docker</span><span class="tag">OpenTelemetry</span>
+      <span class="tag">Prometheus</span><span class="tag">Sentry</span>
+    </div>
+  </div>
+</section>
+
+<!-- FINAL CTA -->
+<section class="sec">
+  <div class="final">
+    <h2>Get better at talking. 🫧</h2>
+    <p>Open-source, cross-platform, and built to make every conversation count.</p>
+    <div class="cta-row">
+      <a class="btn" href="https://github.com/Qdevaan/Bubbles-AI">⭐ Star on GitHub</a>
+      <a class="btn ghost" href="https://github.com/Qdevaan/Bubbles-AI#-quick-start">Read the docs</a>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="wrap">
+    <span>🫧 Bubbles — AI conversation co-pilot</span>
+    <span>MIT License © 2026 Muhammad Ahmad · <a href="https://github.com/Qdevaan/Bubbles-AI">GitHub</a></span>
+  </div>
+</footer>
+
+<script>
+  // generate floating bubbles
+  (function(){
+    var c = document.getElementById('bubbles');
+    var N = 14;
+    for (var i=0;i<N;i++){
+      var b = document.createElement('span');
+      var size = 18 + Math.round(Math.random()*90);
+      b.style.width = size+'px';
+      b.style.height = size+'px';
+      b.style.left = Math.round(Math.random()*100)+'%';
+      b.style.animationDuration = (14 + Math.random()*18).toFixed(1)+'s';
+      b.style.animationDelay = (-Math.random()*20).toFixed(1)+'s';
+      c.appendChild(b);
+    }
+  })();
+</script>
+</body>
+</html>
