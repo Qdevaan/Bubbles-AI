@@ -11,10 +11,11 @@ def make_cerebras_provider(
     *,
     api_key: str,
     client: httpx.AsyncClient,
-    default_model: str = "llama3.1-8b",
+    name: str = "cerebras",
+    default_model: str = "gpt-oss-120b",
 ) -> OAICompatProvider:
     return OAICompatProvider(
-        name="cerebras",
+        name=name,
         base_url="https://api.cerebras.ai/v1",
         api_key=api_key,
         client=client,

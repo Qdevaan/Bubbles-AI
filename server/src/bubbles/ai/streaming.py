@@ -40,11 +40,15 @@ async def sse_from_chunks(
     prompt_tokens = completion_tokens = 0
 
     queue: asyncio.Queue[Chunk | None] = asyncio.Queue()
+    producer_error: BaseException | None = None
 
     async def producer() -> None:
+        nonlocal producer_error
         try:
             async for chunk in chunks:
                 await queue.put(chunk)
+        except Exception as exc:  # noqa: BLE001 — surfaced to the client below
+            producer_error = exc
         finally:
             await queue.put(None)
 
@@ -68,6 +72,16 @@ async def sse_from_chunks(
                 completion_tokens = item.usage.completion_tokens
     finally:
         task.cancel()
+
+    # If the provider chain failed before emitting any text, tell the client
+    # explicitly. Otherwise the stream would close with only a "done" event and
+    # the UI would render a blank reply with no indication anything went wrong.
+    if producer_error is not None and not buf:
+        yield encode_event(
+            "error",
+            {"error": "The assistant is busy right now. Please try again in a moment."},
+        )
+        return
 
     final = StreamResult(
         text="".join(buf),

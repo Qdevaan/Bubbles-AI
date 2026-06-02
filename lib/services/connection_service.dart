@@ -11,7 +11,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// Set via: flutter build apk --dart-define=SERVER_URL=http://YOUR_IP:8000
 /// Falls back to saved URL in SharedPreferences, then .env, then ngrok default.
 const _kServerUrl = String.fromEnvironment('SERVER_URL', defaultValue: '');
-const _kDefaultUrl = 'https://4ee6-139-135-46-18.ngrok-free.app';
+const _kDefaultUrl = 'https://lagomorphic-mattedly-walton.ngrok-free.dev';
 const _kSavedUrlKey = 'saved_server_url';
 
 enum ConnectionStatus { disconnected, connecting, connected, error, offline }

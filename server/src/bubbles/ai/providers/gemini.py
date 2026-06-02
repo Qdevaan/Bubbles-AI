@@ -93,6 +93,12 @@ class GeminiProvider:
         cfg: dict[str, Any] = {
             "temperature": temperature,
             "maxOutputTokens": max_tokens,
+            # Disable "thinking" on 2.5 models. Dynamic thinking delays the first
+            # text token by seconds (observed ~1k thought tokens before any
+            # output), which trips the router's 10s first-chunk timeout and can
+            # consume the entire maxOutputTokens budget — leaving an empty reply.
+            # Bubbles is a low-latency chat surface, so we stream answers directly.
+            "thinkingConfig": {"thinkingBudget": 0},
         }
         if response_format == "json":
             cfg["responseMimeType"] = "application/json"

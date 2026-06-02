@@ -187,22 +187,48 @@ class LLMRouter:
 # Default chains for the canonical Bubbles tasks. App-level wiring picks
 # providers from ``Settings`` and only registers ones whose API keys are set.
 DEFAULT_CHAINS: tuple[TaskChain, ...] = (
-    TaskChain("consultant.stream", ("gemini", "cerebras", "groq"), max_tokens=1024),
-    TaskChain("consultant.complete", ("gemini", "cerebras", "groq"), max_tokens=1024),
-    TaskChain("wingman.json", ("cerebras", "groq", "gemini"), temperature=0.2, max_tokens=600),
-    TaskChain("wingman.short", ("cerebras", "groq"), temperature=0.3, max_tokens=300),
-    TaskChain("wingman.advice", ("cerebras", "groq", "gemini"), temperature=0.4, max_tokens=300),
-    TaskChain("grammar.correct", ("groq", "cerebras"), temperature=0.0, max_tokens=400),
+    TaskChain("consultant.stream", ("gemini", "groq_70b", "openrouter"), max_tokens=1024),
+    TaskChain("consultant.complete", ("gemini", "groq_70b", "openrouter"), max_tokens=1024),
     TaskChain(
-        "analytics.coaching", ("gemini", "cerebras", "groq"), temperature=0.3, max_tokens=900
+        "wingman.json",
+        ("groq", "openrouter", "gemini"),
+        temperature=0.2,
+        max_tokens=600,
     ),
     TaskChain(
-        "analytics.sentiment", ("cerebras", "groq", "gemini"), temperature=0.0, max_tokens=800
+        "wingman.short", ("groq", "openrouter", "gemini"), temperature=0.3, max_tokens=300
     ),
     TaskChain(
-        "analytics.mission_eval", ("cerebras", "groq", "gemini"), temperature=0.0, max_tokens=300
+        "wingman.advice",
+        ("groq", "openrouter", "gemini"),
+        temperature=0.4,
+        max_tokens=300,
     ),
     TaskChain(
-        "scenario.generate", ("cerebras", "groq", "gemini"), temperature=0.8, max_tokens=2000
+        "grammar.correct", ("groq", "openrouter", "gemini"), temperature=0.0, max_tokens=400
+    ),
+    TaskChain(
+        "analytics.coaching",
+        ("gemini", "groq_70b", "openrouter"),
+        temperature=0.3,
+        max_tokens=900,
+    ),
+    TaskChain(
+        "analytics.sentiment",
+        ("groq", "openrouter", "gemini"),
+        temperature=0.0,
+        max_tokens=800,
+    ),
+    TaskChain(
+        "analytics.mission_eval",
+        ("groq", "openrouter", "gemini"),
+        temperature=0.0,
+        max_tokens=300,
+    ),
+    TaskChain(
+        "scenario.generate",
+        ("groq_70b", "openrouter", "gemini"),
+        temperature=0.8,
+        max_tokens=2000,
     ),
 )

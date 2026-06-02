@@ -15,6 +15,7 @@ from bubbles.ai.providers.base import Provider, make_http_client
 from bubbles.ai.providers.cerebras import make_cerebras_provider
 from bubbles.ai.providers.gemini import GeminiProvider
 from bubbles.ai.providers.groq import make_groq_provider
+from bubbles.ai.providers.openrouter import make_openrouter_provider
 from bubbles.ai.router import DEFAULT_CHAINS, LLMRouter
 from bubbles.core.cache import Cache
 from bubbles.core.logging import get_logger
@@ -44,19 +45,47 @@ def build_ai_stack(settings: Settings, cache: Cache) -> AIStack:
         )
         providers.append(gemini)
     if settings.cerebras_api_key is not None:
+        cerebras_key = settings.cerebras_api_key.get_secret_value()
         providers.append(
             make_cerebras_provider(
-                api_key=settings.cerebras_api_key.get_secret_value(),
+                name="cerebras",
+                api_key=cerebras_key,
                 client=client,
                 default_model=settings.cerebras_wingman_model,
             )
         )
+        providers.append(
+            make_cerebras_provider(
+                name="cerebras_glm",
+                api_key=cerebras_key,
+                client=client,
+                default_model=settings.cerebras_glm_model,
+            )
+        )
     if settings.groq_api_key is not None:
+        groq_key = settings.groq_api_key.get_secret_value()
         providers.append(
             make_groq_provider(
-                api_key=settings.groq_api_key.get_secret_value(),
+                name="groq",
+                api_key=groq_key,
                 client=client,
                 default_model=settings.groq_wingman_model,
+            )
+        )
+        providers.append(
+            make_groq_provider(
+                name="groq_70b",
+                api_key=groq_key,
+                client=client,
+                default_model=settings.groq_quality_model,
+            )
+        )
+    if settings.openrouter_api_key is not None:
+        providers.append(
+            make_openrouter_provider(
+                api_key=settings.openrouter_api_key.get_secret_value(),
+                client=client,
+                default_model=settings.openrouter_model,
             )
         )
 

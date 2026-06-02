@@ -233,12 +233,14 @@ class ApiService {
 
     try {
       return await _withRetry(() async {
-        var uri = Uri.parse("$_baseUrl/v1/ask_consultant");
+        // Force JSON mode — without stream=false the server defaults to an
+        // SSE StreamingResponse and jsonDecode below would throw.
+        var uri = Uri.parse("$_baseUrl/v1/ask_consultant?stream=false");
         var response = await http
             .post(
               uri,
               headers: await _authHeaders(),
-              body: jsonEncode({"user_id": userId, "question": question}),
+              body: jsonEncode({"question": question}),
             )
             .timeout(const Duration(seconds: 60));
 
@@ -388,13 +390,13 @@ class ApiService {
       final headers = await _authHeaders();
       headers['Accept'] = 'text/event-stream';
       request.headers.addAll(headers);
+      // Server derives the user from the JWT and accepts only these fields
+      // (ConsultantRequest: question, persona, session_id). user_id/mode/mood
+      // are forbidden extras — sending them yields HTTP 422.
       request.body = jsonEncode({
-        'user_id': userId,
         'question': question,
-        'mode': mode,
         'persona': persona,
         if (sessionId != null) 'session_id': sessionId,
-        if (mood != null) 'mood': mood,
       });
 
       final streamedResponse = await client
@@ -436,34 +438,49 @@ class ApiService {
         for (final event in events) {
           if (event.trim().isEmpty) continue;
 
-          // An SSE event can have multiple lines (data:, event:, id:)
-          // We only care about 'data:' lines
+          // An SSE event has an `event:` name line and a `data:` JSON line.
+          // Server contract (bubbles.ai.streaming.sse_from_chunks):
+          //   event: token  / data: {"t": "<text>"}
+          //   event: done   / data: {"finish": ..., "prompt_tokens": ...}
+          //   event: ping   / data: {"t": "hb"}        (heartbeat — ignore)
+          //   event: error  / data: {"error": "<msg>"}
+          String? eventName;
+          String? dataStr;
           for (final line in event.split('\n')) {
             final trimmed = line.trim();
-            if (!trimmed.startsWith('data:')) continue;
-
-            final dataStr = trimmed.substring(5).trim(); // strip 'data: '
-            if (dataStr.isEmpty || dataStr == '[DONE]') continue;
-
-            try {
-              final parsed = jsonDecode(dataStr) as Map<String, dynamic>;
-              if (parsed['token'] != null) {
-                yield parsed['token'] as String;
-              } else if (parsed['done'] == true) {
-                AuthService.instance
-                    .updateOnboardingProgress({'first_consultant': true});
-                final sid = parsed['session_id'] as String?;
-                if (sid != null && onSessionCreated != null) {
-                  onSessionCreated(sid);
-                }
-                return;
-              } else if (parsed['error'] != null) {
-                yield '\n[Error: ${parsed['error']}]';
-                return;
-              }
-            } catch (_) {
-              // Malformed JSON — skip silently
+            if (trimmed.startsWith('event:')) {
+              eventName = trimmed.substring(6).trim();
+            } else if (trimmed.startsWith('data:')) {
+              dataStr = trimmed.substring(5).trim(); // strip 'data:'
             }
+          }
+          if (dataStr == null || dataStr.isEmpty || dataStr == '[DONE]') {
+            continue;
+          }
+          if (eventName == 'ping') continue; // heartbeat keep-alive
+
+          try {
+            final parsed = jsonDecode(dataStr) as Map<String, dynamic>;
+            if (eventName == 'done' || parsed.containsKey('finish')) {
+              AuthService.instance
+                  .updateOnboardingProgress({'first_consultant': true});
+              final sid = parsed['session_id'] as String?;
+              if (sid != null && onSessionCreated != null) {
+                onSessionCreated(sid);
+              }
+              return;
+            }
+            if (parsed['error'] != null) {
+              yield '\n[Error: ${parsed['error']}]';
+              return;
+            }
+            // Token chunk — server keys the text under "t".
+            final token = parsed['t'] ?? parsed['token'];
+            if (token != null) {
+              yield token as String;
+            }
+          } catch (_) {
+            // Malformed JSON — skip silently
           }
         }
       }
@@ -846,21 +863,21 @@ class ApiService {
     }
     try {
       final hasEntities = graphEntities != null && graphEntities.isNotEmpty;
+      // The /v1/ask endpoint (ConsultantRequest) is strict: it accepts only
+      // `question`, `persona`, `session_id` and rejects extras with HTTP 422.
+      // So we fold the knowledge-graph grounding + entities into the question
+      // text itself rather than sending separate fields.
+      final question = hasEntities
+          ? 'Answer ONLY using the knowledge-graph entities and relationships '
+              'below — do not use prior knowledge. If the answer is not supported '
+              'by them, say so and suggest the closest related entity. Cite entity '
+              'labels in your reply.\n\n'
+              'Entities:\n${jsonEncode(graphEntities)}\n\n'
+              'Question: $query'
+          : query;
       final body = <String, dynamic>{
-        'user_id': userId,
-        'question': query,
-        'session_id': sessionId,
-        'context': 'knowledge_graph',
-        if (hasEntities) 'graph_entities': graphEntities,
-        // Tell the server (and any LLM downstream) to ground its answer in the
-        // entities we just extracted — not its prior knowledge.
-        'mode': hasEntities ? 'entity_focused' : 'knowledge_graph',
-        if (hasEntities)
-          'prompt_hint':
-              'Answer ONLY using the provided graph_entities and their relationships. '
-              'If the answer is not supported by these entities, say so clearly and '
-              'suggest the closest related entity from the list. Never invent entities '
-              'or facts that are not in graph_entities. Cite entity labels in your reply.',
+        'question': question,
+        if (sessionId != null) 'session_id': sessionId,
       };
       final res = await http
           .post(

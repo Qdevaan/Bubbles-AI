@@ -63,10 +63,14 @@ class Settings(BaseSettings):
     gemini_api_key: SecretStr | None = None
     cerebras_api_key: SecretStr | None = None
     groq_api_key: SecretStr | None = None
+    openrouter_api_key: SecretStr | None = None
     gemini_consultant_model: str = "gemini-2.5-flash"
-    cerebras_wingman_model: str = "llama3.1-8b"
+    cerebras_wingman_model: str = "gpt-oss-120b"
+    cerebras_glm_model: str = "zai-glm-4.7"
     groq_wingman_model: str = "llama-3.1-8b-instant"
+    groq_quality_model: str = "llama-3.3-70b-versatile"
     groq_whisper_model: str = "whisper-large-v3-turbo"
+    openrouter_model: str = "meta-llama/llama-3.3-70b-instruct:free"
     embedding_model: str = "text-embedding-004"
 
     # Provider budgets

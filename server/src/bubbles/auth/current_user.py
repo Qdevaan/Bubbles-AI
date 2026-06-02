@@ -42,7 +42,12 @@ async def current_user(
 ) -> CurrentUser:
     if settings.debug_skip_auth and settings.app_env is AppEnv.development:
         # Local-only escape hatch (Settings validator guards production).
-        return CurrentUser(id="dev-user", email=None, role="authenticated")
+        # Use a real UUID so routes that parse ``user.id`` (e.g. quest bumps) work.
+        return CurrentUser(
+            id="00000000-0000-0000-0000-000000000001",
+            email=None,
+            role="authenticated",
+        )
 
     if not authorization or not authorization.lower().startswith("bearer "):
         raise Unauthorized("Missing bearer token.")
