@@ -279,6 +279,110 @@ class EntityService:
         except Exception as e:
             print(f"❌ Entity Service Error upserting relation '{relation}': {e}")
 
+    # ── Persona → Starter Graph ───────────────────────────────────────────────
+
+    _SCENARIO_LABELS = {
+        "lecture": "Lectures",
+        "1on1": "1-on-1 Conversations",
+        "work_meeting": "Work Meetings",
+        "casual": "Casual Chats",
+        "interview": "Interviews",
+        "presentation": "Presentations",
+    }
+    _ROLE_LABELS = {
+        "student": "Student",
+        "teacher": "Teacher",
+        "professional": "Professional",
+        "manager": "Manager",
+        "freelancer": "Freelancer",
+        "homemaker": "Homemaker",
+        "other": "Professional",
+    }
+    _LANG_LABELS = {
+        "en": "English", "ur": "Urdu", "ar": "Arabic", "hi": "Hindi",
+        "fr": "French", "es": "Spanish", "de": "German", "zh": "Chinese",
+        "tr": "Turkish", "fa": "Persian", "pa": "Punjabi",
+    }
+
+    @classmethod
+    def _language_label(cls, code: Optional[str]) -> str:
+        if not code:
+            return ""
+        c = str(code).strip()
+        return cls._LANG_LABELS.get(c.lower(), c.upper() if len(c) <= 3 else c.title())
+
+    def seed_from_persona(self, user_id: str, persona) -> Dict[str, int]:
+        """Bootstrap a starter knowledge graph from the user's performa profile.
+
+        Builds a central ``person`` node (the user) linked out to their role,
+        expertise, goals, typical scenarios and languages. Idempotent: reruns
+        dedupe against existing entities/relations, so editing the performa
+        simply grows the graph instead of duplicating it. Returns counts.
+        """
+        if not db or not user_id or persona is None:
+            return {"entities": 0, "relations": 0}
+
+        def _val(field, default=None):
+            if isinstance(persona, dict):
+                return persona.get(field, default)
+            return getattr(persona, field, default)
+
+        # Central node — the user themselves.
+        display_name = (_val("display_name") or "You").strip() or "You"
+        candidates = self._load_candidates(user_id)
+        user_node = self._upsert_entity(
+            user_id,
+            display_name,
+            "person",
+            "You — the center of your knowledge graph.",
+            candidates,
+        )
+        if not user_node:
+            return {"entities": 0, "relations": 0}
+
+        # (label, entity_type, relation, description) spokes off the user.
+        spokes: List[tuple] = []
+
+        role_label = (
+            (_val("profession_detail") or "").strip()
+            or self._ROLE_LABELS.get(_val("role_primary"), "")
+        )
+        if role_label:
+            spokes.append((role_label, "concept", "works as", "Your primary role."))
+
+        for tag in (_val("expertise_tags") or []):
+            spokes.append((tag, "concept", "skilled in", "An area of your expertise."))
+
+        for goal in (_val("primary_goals") or []):
+            label = self._SCENARIO_LABELS.get(goal, str(goal).replace("_", " ").title())
+            spokes.append((label, "concept", "aims to", "A goal from your performa."))
+
+        for sc in (_val("typical_scenarios") or []):
+            label = self._SCENARIO_LABELS.get(sc, str(sc).replace("_", " ").title())
+            spokes.append((label, "concept", "practices", "A scenario you practice."))
+
+        learning = self._language_label(_val("learning_language"))
+        if learning:
+            spokes.append((learning, "concept", "learning", "Language you are learning."))
+        native = self._language_label(_val("native_language"))
+        if native:
+            spokes.append((native, "concept", "speaks", "Your native language."))
+
+        ents, rels = 1, 0
+        for label, etype, relation, desc in spokes:
+            label = (label or "").strip()
+            if not label:
+                continue
+            node_id = self._upsert_entity(user_id, label, etype, desc, candidates)
+            if not node_id or node_id == user_node:
+                continue
+            self._upsert_relation(user_id, user_node, node_id, relation)
+            ents += 1
+            rels += 1
+
+        print(f"🌱 Persona graph seeded for {user_id}: {ents} entities, {rels} relations")
+        return {"entities": ents, "relations": rels}
+
     # ── Entity Context ────────────────────────────────────────────────────────
 
     def get_entity_context(self, user_id: str, entity_id: str) -> str:

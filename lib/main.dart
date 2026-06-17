@@ -83,6 +83,7 @@ import 'screens/onboarding_screen.dart';
 import 'screens/help_index_screen.dart';
 import 'providers/confidence_provider.dart';
 import 'widgets/auth_guard.dart';
+import 'widgets/screenshot_tool.dart';
 import 'routes/app_routes.dart';
 
 Future<void> main() async {
@@ -397,7 +398,7 @@ class BubblesApp extends StatelessWidget {
         builder: (context, themeProvider, settingsProvider, child) {
           return MaterialApp(
             navigatorKey: BubblesApp.navigatorKey,
-            navigatorObservers: [],
+            navigatorObservers: [ScreenshotRouteObserver.instance],
             debugShowCheckedModeBanner: false,
             title: 'Bubbles',
 
@@ -430,7 +431,9 @@ class BubblesApp extends StatelessWidget {
 
             // Global builder: adds VoiceOverlay on all routes except /settings
             builder: (context, child) {
-              return _VoiceOverlayWrapper(child: child ?? const SizedBox());
+              return ScreenshotTool(
+                child: _VoiceOverlayWrapper(child: child ?? const SizedBox()),
+              );
             },
 
             // Custom routes with animations for specific ones

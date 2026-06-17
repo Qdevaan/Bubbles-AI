@@ -234,7 +234,9 @@ async def generic_error_handler(request: Request, exc: Exception):
     from fastapi import HTTPException
     if isinstance(exc, HTTPException):
         raise exc
-    print(f"❌ Unhandled exception on {request.url.path}: {exc}")
+    import traceback
+    print(f"❌ Unhandled exception on {request.url.path}: {type(exc).__name__}: {exc}")
+    traceback.print_exc()
     return JSONResponse(
         status_code=500,
         content={

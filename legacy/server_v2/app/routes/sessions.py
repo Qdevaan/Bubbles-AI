@@ -795,7 +795,7 @@ async def post_session_context(
     ctx: SessionContext,
     user: VerifiedUser = Depends(get_verified_user),
 ):
-    ok = await asyncio.to_thread(_set_session_context, session_id, user.id, ctx)
+    ok = await asyncio.to_thread(_set_session_context, session_id, user.user_id, ctx)
     if not ok:
         raise HTTPException(status_code=403, detail="session_not_owned_or_missing")
     return {"ok": True}

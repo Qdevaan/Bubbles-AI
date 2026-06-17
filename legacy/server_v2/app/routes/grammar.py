@@ -119,7 +119,7 @@ async def list_user_mistakes(
         res = await asyncio.to_thread(
             lambda: db.table("user_mistakes")
                 .select("id,rule_id,category,snippet,suggestion,source,created_at")
-                .eq("user_id", user.id)
+                .eq("user_id", user.user_id)
                 .eq("session_id", session_id)
                 .order("created_at", desc=False)
                 .execute()

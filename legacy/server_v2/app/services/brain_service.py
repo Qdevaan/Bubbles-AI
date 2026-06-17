@@ -110,26 +110,12 @@ class BrainService:
         self.client = Groq(api_key=settings.GROQ_API_KEY)
         print("🧠 Brain Service: Groq client initialised")
 
-        # ── Cerebras (primary wingman) ────────────────────────────────────────
+        # ── Cerebras / Gemini disabled — Groq-only for now ────────────────────
+        # Wingman + consultant both run on Groq. Re-enable by restoring the
+        # provider init blocks below (kept simple to flip back later).
         self._cerebras: Optional[Any] = None
-        if settings.CEREBRAS_API_KEY:
-            try:
-                from cerebras.cloud.sdk import AsyncCerebras
-                self._cerebras = AsyncCerebras(api_key=settings.CEREBRAS_API_KEY)
-                print("🧠 Brain Service: Cerebras client initialised (wingman primary)")
-            except Exception as e:
-                print(f"⚠️ Brain Service: Cerebras init failed — {e}")
-
-        # ── Gemini (primary consultant) ───────────────────────────────────────
         self._gemini_model_name: Optional[str] = None
-        if settings.GEMINI_API_KEY:
-            try:
-                import google.generativeai as genai
-                genai.configure(api_key=settings.GEMINI_API_KEY)
-                self._gemini_model_name = settings.GEMINI_CONSULTANT_MODEL
-                print(f"🧠 Brain Service: Gemini configured (consultant primary — {self._gemini_model_name})")
-            except Exception as e:
-                print(f"⚠️ Brain Service: Gemini init failed — {e}")
+        print("🧠 Brain Service: Groq-only mode (Cerebras + Gemini disabled)")
 
     # ── Helpers ───────────────────────────────────────────────────────────────
 

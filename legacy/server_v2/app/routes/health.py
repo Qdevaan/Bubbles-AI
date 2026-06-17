@@ -25,7 +25,15 @@ def root():
     }
 
 
+@router.get("/health/live")
+def health_live():
+    """Liveness probe — process is up. No dependency checks (matches new server)."""
+    return {"status": "alive", "uptime": round(time.time() - _SERVER_START_TIME)}
+
+
 @router.get("/health")
+@router.get("/health/ready")
+@router.get("/health/deep")
 def health_check():
     """Health check verifying DB, LLM key, and embeddings model."""
     is_healthy = True

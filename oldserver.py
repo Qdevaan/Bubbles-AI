@@ -57,6 +57,16 @@ NGROK_API = "http://127.0.0.1:4040/api/tunnels"
 
 IS_WINDOWS = os.name == "nt"
 
+# Force UTF-8 on our own stdout/stderr so the server's emoji + box-drawing
+# banner don't crash the log pump under a cp1252 console / piped background run.
+for _stream in (sys.stdout, sys.stderr):
+    enc = getattr(_stream, "encoding", None)
+    if enc and enc.lower() != "utf-8":
+        try:
+            _stream.reconfigure(encoding="utf-8", errors="replace")
+        except Exception:
+            pass
+
 # ── Tiny ANSI helpers (no dependency) ─────────────────────────────────────────
 _USE_COLOR = sys.stdout.isatty()
 
@@ -186,7 +196,7 @@ def _lan_ip() -> str:
         s.close()
 
 
-def _wait_for_health(port: int, timeout: float = 180.0) -> bool:
+def _wait_for_health(port: int, timeout: float = 600.0) -> bool:
     # Legacy health route is mounted at /health (no /live|/ready sub-paths).
     url = f"http://127.0.0.1:{port}/health"
     deadline = time.time() + timeout
@@ -315,6 +325,23 @@ def main() -> int:
     # ngrok ----------------------------------------------------------------------
     public_url: str | None = None
     if use_ngrok and ngrok_bin:
+        # Reuse an already-running tunnel instead of spawning a second one on the
+        # same static domain (that collides with ERR_NGROK_334).
+        existing = _ngrok_public_url(timeout=2.0)
+        if existing:
+            print(yellow(f"ngrok tunnel already up ({existing}) — reusing it."))
+            _banner(args.port, existing)
+            try:
+                while True:
+                    if server_started_here and _procs and _procs[0].poll() is not None:
+                        print(red("Server process exited."))
+                        break
+                    time.sleep(1)
+            except KeyboardInterrupt:
+                print(yellow("\nShutting down ..."))
+            finally:
+                _kill_all()
+            return 0
         ngrok_cmd = [
             ngrok_bin, "http", f"--domain={args.domain}", str(args.port),
             "--log", "stdout", "--log-format", "logfmt",

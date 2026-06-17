@@ -37,7 +37,10 @@ class EndSessionRequest(BaseModel):
 # ── Consultant Endpoints ──────────────────────────────────────────────────────
 
 class ConsultantRequest(BaseModel):
-    user_id: str = Field(..., min_length=1, description="Supabase user UUID")
+    # Optional: the verified JWT user is the source of truth. The Flutter client
+    # (new-server contract) omits user_id from the body and the route injects
+    # user.user_id. Kept here for DEBUG_SKIP_AUTH / legacy callers.
+    user_id: Optional[str] = None
     question: str = Field(..., min_length=1, max_length=5000)
     session_id: Optional[str] = None
     mode: str = "consultant"

@@ -40,6 +40,13 @@ async def ask_consultant_endpoint(
     user: VerifiedUser = Depends(get_verified_user),
 ):
     """Blocking consultant Q&A using the 70B model (fully async)."""
+    # Verified JWT user is the source of truth; client omits user_id from body.
+    req.user_id = user.user_id
+    # New-server contract: the Flutter client streams via ?stream=true on this
+    # same path. Delegate to the SSE endpoint when requested.
+    if request.query_params.get("stream", "").lower() in ("1", "true", "yes"):
+        return await ask_consultant_stream_endpoint(request, req, user)
+
     session_id = req.session_id
     if not session_id:
         session_id = await asyncio.to_thread(
@@ -232,6 +239,8 @@ async def ask_consultant_stream_endpoint(
     user: VerifiedUser = Depends(get_verified_user),
 ):
     """Streaming consultant using Groq's streaming API (SSE). Fully async."""
+    # Verified JWT user is the source of truth; client omits user_id from body.
+    req.user_id = user.user_id
     session_id = req.session_id
     if not session_id:
         session_id = await asyncio.to_thread(
@@ -408,7 +417,9 @@ async def ask_consultant_stream_endpoint(
 
         # Send 'done' immediately — post-processing runs in the background
         # so the client animation stops as soon as tokens finish.
-        yield f"data: {json.dumps({'done': True, 'session_id': _sid})}\n\n"
+        # 'finish' key lets the Flutter client detect end-of-stream and fire its
+        # onSessionCreated callback (new-server contract).
+        yield f"event: done\ndata: {json.dumps({'done': True, 'finish': 'stop', 'session_id': _sid})}\n\n"
 
         stream_latency = int((_time.time() - stream_start) * 1000)
         full_answer = "".join(full_response)
