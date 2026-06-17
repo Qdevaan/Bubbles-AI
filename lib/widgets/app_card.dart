@@ -1,3 +1,4 @@
+// Purpose: Reusable card container — applies the app's surface style (glass or solid) with consistent border and radius.
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../theme/design_tokens.dart';

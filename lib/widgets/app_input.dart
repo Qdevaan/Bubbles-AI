@@ -1,3 +1,4 @@
+// Purpose: Reusable text field widget with label, hint, validation error display, and password-toggle support.
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../theme/design_tokens.dart';

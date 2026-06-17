@@ -1,3 +1,4 @@
+// Purpose: Repository for dashboard/progress data — caches the stats payload to avoid re-fetching on tab switches.
 import '../cache/base_repository.dart';
 import '../cache/cache_constants.dart';
 import '../cache/cache_result.dart';
@@ -17,7 +18,6 @@ class DashboardRepository extends BaseRepository {
     required ApiService api,
   }) : _api = api;
 
-  /// Returns the dashboard payload alongside the upstream HTTP status code
   /// so the provider can surface the same error toasts as before. Cache is
   /// populated only on 200.
   Future<({CacheResult<Map<String, dynamic>> result, int statusCode})> getDashboard({

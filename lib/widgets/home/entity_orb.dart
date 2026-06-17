@@ -1,9 +1,10 @@
+// Purpose: Animated orb widget representing a named entity in the home feed — tappable to open the entity screen.
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import 'pulse_dot.dart';
 
-// ── Entity Orb ─────────────────────────────────────────────────────────────
+// Entity Orb
 
 class EntityOrb extends StatefulWidget {
   final bool isConnected;

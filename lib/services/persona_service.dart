@@ -1,3 +1,4 @@
+// Purpose: Fetches and upserts the user's Performa persona via the FastAPI persona endpoints.
 import 'package:bubbles/models/persona.dart';
 import 'package:bubbles/services/api_service.dart';
 

@@ -1,3 +1,4 @@
+// Purpose: Declares asset paths for graph visualisation resources (SVGs, fonts used by the graph renderer).
 import 'package:flutter/services.dart' show rootBundle;
 
 /// Memoised loaders for static asset strings shared across screens.

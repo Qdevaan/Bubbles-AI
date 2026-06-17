@@ -1,3 +1,4 @@
+// Purpose: State manager for a live Wingman session — coordinates audio recording, transcript accumulation, and AI suggestions.
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import '../services/api_service.dart';
@@ -13,7 +14,7 @@ class SessionProvider extends ChangeNotifier {
 
   final SupabaseClient _supabase = Supabase.instance.client;
 
-  // ── Session state ──
+  // Session state
   bool _isSessionActive = false;
   bool get isSessionActive => _isSessionActive;
 
@@ -31,7 +32,7 @@ class SessionProvider extends ChangeNotifier {
 
   RealtimeChannel? _realtimeChannel;
 
-  // ── Realtime drop detection ──
+  // Realtime drop detection
   Timer? _realtimeTimeoutTimer;
   bool _realtimeLost = false;
   bool get realtimeLost => _realtimeLost;
@@ -77,7 +78,6 @@ class SessionProvider extends ChangeNotifier {
     }
     notifyListeners();
   }
-
 
   void toggleSwapSpeakers() {
     _swapSpeakers = !_swapSpeakers;

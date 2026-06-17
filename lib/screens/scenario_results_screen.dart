@@ -1,3 +1,4 @@
+// Purpose: Scenario results screen — shows the AI feedback and coaching report after a roleplay scenario is completed.
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';

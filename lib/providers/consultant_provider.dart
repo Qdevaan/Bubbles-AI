@@ -1,3 +1,4 @@
+// Purpose: State manager for the Consultant screen — handles streaming SSE chat, message history, and typing state.
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import '../services/api_service.dart';
@@ -12,7 +13,7 @@ class ConsultantProvider extends ChangeNotifier {
 
   void setRepository(SessionsRepository repo) => _repository = repo;
 
-  // ── Current chat ──
+  // Current chat
   String? _currentSessionId;
   String? get currentSessionId => _currentSessionId;
 
@@ -22,7 +23,7 @@ class ConsultantProvider extends ChangeNotifier {
   bool _loading = false;
   bool get loading => _loading;
 
-  // ── Drawer / past chats ──
+  // Drawer / past chats
   List<Map<String, dynamic>> _pastChats = [];
   List<Map<String, dynamic>> get pastChats => _pastChats;
 
@@ -46,7 +47,7 @@ class ConsultantProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  // ── New / clear chat ──
+  // New / clear chat
   void newChat(String welcomeMessage) {
     _currentSessionId = null;
     _messages
@@ -55,7 +56,7 @@ class ConsultantProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  // ── Load past chats for drawer ──
+  // Load past chats for drawer
   Future<void> loadPastChats() async {
     if (_drawerLoading) return;
     final user = AuthService.instance.currentUser;
@@ -79,7 +80,7 @@ class ConsultantProvider extends ChangeNotifier {
     }
   }
 
-  // ── Load messages for a selected past chat ──
+  // Load messages for a selected past chat
   Future<void> loadChatById(String sessionId) async {
     if (_loadingChat) return;
     final user = AuthService.instance.currentUser;
@@ -123,7 +124,7 @@ class ConsultantProvider extends ChangeNotifier {
     }
   }
 
-  // ── Send message via SSE streaming ──
+  // Send message via SSE streaming
   /// [onFirstToken] fires when the first AI token arrives (useful for voice mode).
   /// [onComplete] fires with the full response text when streaming finishes.
   Future<void> sendMessage(
@@ -143,7 +144,6 @@ class ConsultantProvider extends ChangeNotifier {
     _messages.add({"role": "user", "text": text, "time": time});
     _loading = true;
     notifyListeners();
-
 
     final buf = StringBuffer();
     bool firstToken = true;

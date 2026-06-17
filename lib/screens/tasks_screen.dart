@@ -1,3 +1,4 @@
+// Purpose: Tasks screen — shows the user's active gamification tasks and lets them mark tasks as complete.
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:provider/provider.dart';

@@ -1,3 +1,4 @@
+// Purpose: Static help content map — stores all in-app help text keyed by feature name for the help index screen.
 import 'package:flutter/material.dart';
 
 /// Stable identifier for a screen's help content. Add a new entry whenever a

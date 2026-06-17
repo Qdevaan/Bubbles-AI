@@ -1,3 +1,4 @@
+// Purpose: Data management screen — lets the user export or delete their personal data stored in Supabase.
 import 'dart:convert';
 import 'dart:io';
 

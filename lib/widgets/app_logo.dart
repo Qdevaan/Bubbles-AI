@@ -1,3 +1,4 @@
+// Purpose: Bubbles logo widget — renders the branded SVG/image logo at configurable sizes.
 import 'package:flutter/material.dart';
 
 class AppLogo extends StatelessWidget {

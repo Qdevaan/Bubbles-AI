@@ -1,3 +1,4 @@
+// Purpose: Suggestion controller — debounces transcript input and dispatches Wingman suggestion requests during live sessions.
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';

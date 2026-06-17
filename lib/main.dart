@@ -1,3 +1,4 @@
+// Purpose: App entry point — initialises Supabase, providers, theme, and launches the root widget.
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -128,7 +129,7 @@ Future<void> main() async {
     debugPrint('FlutterError: ${details.exceptionAsString()}');
   };
 
-  // ── Auth-state listener: register device & flush analytics on login/logout ──
+  // Auth-state listener: register device & flush analytics on login/logout
   Supabase.instance.client.auth.onAuthStateChange.listen((data) {
     final event = data.event;
     if (event == AuthChangeEvent.signedIn) {

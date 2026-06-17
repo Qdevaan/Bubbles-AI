@@ -1,3 +1,4 @@
+// Purpose: Detailed insight item widget — renders title, body, type badge, and action buttons for a single insight.
 import 'package:flutter/material.dart';
 
 /// Data model representing a unified insight item (event, highlight, or notification).

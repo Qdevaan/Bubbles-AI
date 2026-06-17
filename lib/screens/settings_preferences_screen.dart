@@ -1,3 +1,4 @@
+// Purpose: Preferences settings screen — controls notifications, default tones, haptics, and misc app preferences.
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
@@ -257,7 +258,7 @@ class SettingsPreferencesScreen extends StatelessWidget {
   }
 }
 
-// ── Home Picker Row ────────────────────────────────────────────────────────────
+// Home Picker Row
 class _HomePickerRow extends StatelessWidget {
   final String label;
   final List<String> options;

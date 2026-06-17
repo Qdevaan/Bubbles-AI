@@ -1,3 +1,4 @@
+// Purpose: Reusable fade + slide transition widget used to animate screens and cards into view.
 import 'package:flutter/material.dart';
 import '../theme/design_tokens.dart';
 

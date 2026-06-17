@@ -1,3 +1,4 @@
+// Purpose: Utility for showing themed snack bars — single call site so the style is consistent everywhere.
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 

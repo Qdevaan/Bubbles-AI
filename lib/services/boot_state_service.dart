@@ -1,3 +1,4 @@
+// Purpose: Reads and writes the persisted boot-state (theme, surface style) so AppBootstrap can route on the first frame.
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 

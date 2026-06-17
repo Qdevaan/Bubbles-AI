@@ -1,8 +1,8 @@
+// Purpose: State manager for user-defined tags — loads, creates, and deletes tags, and links them to sessions and entities.
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/auth_service.dart';
 
-/// Manages user-defined tags and session-tag associations (schema_v2 I1-I3).
 class TagsProvider extends ChangeNotifier {
   final SupabaseClient _supabase = Supabase.instance.client;
 
@@ -12,7 +12,6 @@ class TagsProvider extends ChangeNotifier {
   bool _loaded = false;
   bool get loaded => _loaded;
 
-  // ── Load all tags for the current user ────────────────────────────────────
   Future<void> loadTags() async {
     final user = AuthService.instance.currentUser;
     if (user == null) return;
@@ -30,7 +29,6 @@ class TagsProvider extends ChangeNotifier {
     }
   }
 
-  // ── Create a new tag ──────────────────────────────────────────────────────
   Future<Map<String, dynamic>?> createTag(String name, String color) async {
     final user = AuthService.instance.currentUser;
     if (user == null) return null;
@@ -49,7 +47,6 @@ class TagsProvider extends ChangeNotifier {
     }
   }
 
-  // ── Delete a tag (cascades via DB to session_tags / entity_tags) ──────────
   Future<bool> deleteTag(String tagId) async {
     try {
       await _supabase.from('tags').delete().eq('id', tagId);
@@ -62,7 +59,6 @@ class TagsProvider extends ChangeNotifier {
     }
   }
 
-  // ── Tag a session ─────────────────────────────────────────────────────────
   Future<bool> tagSession(String sessionId, String tagId) async {
     final user = AuthService.instance.currentUser;
     if (user == null) return false;
@@ -79,7 +75,6 @@ class TagsProvider extends ChangeNotifier {
     }
   }
 
-  // ── Untag a session ───────────────────────────────────────────────────────
   Future<bool> untagSession(String sessionId, String tagId) async {
     try {
       await _supabase
@@ -94,7 +89,6 @@ class TagsProvider extends ChangeNotifier {
     }
   }
 
-  // ── Get tags for a specific session ──────────────────────────────────────
   Future<List<Map<String, dynamic>>> getTagsForSession(String sessionId) async {
     try {
       final res = await _supabase
@@ -110,7 +104,6 @@ class TagsProvider extends ChangeNotifier {
     }
   }
 
-  // ── Tag an entity ─────────────────────────────────────────────────────────
   Future<bool> tagEntity(String entityId, String tagId) async {
     final user = AuthService.instance.currentUser;
     if (user == null) return false;
@@ -127,7 +120,6 @@ class TagsProvider extends ChangeNotifier {
     }
   }
 
-  // ── Untag an entity ───────────────────────────────────────────────────────
   Future<bool> untagEntity(String entityId, String tagId) async {
     try {
       await _supabase
@@ -142,7 +134,6 @@ class TagsProvider extends ChangeNotifier {
     }
   }
 
-  // ── Get tags for a specific entity ──────────────────────────────────────
   Future<List<Map<String, dynamic>>> getTagsForEntity(String entityId) async {
     try {
       final res = await _supabase

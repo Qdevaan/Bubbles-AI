@@ -1,3 +1,4 @@
+// Purpose: Repository for user_settings — provides read/write with local caching so settings load instantly on app start.
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../cache/base_repository.dart';

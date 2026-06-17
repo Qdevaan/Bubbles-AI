@@ -1,13 +1,13 @@
+// Purpose: Wraps Supabase Auth — sign-in, sign-up, sign-out, Google OAuth, password reset, profile upsert, and onboarding progress.
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:shared_preferences/shared_preferences.dart'; // Import this
+import 'package:shared_preferences/shared_preferences.dart';
 import 'analytics_service.dart';
 import '../repositories/profile_repository.dart';
 import '../cache/persistent_cache_service.dart';
 
 class AuthService {
-  // Singleton Pattern
   AuthService._internal();
   static final AuthService instance = AuthService._internal();
 
@@ -16,28 +16,20 @@ class AuthService {
   ProfileRepository? _profileRepository;
   void setProfileRepository(ProfileRepository repo) => _profileRepository = repo;
 
-  // Key for storing profile data in SharedPreferences
   static const String _profileCacheKey = 'cached_user_profile';
 
-  /// Returns the current authenticated user, or null if not signed in.
   User? get currentUser => _client.auth.currentUser;
 
-  /// Returns the current session, or null if expired/missing.
   Session? get currentSession => _client.auth.currentSession;
 
-  /// Checks if the current user's email is verified based on Supabase metadata.
   bool get isEmailVerified =>
       _client.auth.currentUser?.emailConfirmedAt != null;
 
-  /// JWT access token for the current session. Null when signed out.
   String? get accessToken => _client.auth.currentSession?.accessToken;
 
-  /// Supabase user ID for the current session. Null when signed out.
   String? get currentUserId => _client.auth.currentUser?.id;
 
-  // ---------------------------------------------------------------------------
-  // AUTHENTICATION METHODS
-  // ---------------------------------------------------------------------------
+  // Authentication
 
   Future<void> signInWithGoogle() async {
     try {
@@ -98,8 +90,7 @@ class AuthService {
     }
   }
 
-  /// Sends a password reset email via Supabase.
-  /// Always returns success (Supabase does not reveal whether the email exists).
+  // Supabase doesn't reveal whether the email exists, so this always "succeeds"
   Future<void> resetPasswordForEmail(String email) async {
     try {
       await _client.auth.resetPasswordForEmail(
@@ -111,7 +102,6 @@ class AuthService {
     }
   }
 
-  /// Updates the authenticated user's password (used after password reset flow).
   Future<void> updatePassword(String newPassword) async {
     try {
       await _client.auth.updateUser(UserAttributes(password: newPassword));
@@ -120,7 +110,7 @@ class AuthService {
     }
   }
 
-  /// Sign out the current user and CLEAR local cache.
+  // Sign out and wipe all local cache
   Future<void> signOut() async {
     try {
       final userId = currentUserId;
@@ -130,7 +120,7 @@ class AuthService {
       );
       await AnalyticsService.instance.flushNow();
 
-      // 1. Clear user-scoped cache across all layers (L1 and L2)
+      // 1. clear user-scoped cache (both L1 and L2)
       if (userId != null) {
         await PersistentCacheService.instance.purgeUserScope(userId);
         if (_profileRepository != null) {
@@ -138,7 +128,7 @@ class AuthService {
         }
       }
 
-      // 2. Supabase sign out
+      // 2. Sign out via Supabase
       await _client.auth.signOut();
 
       // Clear legacy cache if repository not active
@@ -149,14 +139,13 @@ class AuthService {
     }
   }
 
-  /// Deletes the current user's account by calling the Supabase `delete_user` RPC.
-  /// The caller is responsible for signing out on success.
-  /// Throws on RPC failure — the account is NOT deleted if this throws.
-  ///
-  /// PREREQUISITE: The `delete_user` SQL function must exist in Supabase:
-  /// CREATE OR REPLACE FUNCTION delete_user() RETURNS void AS $$
-  ///   BEGIN DELETE FROM auth.users WHERE id = auth.uid(); END;
-  /// $$ LANGUAGE plpgsql SECURITY DEFINER;
+  // Deletes the account via the `delete_user` SQL function.
+  // Caller must sign out on success. Throws if the RPC fails.
+  //
+  // Requires this function in Supabase:
+  //   CREATE OR REPLACE FUNCTION delete_user() RETURNS void AS $$
+  //     BEGIN DELETE FROM auth.users WHERE id = auth.uid(); END;
+  //   $$ LANGUAGE plpgsql SECURITY DEFINER;
   Future<void> deleteAccount() async {
     try {
       await _client.rpc('delete_user');
@@ -165,11 +154,8 @@ class AuthService {
     }
   }
 
-  // ---------------------------------------------------------------------------
-  // PROFILE & DATA METHODS (Caching Implemented Here)
-  // ---------------------------------------------------------------------------
+  // Profile & data methods
 
-  /// Fetches the user's profile.
   Future<Map<String, dynamic>?> getProfile({bool forceRefresh = false}) async {
     final user = currentUser;
     if (user == null) return null;
@@ -193,7 +179,6 @@ class AuthService {
     }
   }
 
-  /// Inserts or updates the user's profile data AND updates local cache.
   Future<void> upsertProfile({
     String? fullName,
     String? avatarUrl,
@@ -215,7 +200,7 @@ class AuthService {
         'updated_at': DateTime.now().toIso8601String(),
       };
 
-      // Remove nulls so we don't wipe out existing data with nulls
+      // skip null fields — don't wipe out existing data
       updates.removeWhere((key, value) => value == null);
 
       if (_profileRepository != null) {
@@ -274,14 +259,11 @@ class AuthService {
     }
   }
 
-  // ---------------------------------------------------------------------------
-  // ONBOARDING PROGRESS
-  // ---------------------------------------------------------------------------
+  // Onboarding progress
 
-  /// Upserts user onboarding progress. Valid keys: 
-  /// profile_done, voice_enrolled, first_wingman, first_consultant
-  /// These are remapped to schema columns: has_completed_welcome, has_set_voice,
-  /// has_completed_tutorial, current_step
+  // Valid keys: profile_done, voice_enrolled, first_wingman, first_consultant
+  // These map to schema columns: has_completed_welcome, has_set_voice,
+  // has_completed_tutorial, current_step
   Future<void> updateOnboardingProgress(Map<String, bool> updates) async {
     try {
       final user = currentUser;
@@ -315,9 +297,7 @@ class AuthService {
     }
   }
 
-  // ---------------------------------------------------------------------------
-  // ERROR HANDLING
-  // ---------------------------------------------------------------------------
+  // Error handling
 
   Exception _handleAuthError(dynamic error) {
     if (error is AuthException) {

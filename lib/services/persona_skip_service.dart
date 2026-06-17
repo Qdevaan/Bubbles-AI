@@ -1,3 +1,4 @@
+// Purpose: Persists the user's choice to skip or defer the Performa persona setup wizard.
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'boot_state_service.dart';

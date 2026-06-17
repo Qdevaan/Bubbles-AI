@@ -1,9 +1,10 @@
+// Purpose: Filter chip row for the Insights screen — lets the user filter by Events, Highlights, or Notifications.
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../theme/design_tokens.dart';
 
-// ── Inline Action Chip ────────────────────────────────────────────────────────
+// Inline Action Chip
 
 class InsightActionChip extends StatelessWidget {
   final IconData icon;
@@ -47,7 +48,7 @@ class InsightActionChip extends StatelessWidget {
   }
 }
 
-// ── Stat Chip (summary header) ────────────────────────────────────────────────
+// Stat Chip (summary header)
 
 class InsightStatChip extends StatelessWidget {
   final IconData icon;

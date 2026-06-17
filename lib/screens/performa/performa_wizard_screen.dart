@@ -1,3 +1,4 @@
+// Purpose: Performa persona wizard — multi-step flow that collects the user's identity, language goals, and communication style.
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';

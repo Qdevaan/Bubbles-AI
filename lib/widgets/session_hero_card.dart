@@ -1,3 +1,4 @@
+// Purpose: Hero card widget for session lists — shows title, date, duration, and a score badge.
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';

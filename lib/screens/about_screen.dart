@@ -1,3 +1,4 @@
+// Purpose: About screen — displays app version, build info, and links to the privacy policy and terms.
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../widgets/app_logo.dart';
@@ -297,7 +298,4 @@ class _MinimalDeveloperInfo extends StatelessWidget {
     );
   }
 }
-
-
-
 

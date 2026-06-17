@@ -1,3 +1,4 @@
+// Purpose: Motion scope wrapper — disables animations globally when the user has reduced-motion enabled.
 import 'package:flutter/material.dart';
 
 import '../services/device_perf_tier.dart';

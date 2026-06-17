@@ -1,3 +1,4 @@
+// Purpose: State manager for task events — tracks in-progress and completed gamification tasks for the session.
 import 'package:flutter/material.dart';
 import '../models/task_event_models.dart';
 import '../services/task_event_service.dart';

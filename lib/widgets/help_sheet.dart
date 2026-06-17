@@ -1,3 +1,4 @@
+// Purpose: Reusable help bottom sheet — displays contextual help text for a given feature.
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 

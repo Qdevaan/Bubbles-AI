@@ -1,3 +1,4 @@
+// Purpose: Social auth button (Google, Apple) with icon and branded label for the auth screens.
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';

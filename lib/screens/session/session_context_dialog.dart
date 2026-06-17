@@ -1,3 +1,4 @@
+// Purpose: Session context dialog — lets the user set scenario, role-mode, and notes before starting a new live session.
 import 'package:flutter/material.dart';
 
 import '../../widgets/app_dialog.dart';

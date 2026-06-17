@@ -1,3 +1,4 @@
+// Purpose: Repository for knowledge graph entity profiles — caches entity data fetched from Supabase.
 import '../cache/base_repository.dart';
 import '../cache/cache_constants.dart';
 import '../cache/cache_result.dart';

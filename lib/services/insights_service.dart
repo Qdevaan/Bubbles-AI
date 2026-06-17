@@ -1,21 +1,15 @@
-// lib/services/insights_service.dart
+// Purpose: Supabase DB access for the Insights screen — fetches, updates, and deletes events, highlights, and notifications.
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-/// Encapsulates all Supabase DB access for the Insights screen.
-///
-/// Tables touched:
-///   - events        (select, update, delete)
-///   - highlights    (select, update, delete)
-///   - notifications (select, update, delete)
+// Supabase DB access for events, highlights, and notifications
 class InsightsService {
   InsightsService._internal();
   static final InsightsService instance = InsightsService._internal();
 
   final SupabaseClient _client = Supabase.instance.client;
 
-  // ── Fetch (all three tables in parallel) ──────────────────────────────────
+  // Fetch (all three tables in parallel)
 
-  /// Fetches the 50 most-recent events for [userId].
   Future<List<Map<String, dynamic>>> fetchEvents(String userId) async {
     final res = await _client
         .from('events')
@@ -26,7 +20,6 @@ class InsightsService {
     return List<Map<String, dynamic>>.from(res as List);
   }
 
-  /// Fetches the 50 most-recent highlights for [userId].
   Future<List<Map<String, dynamic>>> fetchHighlights(String userId) async {
     final res = await _client
         .from('highlights')
@@ -37,7 +30,6 @@ class InsightsService {
     return List<Map<String, dynamic>>.from(res as List);
   }
 
-  /// Fetches the 50 most-recent notifications for [userId].
   Future<List<Map<String, dynamic>>> fetchNotifications(String userId) async {
     final res = await _client
         .from('notifications')
@@ -48,11 +40,9 @@ class InsightsService {
     return List<Map<String, dynamic>>.from(res as List);
   }
 
-  // ── Delete ────────────────────────────────────────────────────────────────
+  // Delete
 
-  /// Deletes a single row by [id] from [table].
-  ///
-  /// [table] must be one of: 'events', 'highlights', 'notifications'.
+  // [table] must be one of: events, highlights, notifications
   Future<void> deleteItem(String table, String id) async {
     assert(
       const {'events', 'highlights', 'notifications'}.contains(table),
@@ -61,12 +51,8 @@ class InsightsService {
     await _client.from(table).delete().eq('id', id);
   }
 
-  // ── Update: events ────────────────────────────────────────────────────────
+  // Update: events
 
-  /// Updates an event's editable fields.
-  ///
-  /// Pass [dueText] as `null` to clear the field.
-  /// Pass [description] as `null` to clear the field.
   Future<void> updateEvent({
     required String id,
     required String title,
@@ -80,9 +66,8 @@ class InsightsService {
     }).eq('id', id);
   }
 
-  // ── Update: highlights ────────────────────────────────────────────────────
+  // Update: highlights
 
-  /// Updates a highlight's editable fields.
   Future<void> updateHighlight({
     required String id,
     required String title,
@@ -96,9 +81,8 @@ class InsightsService {
     }).eq('id', id);
   }
 
-  // ── Update: notifications ─────────────────────────────────────────────────
+  // Update: notifications
 
-  /// Toggles the `is_read` flag on a notification.
   Future<void> updateNotificationReadStatus({
     required String id,
     required bool isRead,

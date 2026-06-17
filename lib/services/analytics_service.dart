@@ -1,32 +1,23 @@
+// Purpose: Batches audit_log writes in memory and flushes to Supabase every 5 s or every 10 events.
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'auth_service.dart';
 
-/// Central analytics service that writes to the `audit_log` table in Supabase.
-///
-/// Provides fire-and-forget [logAction] calls. Events are batched in memory
-/// and flushed periodically (every 5 s) or when the batch reaches 10 events,
-/// whichever comes first. This avoids spamming the database on rapid actions.
+// Batches audit_log writes in memory and flushes every 5s or every 10 events
 class AnalyticsService {
-  // ── Singleton ──
+  // Singleton
   AnalyticsService._internal();
   static final AnalyticsService instance = AnalyticsService._internal();
 
   final SupabaseClient _client = Supabase.instance.client;
 
-  // ── Batch queue ──
+  // Batch queue
   final List<Map<String, dynamic>> _queue = [];
   Timer? _flushTimer;
   static const int _batchSize = 10;
   static const Duration _flushInterval = Duration(seconds: 5);
 
-  /// Log a user action to the `audit_log` table.
-  ///
-  /// * [action] — e.g. `screen_view`, `settings_changed`, `session_started`
-  /// * [entityType] — e.g. `session`, `profile`, `settings`, `notification`
-  /// * [entityId] — optional UUID of the entity acted upon
-  /// * [details] — arbitrary JSON payload for additional context
   void logAction({
     required String action,
     String? entityType,
@@ -75,10 +66,9 @@ class AnalyticsService {
     }
   }
 
-  /// Force-flush any pending events (call on app pause / logout).
+  // Force-flush any pending events (call before app pauses or on logout)
   Future<void> flushNow() => _flush();
 
-  /// Dispose: flush remaining events and cancel the timer.
   Future<void> dispose() async {
     await _flush();
     _flushTimer?.cancel();

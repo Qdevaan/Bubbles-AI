@@ -1,3 +1,4 @@
+// Purpose: FetchPolicy enum — defines cache-first, network-first, and cache-only strategies used by repositories.
 enum FetchPolicy {
   /// Check cache first, return if exists and not expired. If expired or missing, fetch from network.
   cacheFirst,

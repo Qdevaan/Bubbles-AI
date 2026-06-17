@@ -1,3 +1,4 @@
+// Purpose: Sessions screen — lists all past live and consultant sessions with search, filter, and delete actions.
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -1013,7 +1014,7 @@ class _GenericSessionDetailState extends State<GenericSessionDetail> {
                                     speakerLabel: 'Consultant AI',
                                     isHighlighted: _feedbackMap[log['id'] as String? ?? ''] == 1,
                                   ),
-                                  // ── Star rating for consultant answer ──
+                                  // Star rating for consultant answer
                                   Padding(
                                     padding: const EdgeInsets.only(left: 8, bottom: 4),
                                     child: _StarRating(
@@ -1071,7 +1072,7 @@ class _GenericSessionDetailState extends State<GenericSessionDetail> {
                                     : (isOther ? 'Other' : 'Wingman'),
                                 isHighlighted: _feedbackMap[log['id'] as String? ?? ''] == 1,
                               ),
-                              // ── Thumbs feedback for LLM advice ──
+                              // Thumbs feedback for LLM advice
                               if (isLlm)
                                 Padding(
                                   padding: const EdgeInsets.only(left: 8, bottom: 4),

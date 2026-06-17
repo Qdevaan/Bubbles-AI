@@ -1,3 +1,4 @@
+// Purpose: Full-screen animated gradient background widget used on auth screens and onboarding.
 import 'dart:math';
 import 'package:flutter/material.dart';
 

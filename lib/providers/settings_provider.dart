@@ -1,12 +1,11 @@
+// Purpose: State manager for user preferences — persists locally via SharedPreferences and syncs to Supabase user_settings.
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/auth_service.dart';
 import '../repositories/settings_repository.dart';
 
-/// Manages user preferences with dual persistence:
-///  - SharedPreferences for offline/instant reads
-///  - Supabase `user_settings` table for cross-device sync (schema_v2)
+// Persists to SharedPreferences locally and syncs to user_settings table for cross-device support
 class SettingsProvider with ChangeNotifier {
   static const String _liveToneKey = 'default_live_tone';
   static const String _consultantToneKey = 'default_consultant_tone';
@@ -82,16 +81,15 @@ class SettingsProvider with ChangeNotifier {
     loadSettings();
   }
 
-  // ── Load: SharedPreferences first, then Supabase overrides ────────────────
+  // Load settings: try repository first, fall back to SharedPreferences
   Future<void> loadSettings() async {
     final user = AuthService.instance.currentUser;
     
-    // Repository-first approach (Offline-first with SWR)
     if (user != null && _repository != null) {
       final settings = await _repository!.loadSettings(user.id);
       _applySettingsMap(settings);
     } else {
-      // Fallback for Guest mode or initialization before repository is ready
+      // Fallback for guest mode or before repository is wired up
       final prefs = await SharedPreferences.getInstance();
       _defaultLiveTone = prefs.getString(_liveToneKey) ?? 'casual';
       if (_defaultLiveTone == 'serious') _defaultLiveTone = 'formal';
@@ -204,7 +202,7 @@ class SettingsProvider with ChangeNotifier {
     if (settings['push_announcements'] != null) _pushAnnouncements = settings['push_announcements'];
   }
 
-  // ── Write helper ──────────────────────────────────────────────────────────
+  // Central write helper — goes through repository when available, else SharedPreferences
   Future<void> _updateSetting(String key, dynamic value, {Map<String, dynamic>? remoteUpdates}) async {
     final user = AuthService.instance.currentUser;
     if (user != null && _repository != null) {
@@ -213,7 +211,7 @@ class SettingsProvider with ChangeNotifier {
         await _upsertUserSettings(remoteUpdates);
       }
     } else {
-      // Offline/Guest fallback
+      // Guest/offline: write directly to SharedPreferences
       final prefs = await SharedPreferences.getInstance();
       if (value is bool) await prefs.setBool(key, value);
       else if (value is String) await prefs.setString(key, value);
@@ -237,7 +235,7 @@ class SettingsProvider with ChangeNotifier {
     }
   }
 
-  // ── Setters ───────────────────────────────────────────────────────────────
+  // Setters
   Future<void> setAlwaysPromptForTone(bool value) async {
     _alwaysPromptForTone = value;
     await _updateSetting(_alwaysPromptKey, value);

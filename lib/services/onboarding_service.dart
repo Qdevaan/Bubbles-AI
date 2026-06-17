@@ -1,3 +1,4 @@
+// Purpose: Reads and writes the user's onboarding completion flags so the app knows which setup steps are still pending.
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'boot_state_service.dart';

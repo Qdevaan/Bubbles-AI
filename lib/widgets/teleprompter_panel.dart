@@ -1,3 +1,4 @@
+// Purpose: Auto-scrolling teleprompter panel — streams and displays AI coaching tokens in real-time during a live session.
 ﻿import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 

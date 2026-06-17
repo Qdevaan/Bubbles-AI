@@ -1,3 +1,4 @@
+// Purpose: Roleplay setup screen — lets the user configure the partner persona and scenario before starting a roleplay session.
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';

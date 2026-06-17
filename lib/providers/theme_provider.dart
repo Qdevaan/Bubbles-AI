@@ -1,3 +1,4 @@
+// Purpose: State manager for app theming — controls dark/light mode, accent colour, surface style, and performance mode.
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -22,15 +23,13 @@ class ThemeProvider extends ChangeNotifier {
   Color get seedColor => _seedColor;
   ThemeMode get themeMode => _themeMode;
 
-  /// User's explicit surface-style preference, or null when on auto.
+  // User's explicit style override; null means auto (determined by device tier)
   SurfaceStyle? get explicitSurfaceStyle => _explicitSurfaceStyle;
 
-  /// When true, force [SurfaceStyle.solid] regardless of device tier. The
-  /// user opts in via Settings → Performance mode.
+  // When true, force SurfaceStyle.solid regardless of device tier
   bool get performanceMode => _performanceMode;
 
-  /// The style actually used by widgets — honours explicit override first,
-  /// then performance mode, then the [DevicePerfTier] heuristic.
+  // Effective style: performance mode > explicit override > device tier heuristic
   SurfaceStyle get effectiveSurfaceStyle {
     if (_performanceMode) return SurfaceStyle.solid;
     if (_explicitSurfaceStyle != null) return _explicitSurfaceStyle!;
@@ -128,8 +127,7 @@ class ThemeProvider extends ChangeNotifier {
     _upsertSetting({'theme': tStr});
   }
 
-  /// Sets the user's surface-style preference. Pass null to revert to the
-  /// device-tier auto default.
+  // Pass null to revert to device-tier auto default
   Future<void> setSurfaceStyle(SurfaceStyle? style) async {
     _explicitSurfaceStyle = style;
     notifyListeners();

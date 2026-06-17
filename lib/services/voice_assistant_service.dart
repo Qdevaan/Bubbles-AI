@@ -1,3 +1,4 @@
+// Purpose: End-to-end voice assistant pipeline — wake word (Porcupine) → STT → Wingman API → Deepgram Aura TTS playback.
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -15,39 +16,38 @@ import 'user_settings_service.dart';
 import 'connection_service.dart';
 import 'wake_word_service.dart';
 
-// ─── Enums ───────────────────────────────────────────────
+// Enums
 
-/// The current state of the voice assistant pipeline.
+// Voice assistant states
 enum VoiceAssistantState {
-  idle, // Not active — waiting for wake word or tap
-  listening, // Wake word detected — actively capturing command
-  processing, // Command captured — sending to server
-  speaking, // TTS reading out the response
+  idle,       // not active, waiting for wake word or tap
+  listening,  // capturing command after wake word
+  processing, // sending to server
+  speaking,   // TTS playing back the response
 }
 
-/// Voice modes the user can choose from.
-/// Each maps to a specific Deepgram Aura voice model.
+// Available voice modes, each mapped to a Deepgram Aura model
 enum VoiceMode {
-  male, // aura-arcas-en   — masculine, confident
-  female, // aura-asteria-en — feminine, clear, energetic
-  neutral, // aura-orpheus-en — neutral, professional
+  male,    // aura-arcas-en
+  female,  // aura-asteria-en
+  neutral, // aura-orpheus-en
 }
 
-// ─── Service ────────────────────────────────────────────
+// Service
 
 class VoiceAssistantService extends ChangeNotifier {
-  // ── Dependencies ──
+  // Dependencies
   final ConnectionService _connectionService;
   final WakeWordService _wakeWordService;
 
-  // ── Speech-to-Text (used ONLY for command capture, NOT wake word) ──
+  // Speech-to-Text (used ONLY for command capture, NOT wake word)
   final SpeechToText _stt = SpeechToText();
   bool _sttInitialized = false;
 
-  // ── Deepgram Aura TTS (proxied through backend) ──
+  // Deepgram Aura TTS (proxied through backend)
   final AudioPlayer _audioPlayer = AudioPlayer();
 
-  // ── State ──
+  // State
   VoiceAssistantState _state = VoiceAssistantState.idle;
   VoiceAssistantState get state => _state;
 
@@ -63,24 +63,20 @@ class VoiceAssistantService extends ChangeNotifier {
   bool _isOverlayVisible = false;
   bool get isOverlayVisible => _isOverlayVisible;
 
-  /// True while a roleplay session is active — used to emit richer haptic
-  /// feedback ("voice feedback") at TTS start/end and on user-input capture.
+  // True while a roleplay session is active (used for haptic cueing at TTS events)
   bool _roleplayMode = false;
   bool get roleplayMode => _roleplayMode;
 
-  /// Master haptic toggle, mirrored from SettingsProvider via setHapticEnabled.
+  // Haptic toggle mirrored from SettingsProvider
   bool _hapticsEnabled = true;
   bool get hapticsEnabled => _hapticsEnabled;
 
-  /// Switch to roleplay session mode. The caller (roleplay session screen)
-  /// should set this to true on enter and false on exit.
   void setRoleplayMode(bool enabled) {
     if (_roleplayMode == enabled) return;
     _roleplayMode = enabled;
     notifyListeners();
   }
 
-  /// Whether the user has opted in to spoken voice feedback during roleplay.
   bool _roleplayVoiceEnabled = true;
   bool get roleplayVoiceEnabled => _roleplayVoiceEnabled;
 
@@ -90,9 +86,7 @@ class VoiceAssistantService extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Public entry point used by the session screen to speak a roleplay
-  /// partner's reply through the existing Deepgram TTS pipeline. No-op when
-  /// not in roleplay mode or when voice feedback has been disabled.
+  // Speaks the roleplay partner's line via TTS; no-op outside roleplay mode
   Future<void> speakRoleplayLine(String text) async {
     if (!_roleplayMode || !_roleplayVoiceEnabled) return;
     final clean = text.trim();
@@ -100,8 +94,6 @@ class VoiceAssistantService extends ChangeNotifier {
     await _speak(clean);
   }
 
-  /// Mirrors the user-facing setting so we don't read SharedPreferences each
-  /// frame. Settings page calls this after toggling haptics.
   void setHapticsEnabled(bool enabled) {
     _hapticsEnabled = enabled;
   }
@@ -115,25 +107,24 @@ class VoiceAssistantService extends ChangeNotifier {
     }
   }
 
-  /// Whether the service is active (user is authenticated and on a main screen).
   bool _isActive = false;
   bool get isActive => _isActive;
 
   VoiceMode _voiceMode = VoiceMode.neutral;
   VoiceMode get voiceMode => _voiceMode;
 
-  // ── Prefs keys ──
+  // Prefs keys
   static const String _voiceModeKey = 'voice_mode';
   static const String _wakeWordKey = 'wake_word_enabled';
 
-  // ── Constructor ──
+  // Constructor
   VoiceAssistantService(this._connectionService, this._wakeWordService) {
     // Wire up the wake word callback
     _wakeWordService.onWakeWordDetected = _onWakeWordDetected;
     _init();
   }
 
-  // ─── Initialisation ───────────────────────────────────
+  // Initialisation
 
   Future<void> _init() async {
     await _loadPreferences();
@@ -144,8 +135,7 @@ class VoiceAssistantService extends ChangeNotifier {
     // Wait for activate() to be called (e.g. from HomeScreen).
   }
 
-  /// Call this when user is authenticated and on a main screen.
-  /// Wake word listening always starts here (unless explicitly disabled in settings).
+  // Activate wake word listening when user is on a main screen
   void activate() {
     if (_isActive) return;
     _isActive = true;
@@ -160,7 +150,7 @@ class VoiceAssistantService extends ChangeNotifier {
     }
   }
 
-  /// Call this when user logs out or navigates to auth screens.
+  // Deactivate when navigating to auth screens or on logout
   void deactivate() {
     if (!_isActive) return;
     _isActive = false;
@@ -223,9 +213,8 @@ class VoiceAssistantService extends ChangeNotifier {
     });
   }
 
-  // ─── Voice Mode ───────────────────────────────────────
+  // Voice Mode
 
-  /// Returns the Deepgram Aura model name for the current voice mode.
   String get _deepgramModel {
     switch (_voiceMode) {
       case VoiceMode.male:
@@ -246,7 +235,7 @@ class VoiceAssistantService extends ChangeNotifier {
     // No need to reconfigure anything — _deepgramModel getter handles it
   }
 
-  // ─── Wake Word Toggle ────────────────────────────────
+  // Wake Word Toggle
 
   Future<void> setWakeWordEnabled(bool enabled) async {
     _isWakeWordEnabled = enabled;
@@ -263,7 +252,7 @@ class VoiceAssistantService extends ChangeNotifier {
     }
   }
 
-  // ─── Wake Word Detected (Porcupine Callback) ─────────
+  // Wake Word Detected (Porcupine Callback)
 
   void _onWakeWordDetected() async {
     debugPrint('🎙️ ✅ Wake word "Hey Bubbles" detected via Porcupine!');
@@ -280,7 +269,7 @@ class VoiceAssistantService extends ChangeNotifier {
     _startCommandListening();
   }
 
-  // ─── Active Command Listening (STT) ──────────────────
+  // Active Command Listening (STT)
 
   void _startCommandListening() {
     if (!_sttInitialized) return;
@@ -322,7 +311,7 @@ class VoiceAssistantService extends ChangeNotifier {
     }
   }
 
-  // ─── Command Processing ──────────────────────────────
+  // Command Processing
 
   Future<void> _processCommand(String command) async {
     _setState(VoiceAssistantState.processing);
@@ -381,7 +370,7 @@ class VoiceAssistantService extends ChangeNotifier {
   String? _pendingNavigationRoute;
   Object? _pendingNavigationArgs;
 
-  /// Call this from the overlay widget to get & consume pending navigation.
+  // Call from the overlay widget to consume and clear pending navigation
   Map<String, dynamic>? consumePendingNavigation() {
     if (_pendingNavigationRoute == null) return null;
     final nav = {
@@ -437,10 +426,9 @@ class VoiceAssistantService extends ChangeNotifier {
     }
   }
 
-  // ─── Deepgram Aura TTS ──────────────────────────────
+  // Deepgram Aura TTS
 
-  /// Speaks text using the backend TTS proxy (which forwards to Deepgram Aura).
-  /// Sends text to the backend, receives MP3 audio bytes, and plays them.
+  // Sends text to backend TTS proxy → receives MP3 → plays it
   Future<void> _speak(String text) async {
     _lastResponse = text;
     _setState(VoiceAssistantState.speaking);
@@ -507,7 +495,7 @@ class VoiceAssistantService extends ChangeNotifier {
     }
   }
 
-  // ─── Overlay Visibility ──────────────────────────────
+  // Overlay Visibility
 
   void _showOverlay() {
     _isOverlayVisible = true;
@@ -538,7 +526,7 @@ class VoiceAssistantService extends ChangeNotifier {
     });
   }
 
-  // ─── Helpers ─────────────────────────────────────────
+  // Helpers
 
   void _setState(VoiceAssistantState newState) {
     _state = newState;

@@ -1,3 +1,4 @@
+// Purpose: Barrel file exporting all session-related widgets for clean imports.
 /// Barrel file for session screen widgets.
 /// Import this single file to get all session-related components.
 library;

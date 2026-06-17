@@ -1,3 +1,4 @@
+// Purpose: Circular XP progress ring widget — animates from current XP to the next level threshold.
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';

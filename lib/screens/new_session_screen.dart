@@ -1,3 +1,4 @@
+// Purpose: New live session screen — full Wingman session UI: audio recording, real-time transcript, and AI coaching suggestions.
 import 'dart:async';
 import 'dart:math';
 import 'dart:ui';
@@ -994,7 +995,7 @@ class _NewSessionScreenState extends State<NewSessionScreen>
               ),
               child: Column(
             children: [
-              // ── Teleprompter Panel ───────────────────────────────────────
+              // Teleprompter Panel
               Consumer<SessionProvider>(
                 builder: (ctx, sp, _) => TeleprompterPanel(
                   hints: sp.adviceHistory,
@@ -1279,7 +1280,6 @@ class _NewSessionScreenState extends State<NewSessionScreen>
     );
   }
 
-
   // ========================
   // PRE-SESSION SETTINGS
   // ========================
@@ -1290,7 +1290,7 @@ class _NewSessionScreenState extends State<NewSessionScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // ── Tone chips ──────────────────────────────
+          // Tone chips
           Text(
             'Conversation Mode',
             style: GoogleFonts.manrope(
@@ -1357,7 +1357,7 @@ class _NewSessionScreenState extends State<NewSessionScreen>
           ),
           const SizedBox(height: 16),
 
-          // ── Incognito toggle ────────────────────────
+          // Incognito toggle
           GestureDetector(
             onTap: () => setState(() => _isIncognito = !_isIncognito),
             child: AnimatedContainer(

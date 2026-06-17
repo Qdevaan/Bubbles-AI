@@ -1,3 +1,4 @@
+// Purpose: Chat message bubble — renders user and AI turns with distinct styles, timestamps, and feedback actions.
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../theme/design_tokens.dart';

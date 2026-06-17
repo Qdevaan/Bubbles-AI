@@ -1,3 +1,4 @@
+// Purpose: Computes a 0–100 confidence score for a transcript turn using local heuristics (filler words, hesitations, pace).
 /// Pure, local heuristic for the F4 Live Confidence Meter.
 ///
 /// Inputs a rolling window of transcribed user speech (last ~8 s by

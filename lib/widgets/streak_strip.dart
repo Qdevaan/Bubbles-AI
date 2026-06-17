@@ -1,3 +1,4 @@
+// Purpose: Weekly streak strip widget — renders 7 day-circles with filled/empty state for the streak view.
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../theme/design_tokens.dart';

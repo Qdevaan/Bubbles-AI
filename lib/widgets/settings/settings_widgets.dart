@@ -1,3 +1,4 @@
+// Purpose: Reusable tile and toggle widgets used across all settings sub-screens.
 ﻿import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';

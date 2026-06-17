@@ -1,3 +1,4 @@
+// Purpose: Warms up all repositories in parallel after login so the first screens render from cache, not network.
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';

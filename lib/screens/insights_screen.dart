@@ -1,3 +1,4 @@
+// Purpose: Insights screen — displays and manages the user's events, highlights, and notifications in a tabbed view.
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -63,7 +64,7 @@ class _InsightsScreenState extends State<InsightsScreen>
     super.dispose();
   }
 
-  // ── Load ─────────────────────────────────────────────────────────────────
+  // Load
 
   Future<void> _load({bool swr = false}) async {
     final repo = context.read<InsightsRepository>();
@@ -94,7 +95,7 @@ class _InsightsScreenState extends State<InsightsScreen>
     }
   }
 
-  // ── Delete ───────────────────────────────────────────────────────────────
+  // Delete
 
   Future<void> _deleteItem(InsightItem item) async {
     final uid = AuthService.instance.currentUserId;
@@ -123,7 +124,7 @@ class _InsightsScreenState extends State<InsightsScreen>
     }
   }
 
-  // ── Edit ─────────────────────────────────────────────────────────────────
+  // Edit
 
   Future<void> _editItem(InsightItem item) async {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -369,7 +370,7 @@ class _InsightsScreenState extends State<InsightsScreen>
     }
   }
 
-  // ── Confirm delete dialog ─────────────────────────────────────────────────
+  // Confirm delete dialog
 
   Future<void> _confirmDelete(InsightItem item) async {
     final ok = await AppDialog.confirm(
@@ -382,7 +383,7 @@ class _InsightsScreenState extends State<InsightsScreen>
     if (ok) await _deleteItem(item);
   }
 
-  // ── Item lists ────────────────────────────────────────────────────────────
+  // Item lists
 
   List<InsightItem> get _allItems {
     final out = [
@@ -424,7 +425,7 @@ class _InsightsScreenState extends State<InsightsScreen>
     return items;
   }
 
-  // ── Build ─────────────────────────────────────────────────────────────────
+  // Build
 
   @override
   Widget build(BuildContext context) {
@@ -646,7 +647,7 @@ class _InsightsScreenState extends State<InsightsScreen>
   }
 }
 
-// ── Input decoration helper ───────────────────────────────────────────────────
+// Input decoration helper
 
 InputDecoration _inputDeco(String label, bool isDark) => InputDecoration(
       labelText: label,

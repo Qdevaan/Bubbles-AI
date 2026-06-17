@@ -1,3 +1,4 @@
+// Purpose: Glassmorphism container widget — BackdropFilter + translucent background for the glass surface style.
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -6,7 +7,6 @@ import '../services/device_perf_tier.dart';
 import '../theme/design_tokens.dart';
 import '../theme/surface_style.dart';
 
-/// Returns the BackdropFilter wrapper when the active [SurfaceStyle] is
 /// [SurfaceStyle.glass]; otherwise renders [child] directly. The blur sigma
 /// is scaled by [DevicePerfTier.blurScale] so mid-tier devices use a cheaper
 /// pass without losing the glassmorphic aesthetic.

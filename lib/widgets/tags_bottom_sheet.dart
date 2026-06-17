@@ -1,3 +1,4 @@
+// Purpose: Bottom sheet for managing tags on a session or entity — shows existing tags and allows adding/removing.
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/tags_provider.dart';

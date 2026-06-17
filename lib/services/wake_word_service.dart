@@ -1,3 +1,4 @@
+// Purpose: Wraps the Porcupine SDK to listen for the 'Hey Bubbles' wake word and fire a callback when detected.
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show rootBundle;
@@ -28,7 +29,7 @@ class WakeWordService extends ChangeNotifier with WidgetsBindingObserver {
   /// Optional callback for user-facing error notifications.
   void Function(String message)? onError;
 
-  // ─── Initialisation ───────────────────────────────────
+  // Initialisation
 
   WakeWordService() {
     WidgetsBinding.instance.addObserver(this);
@@ -165,7 +166,7 @@ class WakeWordService extends ChangeNotifier with WidgetsBindingObserver {
     }
   }
 
-  // ─── Detection Callback ───────────────────────────────
+  // Detection Callback
 
   void _onWakeWordDetected(int keywordIndex) {
     debugPrint('🎙️ Porcupine: Wake word detected! (index: $keywordIndex)');
@@ -178,7 +179,7 @@ class WakeWordService extends ChangeNotifier with WidgetsBindingObserver {
     onError?.call('Wake word error: ${error.message}');
   }
 
-  // ─── Listening Control ────────────────────────────────
+  // Listening Control
 
   /// Start listening for the wake word.
   /// Porcupine handles its own audio capture via flutter_voice_processor.
@@ -209,7 +210,7 @@ class WakeWordService extends ChangeNotifier with WidgetsBindingObserver {
     }
   }
 
-  // ─── Cleanup ──────────────────────────────────────────
+  // Cleanup
 
   @override
   void dispose() {

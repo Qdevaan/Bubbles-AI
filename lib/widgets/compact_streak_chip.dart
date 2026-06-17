@@ -1,3 +1,4 @@
+// Purpose: Compact streak indicator chip — displays the current streak count inline (used in the app bar).
 ﻿import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../theme/design_tokens.dart';

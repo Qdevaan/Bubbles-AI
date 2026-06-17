@@ -1,3 +1,4 @@
+// Purpose: Consultant chat screen — streaming SSE AI chat interface backed by ConsultantProvider.
 import 'dart:convert';
 import 'dart:io';
 import 'dart:async';

@@ -1,3 +1,4 @@
+// Purpose: Central HTTP client for the FastAPI backend — handles voice, sessions, Consultant, Wingman, gamification, and graph endpoints.
 import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
@@ -17,12 +18,11 @@ class ApiService {
   String get _baseUrl => _connectionService.serverUrl;
   bool get isConnected => _connectionService.isConnected;
 
-  // ── Retry with exponential backoff ──
+  // Retry with exponential backoff
   static const int _maxRetries = 3;
   static const Duration _baseDelay = Duration(milliseconds: 500);
 
-  /// Retries [action] up to [_maxRetries] times with exponential backoff + jitter.
-  /// Only retries on network / timeout errors – not on successful HTTP responses.
+  // Retry with exponential backoff — only retries on network/timeout errors
   Future<T> _withRetry<T>(
     Future<T> Function() action, {
     int? maxRetries,
@@ -49,9 +49,8 @@ class ApiService {
     throw TimeoutException('All $retries retries exhausted');
   }
 
-  // ── Auth Header Builder ─────────────────────────────────────────────────────
-  /// Builds headers including the Supabase JWT Bearer token.
-  /// Falls back gracefully if the user is not logged in (dev/anonymous mode).
+  // Auth Header Builder
+  // Builds auth headers with the current Supabase JWT; safe to call when logged out
   Future<Map<String, String>> _authHeaders({
     bool isMultipart = false,
   }) async {
@@ -98,7 +97,7 @@ class ApiService {
     return null;
   }
 
-  // --- 1. VOICE ENROLLMENT ---
+  // Voice enrollment
   /// Uploads audio to enroll the user's voice signature.
   Future<String> enrollVoice({
     required String userId,
@@ -142,7 +141,6 @@ class ApiService {
     }
   }
 
-  /// Queries voice_enrollments to verify the embedding row exists.
   Future<String?> checkEnrollmentStatus(String userId) async {
     try {
       final res = await Supabase.instance.client
@@ -157,8 +155,7 @@ class ApiService {
     }
   }
 
-  // --- 2. LIVE WINGMAN ---
-  /// Sends a short audio chunk for live processing
+  // Live Wingman — short audio chunk processing
   Future<Map<String, dynamic>> processAudioChunk(String filePath) async {
     if (_baseUrl.isEmpty)
       return {"transcript": "", "suggestion": "No Server URL"};
@@ -187,8 +184,7 @@ class ApiService {
     }
   }
 
-  // --- 3. SESSION SAVING ---
-  /// Uploads the full session log for vector embedding
+  // Session saving — uploads the transcript for vector embedding
   Future<bool> saveSession(
     String userId,
     List<Map<String, dynamic>> logs,
@@ -226,8 +222,7 @@ class ApiService {
     }
   }
 
-  // --- 4. CONSULTANT ---
-  /// Asks the AI a question based on history
+  // Consultant — non-streaming ask
   Future<String> askConsultant(String userId, String question) async {
     if (_baseUrl.isEmpty) return "Please connect to the server first.";
 
@@ -256,7 +251,7 @@ class ApiService {
     }
   }
 
-  // --- 5. WINGMAN (TEXT) ---
+  // Wingman (text) — fire-and-forget suggestion with live coaching timeout
   Future<String?> sendTranscriptToWingman(
     String userId,
     String transcript, {
@@ -298,8 +293,7 @@ class ApiService {
     return null;
   }
 
-  // --- 6. SESSION LIFECYCLE ---
-  /// Creates a new live session on the server and returns the session_id.
+  // Session lifecycle
   Future<String?> createLiveSession(
       String userId, {
       String mode = "live_wingman",
@@ -341,7 +335,6 @@ class ApiService {
     return null;
   }
 
-  /// Ends a live session: fetches transcript, generates summary, marks completed.
   Future<void> endLiveSession(String sessionId, String userId) async {
     if (_baseUrl.isEmpty) return;
     try {
@@ -359,13 +352,7 @@ class ApiService {
     }
   }
 
-  // --- 7. STREAMING CONSULTANT (SSE) ---
-  /// Streams tokens from /ask_consultant_stream via Server-Sent Events.
-  ///
-  /// FIX: Improved SSE parsing that correctly handles:
-  ///   - Both \n and \r\n line endings (RFC 8895 compliant)
-  ///   - Double-newline (\n\n) event boundaries
-  ///   - Partial packets that don't end on a newline
+  // Streaming consultant (SSE) — tokens from /ask_consultant_stream
   Stream<String> askConsultantStream(
     String userId,
     String question, {
@@ -407,7 +394,7 @@ class ApiService {
         return;
       }
 
-      // ── Improved SSE parser ──────────────────────────────────────────────
+      // Improved SSE parser
       // Accumulates raw bytes into a string buffer and processes complete SSE
       // events delimited by double-newlines (\n\n or \r\n\r\n), which is the
       // RFC 8895 standard. This is robust against packet-splitting.
@@ -491,8 +478,7 @@ class ApiService {
     }
   }
 
-  // --- 8. ASK ABOUT ENTITY ---
-  /// Returns an AI summary of everything known about a named entity.
+  // Ask about a named entity — returns an AI-generated summary of what we know
   Future<String> askAboutEntity(String userId, String entityName) async {
     if (_baseUrl.isEmpty) return 'Server not connected.';
     try {
@@ -512,9 +498,7 @@ class ApiService {
     }
   }
 
-
-  // --- 9. SAVE FEEDBACK ---
-  /// Saves thumbs up/down or star rating feedback on a session_log or consultant_log.
+  // Save feedback (thumbs/star/text) on a session_log or consultant_log
   Future<bool> saveFeedback({
     required String userId,
     String? sessionId,
@@ -550,8 +534,7 @@ class ApiService {
     }
   }
 
-  // --- 10. GET SESSION ANALYTICS ---
-  /// Returns pre-computed session_analytics data for a session (null if not ready).
+  // Session analytics — returns pre-computed data for a session (null if not ready)
   Future<Map<String, dynamic>?> getSessionAnalytics(String sessionId) async {
     if (_baseUrl.isEmpty) return null;
     try {
@@ -571,8 +554,7 @@ class ApiService {
     }
   }
 
-  // --- 11. GET COACHING REPORT ---
-  /// Returns (and lazily generates) the coaching report for a session.
+  // Coaching report — lazily generated on first request
   Future<Map<String, dynamic>?> getCoachingReport(String sessionId) async {
     if (_baseUrl.isEmpty) return null;
     try {
@@ -592,7 +574,7 @@ class ApiService {
     }
   }
 
-  // --- 11b. GET KNOWLEDGE GRAPH EXPORT ---
+  // Knowledge graph export
   Future<Map<String, dynamic>?> getGraphExport(String userId) async {
     if (!_connectionService.isConnected) return null;
     try {
@@ -612,7 +594,7 @@ class ApiService {
     }
   }
 
-  // --- 12. PARSE VOICE COMMAND ---
+  // Voice command parsing
   Future<Map<String, dynamic>?> parseVoiceCommand(
     String userId,
     String command,
@@ -638,7 +620,7 @@ class ApiService {
     }
   }
 
-  // --- 13. GAMIFICATION & QUESTS ---
+  // Gamification & quests
   Future<Map<String, dynamic>?> getGamification(String userId) async {
     if (!_connectionService.isConnected) return null;
     try {
@@ -828,8 +810,7 @@ class ApiService {
     }
   }
 
-  // --- 14. AI PERFORMANCE SUMMARY (Adaptive Engine) ---
-  /// Returns AI-analyzed performance summary for adaptive gamification.
+  // Performance summary for the adaptive gamification engine
   Future<Map<String, dynamic>?> getPerformanceSummary(String userId) async {
     if (!_connectionService.isConnected) return null;
     try {
@@ -849,9 +830,7 @@ class ApiService {
     }
   }
 
-  // --- 15. GRAPH QUERY ENGINE ---
-  /// Sends a natural language question about a graph entity/topic and returns
-  /// the AI answer and session_id. Used by graph quick-reference and query bar.
+  // Graph query engine — NL questions about graph entities
   Future<Map<String, dynamic>> askGraphQuery(
     String userId,
     String query, {
@@ -900,8 +879,7 @@ class ApiService {
     }
   }
 
-  // --- 16. PERSONA (Role-aware AI) ---
-  /// Returns the current user's persona. Returns null on 404, throws on other errors.
+  // Persona (role-aware AI)
   Future<Map<String, dynamic>?> getMyPersona() async {
     if (_baseUrl.isEmpty) {
       throw Exception('Server URL not set.');
@@ -921,7 +899,6 @@ class ApiService {
     throw Exception('getMyPersona failed: ${res.statusCode} ${res.body}');
   }
 
-  /// Upserts the current user's persona. Returns parsed JSON on 200, throws otherwise.
   Future<Map<String, dynamic>> upsertMyPersona(PersonaUpdate update) async {
     if (_baseUrl.isEmpty) {
       throw Exception('Server URL not set.');
@@ -939,7 +916,6 @@ class ApiService {
     throw Exception('upsertMyPersona failed: ${res.statusCode} ${res.body}');
   }
 
-  /// Sets per-session context (scenario / role-mode / notes). Throws on non-200.
   Future<void> setSessionContext(
     String sessionId, {
     required String scenario,
@@ -966,7 +942,7 @@ class ApiService {
     }
   }
 
-  // ───────────────────────── F2 — Drill cards ─────────────────────────
+  // F2 — Drill cards
 
   Future<Map<String, dynamic>?> getDrillsQueue({
     int limit = 20,
@@ -1053,7 +1029,7 @@ class ApiService {
     }
   }
 
-  // ───────────────────────── F3 — Dashboard ─────────────────────────
+  // F3 — Dashboard
 
   Future<({Map<String, dynamic>? data, int statusCode})> getDashboard({
     String range = '30d',
@@ -1079,7 +1055,7 @@ class ApiService {
     }
   }
 
-  // ───────────────────────── F1 — Scenarios ─────────────────────────
+  // F1 — Scenarios
 
   Future<List<Map<String, dynamic>>?> getScenarios({
     String status = 'suggested',
@@ -1186,10 +1162,7 @@ class ApiService {
     }
   }
 
-  // ─────────────────── F4 — Per-turn confidence sync ───────────────────
-
-  /// Fire-and-forget bulk update for `session_logs.confidence`. Returns
-  /// the HTTP status code (0 on network error) so the caller can log it.
+  // Fire-and-forget bulk confidence update for session_logs.confidence
   Future<int> setSessionConfidence({
     required String sessionId,
     required List<Map<String, dynamic>> items,

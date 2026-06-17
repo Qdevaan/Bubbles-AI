@@ -1,3 +1,4 @@
+// Purpose: Pre-session mood check widget — lets the user rate their current energy/confidence before a session.
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';

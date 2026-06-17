@@ -1,3 +1,4 @@
+// Purpose: CacheEntry model — wraps a cached value with a creation timestamp for TTL expiry checks.
 class CacheEntry {
   final String key;
   final String? userId;        // null = global app entry

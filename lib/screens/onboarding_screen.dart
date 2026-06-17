@@ -1,3 +1,4 @@
+// Purpose: Onboarding flow screen — guides new users through profile setup, voice enrolment, and Performa persona creation.
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 

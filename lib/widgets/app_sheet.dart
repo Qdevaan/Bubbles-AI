@@ -1,3 +1,4 @@
+// Purpose: Reusable modal bottom sheet wrapper with drag handle, title row, and consistent padding.
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 

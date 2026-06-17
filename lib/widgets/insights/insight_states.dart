@@ -1,9 +1,10 @@
+// Purpose: Empty and error state widgets for the Insights screen — shown when there are no items or a fetch fails.
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../theme/design_tokens.dart';
 
-// ── Empty / Error states ──────────────────────────────────────────────────────
+// Empty / Error states
 
 class InsightsEmptyState extends StatelessWidget {
   final bool isDark;

@@ -1,3 +1,4 @@
+// Purpose: State manager for the user profile — fetches avatar, display name, and bio; handles profile updates.
 import 'package:flutter/material.dart';
 import '../models/core_identity.dart';
 import '../services/identity_service.dart';

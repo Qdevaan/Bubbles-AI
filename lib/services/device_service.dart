@@ -1,3 +1,4 @@
+// Purpose: Registers device metadata (platform, model, push token) with the Supabase devices table on first login.
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:device_info_plus/device_info_plus.dart';
@@ -8,7 +9,7 @@ import 'auth_service.dart';
 /// Registers and keeps the current device up-to-date in the `user_devices`
 /// table. Call [registerDevice] once after the user authenticates.
 class DeviceService {
-  // ── Singleton ──
+  // Singleton
   DeviceService._internal();
   static final DeviceService instance = DeviceService._internal();
 
@@ -18,7 +19,6 @@ class DeviceService {
   String? get currentDeviceDbId => _currentDeviceDbId;
 
   /// Upserts the current device into `user_devices`.
-  /// Returns the row UUID on success, null on failure.
   Future<String?> registerDevice() async {
     final user = AuthService.instance.currentUser;
     if (user == null) return null;

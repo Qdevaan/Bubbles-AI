@@ -1,3 +1,4 @@
+// Purpose: Detects device performance tier (high/low) at startup to decide whether to use glassmorphism or solid surfaces.
 import 'dart:io';
 
 import 'package:device_info_plus/device_info_plus.dart';

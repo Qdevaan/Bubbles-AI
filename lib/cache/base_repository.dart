@@ -1,3 +1,4 @@
+// Purpose: Abstract base class for all repositories — enforces a consistent cache-first fetch pattern.
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import '../services/app_cache_service.dart';

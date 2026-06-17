@@ -1,3 +1,4 @@
+// Purpose: Small pulsing dot indicator used on the home screen to signal new/unread content.
 import 'package:flutter/material.dart';
 
 class PulseDot extends StatefulWidget {

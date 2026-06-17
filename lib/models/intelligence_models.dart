@@ -1,3 +1,4 @@
+// Purpose: Intelligence domain models — entity types for knowledge and intelligence nodes in the graph.
 class MemoryItem {
   final String id;
   final String userId;

@@ -1,3 +1,4 @@
+// Purpose: Repository for gamification data — caches XP, quests, and badge rows fetched from Supabase.
 import '../cache/base_repository.dart';
 import '../cache/cache_constants.dart';
 import '../cache/cache_result.dart';

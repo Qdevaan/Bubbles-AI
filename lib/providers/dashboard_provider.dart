@@ -1,3 +1,4 @@
+// Purpose: State manager for the progress/dashboard screen — fetches XP history and skill growth stats.
 import 'package:flutter/foundation.dart';
 
 import '../models/dashboard_models.dart';

@@ -1,3 +1,4 @@
+// Purpose: Checklist item widget used in the pre-session checklist (mic check, context set, etc.).
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';

@@ -1,3 +1,4 @@
+// Purpose: Fetches and caches the user's tracked communication mistakes from the mistakes table.
 import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;

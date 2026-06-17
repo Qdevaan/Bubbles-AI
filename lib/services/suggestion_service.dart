@@ -1,3 +1,4 @@
+// Purpose: Sends transcript chunks to the Wingman suggestion endpoint and caches the latest AI coaching tip.
 import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;

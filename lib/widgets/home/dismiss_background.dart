@@ -1,3 +1,4 @@
+// Purpose: Swipe-to-dismiss background widget — shows a coloured background with icon when an insight card is being swiped.
 import 'package:flutter/material.dart';
 
 import '../../theme/design_tokens.dart';

@@ -1,3 +1,4 @@
+// Purpose: Entity detail screen — displays the knowledge graph profile for a named person or organisation.
 
 import 'package:flutter/material.dart';
 import 'dart:async';

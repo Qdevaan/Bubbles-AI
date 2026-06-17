@@ -1,3 +1,4 @@
+// Purpose: Dev-only screenshot capture tool — wraps a child widget and saves PNG screenshots to storage.
 import 'dart:io';
 import 'dart:ui' as ui;
 
@@ -8,7 +9,7 @@ import 'package:flutter/scheduler.dart';
 import 'package:image/image.dart' as img;
 import 'package:path_provider/path_provider.dart';
 
-/// ─────────────────────────────────────────────────────────────────────────
+/
 /// Long-screenshot developer tool.
 ///
 /// A draggable hover button (debug builds only) that captures the *entire*
@@ -29,7 +30,7 @@ import 'package:path_provider/path_provider.dart';
 ///   /storage/emulated/0/Android/data/<pkg>/files/Documentation/Screenshots
 /// Pull it with:
 ///   adb pull /sdcard/Android/data/<pkg>/files/Documentation/Screenshots ./Documentation
-/// ─────────────────────────────────────────────────────────────────────────
+/
 
 /// Tracks the live navigator stack so captures can be named after the route
 /// that's currently on screen (including nested sub-screens and popups).
@@ -178,7 +179,7 @@ class _ScreenshotToolState extends State<ScreenshotTool> {
     }
   }
 
-  // ── core ────────────────────────────────────────────────────────────────
+  // core
 
   Future<String> _runCapture() async {
     final BuildContext? ctx = _boundaryKey.currentContext;

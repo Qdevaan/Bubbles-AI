@@ -1,3 +1,4 @@
+// Purpose: Voice enrolment screen — records a short audio sample to register the user's voice signature with the backend.
 import 'dart:async';
 import 'dart:io';
 

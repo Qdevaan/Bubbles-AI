@@ -1,3 +1,4 @@
+// Purpose: Repository for the spaced-repetition drill queue — caches card batches and invalidates on session end.
 import '../cache/base_repository.dart';
 import '../cache/cache_constants.dart';
 import '../cache/cache_result.dart';

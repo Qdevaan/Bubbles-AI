@@ -1,3 +1,4 @@
+// Purpose: State manager for the Performa persona — fetches, caches, and updates the user's persona via the API.
 import 'package:flutter/foundation.dart';
 
 import 'package:bubbles/models/persona.dart';

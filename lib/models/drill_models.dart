@@ -1,3 +1,4 @@
+// Purpose: Data models for spaced-repetition drills: DrillCard, DrillResult, and ReviewResponse.
 import 'dart:convert';
 
 class DrillExample {

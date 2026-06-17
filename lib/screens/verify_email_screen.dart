@@ -1,3 +1,4 @@
+// Purpose: Email verification screen — shown after sign-up; lets the user check verification status or resend the email.
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -18,12 +19,7 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
   bool _loading = false;
 
   void _checkVerification() async {
-    // Reload user to get latest metadata
     try {
-      // Note: Supabase user reload might be needed depending on implementation,
-      // but accessing the property triggers a check on the current instance.
-      // Ideally, you might want to call _authService.refreshSession() if available.
-
       if (_authService.isEmailVerified) {
         Navigator.of(
           context,
@@ -32,7 +28,7 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
         AppSnackBar.show(context, message: 'Email not verified yet. Please check your inbox.');
       }
     } catch (e) {
-      // handle error
+      // ignore
     }
   }
 

@@ -1,3 +1,4 @@
+// Purpose: Bottom sheet for exporting session data — lets the user pick format (PDF/JSON) and trigger the export.
 import 'dart:io';
 import 'dart:convert';
 import 'package:flutter/material.dart';

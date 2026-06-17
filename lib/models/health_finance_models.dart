@@ -1,3 +1,4 @@
+// Purpose: Health and finance domain models — entity types for the graph explorer's health/finance node categories.
 class HealthMetric {
   final String id;
   final String userId;

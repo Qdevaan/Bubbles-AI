@@ -1,3 +1,4 @@
+// Purpose: Auth gate widget — listens to Supabase auth state changes and redirects between login and home accordingly.
 import 'package:flutter/material.dart';
 
 import 'app_bootstrap.dart';

@@ -1,3 +1,4 @@
+// Purpose: Barrel file exporting all insights widgets for clean imports in insights_screen.dart.
 /// Barrel file for insights widgets.
 /// Import this single file to get all insights-related components.
 library;

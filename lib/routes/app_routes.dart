@@ -1,3 +1,4 @@
+// Purpose: Defines every named route in the app and maps route names to screen widgets.
 class AppRoutes {
   static const home = '/home';
   static const consultant = '/consultant';

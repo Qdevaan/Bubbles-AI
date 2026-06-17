@@ -1,3 +1,4 @@
+// Purpose: Pulsing refresh indicator widget used while data is being reloaded in the background.
 import 'package:flutter/material.dart';
 
 import 'motion_scope.dart';

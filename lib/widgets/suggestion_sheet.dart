@@ -1,3 +1,4 @@
+// Purpose: Bottom sheet showing the full AI coaching suggestion from the Wingman for a session turn.
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 

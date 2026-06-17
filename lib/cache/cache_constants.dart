@@ -1,3 +1,4 @@
+// Purpose: Cache configuration constants — TTL values, max sizes, and key prefix namespaces.
 class CacheKeys {
   static String userProfile(String uid)       => 'user:$uid:profile';
   static String userSettings(String uid)      => 'user:$uid:settings';

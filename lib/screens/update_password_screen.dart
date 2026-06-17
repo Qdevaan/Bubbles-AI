@@ -1,3 +1,4 @@
+// Purpose: Update password screen — shown after a password-reset deep link; lets the user set a new password.
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 

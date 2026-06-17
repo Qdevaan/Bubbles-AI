@@ -1,3 +1,4 @@
+// Purpose: SurfaceStyle enum — defines glass vs solid surface modes and helpers to persist the chosen style.
 /// Visual style applied to surfaces (cards, sheets, dialogs, the bottom nav).
 ///
 /// * [glass] — translucent surfaces with `BackdropFilter` blur. Premium look

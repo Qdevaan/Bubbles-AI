@@ -1,3 +1,4 @@
+// Purpose: Progress screen — visualises the user's XP history, skill growth, and session frequency over time.
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';

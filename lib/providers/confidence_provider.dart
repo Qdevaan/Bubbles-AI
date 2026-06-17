@@ -1,3 +1,4 @@
+// Purpose: State manager for the real-time confidence score — accumulates per-turn scores during a live session.
 import 'package:flutter/foundation.dart';
 
 import '../services/api_service.dart';

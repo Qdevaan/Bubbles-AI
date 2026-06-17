@@ -1,3 +1,4 @@
+// Purpose: Streams microphone audio to the Deepgram WebSocket STT proxy — diarises speakers, buffers PCM, and emits interim transcripts.
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -152,9 +153,8 @@ class DeepgramService extends ChangeNotifier {
           final alt = alternatives[0];
           final transcript = alt['transcript'] as String;
 
-          // Emit interim transcripts to the live-suggestion stream.
-          // Note: interim text is NOT committed to _currentTranscript or
-          // _fullTranscript; only is_final results land there.
+          // Interim transcripts feed the live-suggestion stream but aren't committed
+          // to _currentTranscript — only is_final results land there
           if (transcript.trim().isNotEmpty && data['is_final'] != true) {
             _interimCtrl.add(transcript.trim());
           }
@@ -210,8 +210,8 @@ class DeepgramService extends ChangeNotifier {
     }
   }
 
-  /// Extract audio for [startSec..endSec], POST to /v1/identify_speaker,
-  /// update cache, and back-patch any transcript entries for this speakerId.
+  // Slices the recorded PCM audio, sends it to the speaker ID endpoint,
+  // caches the result, and back-patches any transcript turns with the fallback label
   Future<void> _identifySpeaker(int speakerId, double startSec, double endSec) async {
     final url = _serverUrl;
     final jwt = _jwt;
@@ -331,9 +331,6 @@ class DeepgramService extends ChangeNotifier {
     super.dispose();
   }
 
-  /// Save the buffered audio as a WAV file and the full transcript as a .txt
-  /// file to the app documents directory.  Returns a map with 'audio' and
-  /// 'transcript' paths, or null if there was nothing to save.
   Future<Map<String, String>?> saveSessionRecording(String sessionId) async {
     if (_fullTranscript.isEmpty && _audioBuffer.isEmpty) return null;
 
@@ -391,7 +388,6 @@ class DeepgramService extends ChangeNotifier {
     }
   }
 
-  /// Build a minimal 44-byte WAV header for mono 16-bit PCM at 16 kHz.
   static Uint8List _buildWavHeader(int dataSize) {
     final b = ByteData(44);
     void str(int offset, String s) {

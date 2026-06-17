@@ -1,3 +1,4 @@
+// Purpose: Task event models — typed representation of gamification task-completion events sent to the backend.
 class EventItem {
   final String id;
   final String userId;

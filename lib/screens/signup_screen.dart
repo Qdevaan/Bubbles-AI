@@ -1,3 +1,4 @@
+// Purpose: Sign-up screen — email/password registration with validation, leading into email verification.
 import 'dart:async';
 import '../theme/design_tokens.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';

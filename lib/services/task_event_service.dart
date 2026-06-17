@@ -1,3 +1,4 @@
+// Purpose: Writes task-completion events to Supabase so the gamification engine can award XP for completed tasks.
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/task_event_models.dart';
 

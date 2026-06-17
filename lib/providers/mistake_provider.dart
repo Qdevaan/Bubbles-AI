@@ -1,3 +1,4 @@
+// Purpose: State manager for tracked communication mistakes — loads and exposes the mistake list for session review.
 import 'package:flutter/foundation.dart';
 
 import '../services/mistake_service.dart';

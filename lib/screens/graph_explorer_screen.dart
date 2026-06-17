@@ -1,3 +1,4 @@
+// Purpose: Graph Explorer screen — renders the interactive knowledge graph and supports NL queries about entities.
 import 'dart:ui';
 import 'dart:convert';
 import 'package:flutter/material.dart';
@@ -39,7 +40,6 @@ IconData _iconForType(String? type) {
     default: return Icons.circle_outlined;
   }
 }
-
 
 class GraphExplorerScreen extends StatefulWidget {
   const GraphExplorerScreen({super.key});
@@ -143,7 +143,6 @@ class _GraphExplorerScreenState extends State<GraphExplorerScreen> {
       }
     });
   }
-
 
   Future<void> _loadGraph({bool swr = false}) async {
     setState(() {
@@ -624,8 +623,7 @@ class _GraphExplorerScreenState extends State<GraphExplorerScreen> {
   }
 }
 
-
-// ── Legend Widget ──────────────────────────────────────────────────────────────
+// Legend Widget
 
 class _EntityTypeLegend extends StatelessWidget {
   final _types = const [
@@ -676,7 +674,7 @@ class _EntityTypeLegend extends StatelessWidget {
   }
 }
 
-// ── Graph Query Bar ────────────────────────────────────────────────────────────
+// Graph Query Bar
 
 class _GraphQueryBar extends StatefulWidget {
   final TextEditingController controller;
@@ -873,7 +871,7 @@ class _GraphQueryBarState extends State<_GraphQueryBar> {
   }
 }
 
-// ── Graph Query Result Sheet ───────────────────────────────────────────────────
+// Graph Query Result Sheet
 
 class _GraphQueryResultSheet extends StatefulWidget {
   final String initialQuery;
@@ -1171,7 +1169,7 @@ class _GraphQueryResultSheetState extends State<_GraphQueryResultSheet> {
   }
 }
 
-// ── Entity Quick Reference Sheet ───────────────────────────────────────────────
+// Entity Quick Reference Sheet
 
 class _EntityQuickReferenceSheet extends StatefulWidget {
   final String label;
@@ -1509,7 +1507,7 @@ class _EntityQuickReferenceSheetState
   }
 }
 
-// ── Small stat chip ────────────────────────────────────────────────────────────
+// Small stat chip
 
 class _StatChip extends StatelessWidget {
   final IconData icon;

@@ -1,3 +1,4 @@
+// Purpose: Bottom sheet listing all tracked mistakes for a session with category labels and timestamps.
 import 'package:flutter/material.dart';
 
 import '../services/mistake_service.dart';

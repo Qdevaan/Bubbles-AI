@@ -1,3 +1,4 @@
+// Purpose: Wizard step 3 — collects the user's communication goals and focus areas.
 import 'package:flutter/material.dart';
 
 import '../draft.dart';

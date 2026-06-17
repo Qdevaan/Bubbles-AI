@@ -1,3 +1,4 @@
+// Purpose: Login screen — email/password and Google sign-in with validation and error feedback.
 import 'dart:async';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/material.dart';

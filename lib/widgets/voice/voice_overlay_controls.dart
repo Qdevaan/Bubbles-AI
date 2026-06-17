@@ -1,3 +1,4 @@
+// Purpose: Control buttons (cancel, tap-to-speak) rendered inside the voice assistant overlay.
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../services/voice_assistant_service.dart';

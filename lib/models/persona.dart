@@ -1,3 +1,4 @@
+// Purpose: Persona model — represents the full Performa user persona with goals, style, and language attributes.
 class Persona {
   final String userId;
   final String? displayName;

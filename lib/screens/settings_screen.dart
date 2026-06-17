@@ -1,3 +1,4 @@
+// Purpose: Settings hub screen — top-level settings menu that links to all sub-settings screens.
 ﻿import 'dart:async';
 import 'package:flutter/material.dart';
 
@@ -67,7 +68,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
                 child: Column(
                   children: [
-                    // ── Header ────────────────────────────────────────────
+                    // Header
                     Padding(
                       padding: const EdgeInsets.fromLTRB(8, 8, 16, 0),
                       child: Row(
@@ -115,7 +116,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
                     const SizedBox(height: 16),
 
-                    // ── Profile Hero Card ─────────────────────────────────
+                    // Profile Hero Card
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
                       child: _ProfileHeroCard(isDark: isDark, cs: cs),
@@ -123,8 +124,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
                     const SizedBox(height: 24),
 
-
-                    // ── Content ───────────────────────────────────────────
+                    // Content
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
                       child: GroupedContainer(
@@ -285,7 +285,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 }
 
-// ── Settings Navigation Tile ──────────────────────────────────────────
+// Settings Navigation Tile
 
 class SettingsNavigationTile extends StatelessWidget {
   final bool isDark;
@@ -366,7 +366,7 @@ class SettingsNavigationTile extends StatelessWidget {
   }
 }
 
-// ── Profile Hero Card ──────────────────────────────────────────────────────────
+// Profile Hero Card
 class _ProfileHeroCard extends StatelessWidget {
   final bool isDark;
   final ColorScheme cs;
@@ -599,7 +599,7 @@ class _OptionTile extends StatelessWidget {
   }
 }
 
-// ── Logout Button ──────────────────────────────────────────────────────────────
+// Logout Button
 class _LogoutButton extends StatelessWidget {
   final VoidCallback onTap;
 

@@ -1,3 +1,4 @@
+// Purpose: Manages the FastAPI server URL and connectivity status — pings the health endpoint and notifies listeners on change.
 import 'dart:async';
 import 'dart:math';
 

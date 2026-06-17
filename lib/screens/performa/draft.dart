@@ -1,3 +1,4 @@
+// Purpose: Draft/scratch file for the Performa persona wizard — not yet active in production routing.
 import 'package:bubbles/models/persona.dart';
 
 /// Mutable draft used to back the multi-step PerformaWizard. Step widgets

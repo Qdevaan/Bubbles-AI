@@ -1,3 +1,4 @@
+// Purpose: Performa settings screen — lets the user view and edit their saved Performa persona profile.
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';

@@ -1,3 +1,4 @@
+// Purpose: Slide-in notifications panel — shows recent notifications with read/unread state.
 import 'package:flutter/material.dart';
 import '../theme/design_tokens.dart';
 import 'package:google_fonts/google_fonts.dart';

@@ -1,3 +1,4 @@
+// Purpose: Bottom sheet for reviewing a past session — plays back the transcript log with timestamps and speaker labels.
 import 'dart:convert';
 import 'dart:io';
 

@@ -1,12 +1,10 @@
+// Purpose: State manager for the Home screen — fetches highlights, events, and notifications; subscribes to Realtime inserts.
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/auth_service.dart';
 import '../services/notification_service.dart';
 import '../repositories/home_repository.dart';
 
-/// Dedicated state manager for the HomeScreen.
-/// Fetches events, highlights and notifications; subscribes to Realtime
-/// inserts on both the `highlights` and `notifications` tables (schema_v2).
 class HomeProvider extends ChangeNotifier {
   final SupabaseClient _supabase = Supabase.instance.client;
 
@@ -63,8 +61,7 @@ class HomeProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Optimistically removes a single insight card and dismisses/archives it in Supabase.
-  /// [type] must be one of: 'highlight', 'event', 'notification'
+  // Optimistically removes a single insight card, then persists the dismissal
   Future<void> dismissInsight(String id, String type) async {
     // Optimistic removal
     switch (type) {
@@ -101,7 +98,7 @@ class HomeProvider extends ChangeNotifier {
     }
   }
 
-  // ── Mark a notification as read ──────────────────────────────────────────
+  // Mark a single notification as read and remove it from the local list
   Future<void> markNotificationRead(String notifId) async {
     try {
       await _supabase
@@ -115,7 +112,7 @@ class HomeProvider extends ChangeNotifier {
     }
   }
 
-  // ── Realtime: highlights ──────────────────────────────────────────────────
+  // Realtime: listen for new highlights and push them to the top of the list
   void subscribeToHighlights() {
     final user = AuthService.instance.currentUser;
     if (user == null) return;
@@ -149,7 +146,7 @@ class HomeProvider extends ChangeNotifier {
         .subscribe();
   }
 
-  // ── Realtime: notifications (schema_v2) ───────────────────────────────────
+  // Realtime: listen for new notifications (same pattern as highlights)
   void _subscribeToNotifications() {
     final user = AuthService.instance.currentUser;
     if (user == null) return;

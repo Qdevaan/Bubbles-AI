@@ -1,3 +1,4 @@
+// Purpose: Shared in-memory cache helper used by repositories to hold responses for the lifetime of the app process.
 import 'package:flutter/foundation.dart';
 import '../cache/cache_entry.dart';
 

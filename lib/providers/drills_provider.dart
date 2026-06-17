@@ -1,3 +1,4 @@
+// Purpose: State manager for the spaced-repetition drills feature — loads the card queue and submits reviews.
 import 'package:flutter/foundation.dart';
 
 import '../models/drill_models.dart';
@@ -96,9 +97,7 @@ class DrillsProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Returns the review response (with xpAwarded) on success, null on
-  /// failure. `statusCode` is exposed via the `lastReviewError` getter
-  /// for caller toast handling.
+  // statusCode of the last failed review — caller reads this to show a toast
   int? _lastReviewError;
   int? get lastReviewError => _lastReviewError;
 
@@ -149,8 +148,7 @@ class DrillsProvider extends ChangeNotifier {
     await _repo!.invalidateQueue(userId);
   }
 
-  /// Wait 2-5 s after `end_session`, then refresh once so worker-
-  /// materialised cards show up.
+  // Give the server a moment to materialise new cards after a session ends
   Future<void> refreshAfterSession({
     Duration delay = const Duration(seconds: 3),
   }) async {

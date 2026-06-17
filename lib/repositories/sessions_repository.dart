@@ -1,3 +1,4 @@
+// Purpose: Repository for session lists — caches live and consultant session rows for the sessions screen.
 import '../cache/base_repository.dart';
 import '../cache/cache_constants.dart';
 import '../cache/cache_result.dart';

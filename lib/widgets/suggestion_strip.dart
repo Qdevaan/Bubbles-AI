@@ -1,3 +1,4 @@
+// Purpose: Horizontal strip widget showing the latest Wingman AI coaching tip during a live session.
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 

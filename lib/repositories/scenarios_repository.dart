@@ -1,3 +1,4 @@
+// Purpose: Repository for suggested scenarios — caches the server response to avoid redundant fetches on tab switches.
 import '../cache/base_repository.dart';
 import '../cache/cache_constants.dart';
 import '../cache/cache_result.dart';

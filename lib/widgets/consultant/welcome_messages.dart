@@ -1,3 +1,4 @@
+// Purpose: Welcome message cards shown at the start of a new Consultant session before the user sends anything.
 const List<String> consultantWelcomeMessages = [
   "Hi, I'm Bubbles! Ready to dive deep into any topic today?",
   "Hello! Bubbles here. Ask me anything about your notes, tasks, or past conversations.",

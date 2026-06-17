@@ -1,3 +1,4 @@
+// Purpose: Wizard step 2 — collects the user's target language and proficiency level.
 import 'package:flutter/material.dart';
 
 import '../draft.dart';

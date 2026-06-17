@@ -1,3 +1,4 @@
+// Purpose: Repository for the home feed — caches highlights, events, and notifications with stale-while-revalidate logic.
 import '../cache/base_repository.dart';
 import '../cache/cache_constants.dart';
 import '../cache/cache_entry.dart';

@@ -1,3 +1,4 @@
+// Purpose: Help index screen — lists all available help topics and routes to the appropriate help sheet.
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 

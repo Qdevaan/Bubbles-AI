@@ -1,3 +1,4 @@
+// Purpose: Compact list tile for an insight — used in the swipeable insight list on the Insights screen.
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -6,7 +7,7 @@ import '../app_sheet.dart';
 import 'insight_item.dart';
 import 'insight_chips.dart';
 
-// ── Insight Tile ──────────────────────────────────────────────────────────────
+// Insight Tile
 
 class InsightTile extends StatefulWidget {
   final InsightItem item;

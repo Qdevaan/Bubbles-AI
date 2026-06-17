@@ -1,3 +1,4 @@
+// Purpose: Barrel file exporting all home-screen widgets for clean imports in home_screen.dart.
 /// Barrel file for home screen widgets.
 /// Import this single file to get all home-related components.
 library;

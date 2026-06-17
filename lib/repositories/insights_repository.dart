@@ -1,3 +1,4 @@
+// Purpose: Repository for insights (events, highlights, notifications) — applies SWR caching on top of InsightsService.
 import '../cache/base_repository.dart';
 import '../cache/cache_constants.dart';
 import '../cache/cache_result.dart';

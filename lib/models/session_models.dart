@@ -1,3 +1,4 @@
+// Purpose: Data models for session logs and transcripts used across live and consultant sessions.
 class Session {
   final String id;
   final String userId;

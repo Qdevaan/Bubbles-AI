@@ -1,3 +1,4 @@
+// Purpose: Route guard widget — redirects unauthenticated users to the login screen before rendering child screens.
 import 'package:flutter/material.dart';
 import '../routes/app_routes.dart';
 import '../services/auth_service.dart';

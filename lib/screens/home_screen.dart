@@ -1,3 +1,4 @@
+// Purpose: Home screen — the main dashboard showing insights, highlights, events, notifications, and quick-action buttons.
 import 'dart:async';
 import 'dart:ui';
 import 'package:flutter/material.dart';

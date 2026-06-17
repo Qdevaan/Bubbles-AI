@@ -1,3 +1,4 @@
+// Purpose: State manager for the Game Center — fetches XP, badges, quests, streaks, and the leaderboard.
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -15,7 +16,7 @@ class GamificationProvider extends ChangeNotifier {
 
   void setRepository(GamificationRepository repo) => _repository = repo;
 
-  // ── Profile data ──────────────────────────────────────────────────────────
+  // Profile data
   int _totalXp = 0;
   int get totalXp => _totalXp;
 
@@ -52,7 +53,7 @@ class GamificationProvider extends ChangeNotifier {
   String? _lastActiveDate;
   String? get lastActiveDate => _lastActiveDate;
 
-  // ── Quests ────────────────────────────────────────────────────────────────
+  // Quests
   List<Map<String, dynamic>> _dailyQuests = [];
   List<Map<String, dynamic>> get dailyQuests => List.unmodifiable(_dailyQuests);
 
@@ -65,7 +66,7 @@ class GamificationProvider extends ChangeNotifier {
   int _totalQuestsToday = 0;
   int get totalQuestsToday => _totalQuestsToday;
 
-  // ── Achievements & XP History ─────────────────────────────────────────────
+  // Achievements & XP History
   List<Map<String, dynamic>> _badges = [];
   List<Map<String, dynamic>> get badges => List.unmodifiable(_badges);
 
@@ -89,7 +90,7 @@ class GamificationProvider extends ChangeNotifier {
   Map<String, int> _stats = {};
   Map<String, int> get stats => Map.unmodifiable(_stats);
 
-  // ── AI Performance (Adaptive Engine) ──────────────────────────────────────
+  // AI Performance (Adaptive Engine)
   String? _performanceTier;
   String? get performanceTier => _performanceTier;
 
@@ -108,7 +109,7 @@ class GamificationProvider extends ChangeNotifier {
   double? _scoreDelta;
   double? get scoreDelta => _scoreDelta;
 
-  // ── Loading states ────────────────────────────────────────────────────────
+  // Loading states
   bool _profileLoading = true;
   bool get profileLoading => _profileLoading;
 
@@ -118,7 +119,7 @@ class GamificationProvider extends ChangeNotifier {
   bool _levelUpTriggered = false;
   bool get levelUpTriggered => _levelUpTriggered;
 
-  // ── Skill tier labels ─────────────────────────────────────────────────────
+  // Skill tier labels
 
   String get skillTierLabel {
     if (_level <= 3) return 'Seedling';
@@ -136,7 +137,7 @@ class GamificationProvider extends ChangeNotifier {
     return '👑';
   }
 
-  // ── Streak status helpers ─────────────────────────────────────────────────
+  // Streak status helpers
 
   bool get hasActiveStreak => _currentStreak > 0;
   bool get isStreakHot => _currentStreak >= 3;
@@ -159,11 +160,9 @@ class GamificationProvider extends ChangeNotifier {
 
   int get todayWeekdayIndex => DateTime.now().weekday - 1;
 
-  // ══════════════════════════════════════════════════════════════════════════
   // Data loading
-  // ══════════════════════════════════════════════════════════════════════════
 
-  // ── Daily quest issuance guard (called on app startup) ───────────────────
+  // Daily quest issuance guard (called on app startup)
   static const String _kLastQuestIssuedDate = 'gam_last_quest_issued_date';
 
   /// Called on app open. Checks if today's quests have been issued this session.
@@ -440,7 +439,7 @@ class GamificationProvider extends ChangeNotifier {
     return true;
   }
 
-  // ── Rewards (Phase 3) ─────────────────────────────────────────────────────
+  // Rewards (Phase 3)
   List<Map<String, dynamic>> _rewards = [];
   List<Map<String, dynamic>> get rewards => List.unmodifiable(_rewards);
 
@@ -468,7 +467,7 @@ class GamificationProvider extends ChangeNotifier {
     }
   }
 
-  // ── Leaderboard (Phase 4) ─────────────────────────────────────────────────
+  // Leaderboard (Phase 4)
   String _leaderboardPeriod = 'all';
   String get leaderboardPeriod => _leaderboardPeriod;
 

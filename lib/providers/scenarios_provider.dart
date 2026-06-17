@@ -1,3 +1,4 @@
+// Purpose: State manager for AI-generated scenarios — loads suggestions, triggers generation, and polls for completion.
 import 'package:flutter/foundation.dart';
 
 import '../models/scenario_models.dart';
@@ -109,9 +110,7 @@ class ScenariosProvider extends ChangeNotifier {
     return true;
   }
 
-  /// Polls `/v1/scenarios?status=completed` up to [maxAttempts] times.
-  /// Returns the scenario when its status flips to `completed`, or null
-  /// on timeout / not-found.
+  // Polls for scenario completion; returns the scenario or null on timeout
   Future<Scenario?> pollCompletion(
     String scenarioId, {
     Duration interval = const Duration(seconds: 2),

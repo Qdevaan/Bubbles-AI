@@ -1,9 +1,10 @@
+// Purpose: Quick-action button grid on the home screen — shortcuts to Start Session, Consultant, Drills, and Graph.
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../theme/design_tokens.dart';
 
-// ── QuickActionCard (grid style) ──────────────────────────────────────────────
+// QuickActionCard (grid style)
 
 class QuickActionCard extends StatefulWidget {
   final IconData icon;
@@ -101,7 +102,7 @@ class _QuickActionCardState extends State<QuickActionCard> {
   }
 }
 
-// ── Accent colours keyed by action id ────────────────────────────────────────
+// Accent colours keyed by action id
 
 const Map<String, Color> _kActionAccents = {
   'consultant': Color(0xFF38BDF8),
@@ -112,7 +113,7 @@ const Map<String, Color> _kActionAccents = {
   'insights': Color(0xFFF59E0B),
 };
 
-// ── QuickActionsSection (container with layout switching) ──────────────────────
+// QuickActionsSection (container with layout switching)
 
 class QuickActionsSection extends StatelessWidget {
   final String style;
@@ -261,7 +262,7 @@ class QuickActionsSection extends StatelessWidget {
   }
 }
 
-// ── _QuickPillsMode (2-per-line pill layout) ───────────────────────────────────
+// _QuickPillsMode (2-per-line pill layout)
 
 class _QuickPillsMode extends StatelessWidget {
   final List<Map<String, dynamic>> actions;
@@ -333,7 +334,7 @@ class _QuickPillsMode extends StatelessWidget {
   }
 }
 
-// ── QuickActionListTile ───────────────────────────────────────────────────────
+// QuickActionListTile
 
 class QuickActionListTile extends StatefulWidget {
   final IconData icon;
@@ -441,7 +442,7 @@ class _QuickActionListTileState extends State<QuickActionListTile> {
   }
 }
 
-// ── QuickActionIconStyle ──────────────────────────────────────────────────────
+// QuickActionIconStyle
 
 class QuickActionIconStyle extends StatefulWidget {
   final IconData icon;

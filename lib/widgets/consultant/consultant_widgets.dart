@@ -1,3 +1,4 @@
+// Purpose: Shared UI components for the Consultant screen — input bar, send button, and message list helpers.
 import 'package:flutter/material.dart';
 import '../../theme/design_tokens.dart';
 import 'package:google_fonts/google_fonts.dart';

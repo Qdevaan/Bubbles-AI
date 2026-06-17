@@ -1,3 +1,4 @@
+// Purpose: Primary reusable button widget — supports filled, outlined, and text variants with loading state.
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';

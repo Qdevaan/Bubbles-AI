@@ -1,3 +1,4 @@
+// Purpose: Language selection screen — lets the user choose their preferred app language.
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';

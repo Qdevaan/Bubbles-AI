@@ -1,3 +1,4 @@
+// Purpose: Animated waveform / pulse indicator that reflects the current voice assistant state (listening, processing, speaking).
 import 'dart:math';
 import 'package:flutter/material.dart';
 import '../../services/voice_assistant_service.dart';

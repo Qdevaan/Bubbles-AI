@@ -1,3 +1,4 @@
+// Purpose: Repository for the user profile row — caches profile data in SharedPreferences and syncs with Supabase.
 import '../cache/base_repository.dart';
 import '../cache/cache_constants.dart';
 import '../cache/cache_result.dart';

@@ -1,3 +1,4 @@
+// Purpose: Session analytics screen — displays detailed AI-generated analytics for a completed session (scores, charts, mistakes).
 import 'dart:convert';
 import 'dart:io';
 
@@ -156,7 +157,7 @@ class _SessionAnalyticsScreenState extends State<SessionAnalyticsScreen>
   }
 }
 
-// ── Analytics Tab ─────────────────────────────────────────────────────────────
+// Analytics Tab
 class _AnalyticsTab extends StatelessWidget {
   final String sessionId;
   final Map<String, dynamic>? analytics;
@@ -294,7 +295,7 @@ class _AnalyticsTab extends StatelessWidget {
   String _capitalize(String s) => s.isEmpty ? s : s[0].toUpperCase() + s.substring(1);
 }
 
-// ── Coaching Tab ──────────────────────────────────────────────────────────────
+// Coaching Tab
 class _CoachingTab extends StatelessWidget {
   final Map<String, dynamic>? report;
   final bool loading;
@@ -377,7 +378,7 @@ class _CoachingTab extends StatelessWidget {
   String _capitalize(String s) => s.isEmpty ? s : s[0].toUpperCase() + s.substring(1);
 }
 
-// ── Playback Tab ──────────────────────────────────────────────────────────────
+// Playback Tab
 class _PlaybackTab extends StatefulWidget {
   final String sessionId;
   const _PlaybackTab({required this.sessionId});
@@ -745,7 +746,7 @@ class _PLegend extends StatelessWidget {
   }
 }
 
-// ── Shared widgets ────────────────────────────────────────────────────────────
+// Shared widgets
 class _SectionCard extends StatelessWidget {
   final String title;
   final List<Widget> children;
@@ -874,7 +875,7 @@ class _LegendDot extends StatelessWidget {
   }
 }
 
-// ── fl_chart: Sentiment Line Chart ───────────────────────────────────────────
+// fl_chart: Sentiment Line Chart
 class _SentimentLineChart extends StatelessWidget {
   final List trend;
   const _SentimentLineChart({required this.trend});
@@ -933,7 +934,7 @@ class _SentimentLineChart extends StatelessWidget {
   }
 }
 
-// ── fl_chart: Conversational Tone Radar Chart ─────────────────────────────────
+// fl_chart: Conversational Tone Radar Chart
 class _ToneRadarChart extends StatelessWidget {
   final double aggression;
   final double empathy;

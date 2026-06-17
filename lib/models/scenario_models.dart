@@ -1,3 +1,4 @@
+// Purpose: Data models for AI-generated scenarios: Scenario and StartScenarioResponse.
 enum ScenarioStatus { suggested, started, completed, dismissed, unknown }
 
 ScenarioStatus parseScenarioStatus(String? s) {

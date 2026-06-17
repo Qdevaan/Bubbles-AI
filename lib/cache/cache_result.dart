@@ -1,3 +1,4 @@
+// Purpose: CacheResult wrapper — carries the fetched data alongside its cache source (memory, disk, network).
 enum CacheSource { memory, disk, network, none }
 
 class CacheResult<T> {

@@ -1,3 +1,4 @@
+// Purpose: Design token constants — colour palette (AppColors), spacing (AppSpacing), radius (AppRadius), and shadows.
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 

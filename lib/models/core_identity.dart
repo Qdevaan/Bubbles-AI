@@ -1,3 +1,4 @@
+// Purpose: CoreIdentity model — represents the user's base identity attributes used across persona and entity models.
 class Profile {
   final String id;
   final String? fullName;

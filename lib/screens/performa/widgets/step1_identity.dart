@@ -1,3 +1,4 @@
+// Purpose: Wizard step 1 — collects the user's name, role, and industry for the Performa persona.
 import 'package:flutter/material.dart';
 
 import '../../../services/auth_service.dart';

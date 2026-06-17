@@ -1,3 +1,4 @@
+// Purpose: Dashboard data models — typed wrappers for the dashboard payload returned by the stats endpoint.
 /// Models for the F3 longitudinal progress dashboard payload.
 ///
 /// Shape mirrors `/v1/dashboard?range=...` exactly:

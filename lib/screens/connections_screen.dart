@@ -1,3 +1,4 @@
+// Purpose: Server connection screen — lets the user input and test the FastAPI backend URL, and shows connectivity status.
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';

@@ -1,3 +1,4 @@
+// Purpose: Payload codec — serialises and deserialises complex model types to/from JSON for persistent cache storage.
 import 'dart:convert';
 import 'package:crypto/crypto.dart';
 

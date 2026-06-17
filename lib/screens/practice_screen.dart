@@ -1,3 +1,4 @@
+// Purpose: Practice screen — entry point for guided practice exercises (drills, scenarios, and roleplay).
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';

@@ -1,3 +1,4 @@
+// Purpose: Game Center screen — shows XP, level, streaks, badges, active quests, and the leaderboard.
 import 'dart:math';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
@@ -199,26 +200,26 @@ class _GameCenterScreenState extends State<GameCenterScreen>
                           : CustomScrollView(
                               controller: _scrollCtrl,
                               slivers: [
-                                // ── Hero: XP Ring ──
+                                // Hero: XP Ring
                                 SliverToBoxAdapter(
                                   child: _buildHeroSection(
                                       context, gp, isDark, primary),
                                 ),
 
-                                // ── Streak Section ──
+                                // Streak Section
                                 SliverToBoxAdapter(
                                   child: _buildStreakSection(
                                       context, gp, isDark),
                                 ),
 
-                                // ── AI Coach Card ──
+                                // AI Coach Card
                                 if (gp.aiCoachingTip != null)
                                   SliverToBoxAdapter(
                                     child: _buildAiCoachCard(
                                         context, gp, isDark),
                                   ),
 
-                                // ── Daily Quests Header ──
+                                // Daily Quests Header
                                 SliverToBoxAdapter(
                                   child: Padding(
                                     padding: const EdgeInsets.fromLTRB(
@@ -267,7 +268,7 @@ class _GameCenterScreenState extends State<GameCenterScreen>
                                   ),
                                 ),
 
-                                // ── Quest Cards ──
+                                // Quest Cards
                                 if (gp.questsLoading)
                                   const SliverToBoxAdapter(
                                     child: Padding(
@@ -309,33 +310,33 @@ class _GameCenterScreenState extends State<GameCenterScreen>
                                     ),
                                   ),
 
-                                // ── Rewards Shop ──
+                                // Rewards Shop
                                 SliverToBoxAdapter(
                                   child: _buildRewardsSection(
                                       context, gp, isDark),
                                 ),
 
-                                // ── Achievements Gallery ──
+                                // Achievements Gallery
                                 if (gp.badges.isNotEmpty)
                                   SliverToBoxAdapter(
                                     child: _buildAchievementsSection(
                                         context, gp, isDark),
                                   ),
 
-                                // ── Leaderboard ──
+                                // Leaderboard
                                 SliverToBoxAdapter(
                                   child: _buildLeaderboardSection(
                                       context, gp, isDark),
                                 ),
 
-                                // ── XP Activity Feed ──
+                                // XP Activity Feed
                                 if (gp.recentXp.isNotEmpty)
                                   SliverToBoxAdapter(
                                     child: _buildXpFeed(
                                         context, gp, isDark),
                                   ),
 
-                                // ── Stats Summary ──
+                                // Stats Summary
                                 SliverToBoxAdapter(
                                   child: _buildStatsSection(
                                       context, gp, isDark),
@@ -356,7 +357,7 @@ class _GameCenterScreenState extends State<GameCenterScreen>
     );
   }
 
-  // ── Hero Section ──────────────────────────────────────────────────────────
+  // Hero Section
   Widget _buildHeroSection(BuildContext context, GamificationProvider gp,
       bool isDark, Color primary) {
     return Padding(
@@ -544,7 +545,7 @@ class _GameCenterScreenState extends State<GameCenterScreen>
     );
   }
 
-  // ── Streak Section ────────────────────────────────────────────────────────
+  // Streak Section
   Widget _buildStreakSection(
       BuildContext context, GamificationProvider gp, bool isDark) {
     final weekDays = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
@@ -717,7 +718,7 @@ class _GameCenterScreenState extends State<GameCenterScreen>
     );
   }
 
-  // ── AI Coach Card ─────────────────────────────────────────────────────────
+  // AI Coach Card
   Widget _buildAiCoachCard(
       BuildContext context, GamificationProvider gp, bool isDark) {
     return Padding(
@@ -822,7 +823,7 @@ class _GameCenterScreenState extends State<GameCenterScreen>
     );
   }
 
-  // ── Achievements Gallery ──────────────────────────────────────────────────
+  // Achievements Gallery
   Widget _buildAchievementsSection(
       BuildContext context, GamificationProvider gp, bool isDark) {
     return Padding(
@@ -910,7 +911,7 @@ class _GameCenterScreenState extends State<GameCenterScreen>
     );
   }
 
-  // ── Rewards Shop ──────────────────────────────────────────────────────────
+  // Rewards Shop
   Widget _buildRewardsSection(
       BuildContext context, GamificationProvider gp, bool isDark) {
     if (gp.rewardsLoading && gp.rewards.isEmpty) {
@@ -984,7 +985,7 @@ class _GameCenterScreenState extends State<GameCenterScreen>
     );
   }
 
-  // ── Leaderboard ───────────────────────────────────────────────────────────
+  // Leaderboard
   Widget _buildLeaderboardSection(
       BuildContext context, GamificationProvider gp, bool isDark) {
     final theme = Theme.of(context);
@@ -1117,7 +1118,7 @@ class _GameCenterScreenState extends State<GameCenterScreen>
     );
   }
 
-  // ── XP Activity Feed ──────────────────────────────────────────────────────
+  // XP Activity Feed
   Widget _buildXpFeed(
       BuildContext context, GamificationProvider gp, bool isDark) {
     return Padding(
@@ -1183,7 +1184,7 @@ class _GameCenterScreenState extends State<GameCenterScreen>
     );
   }
 
-  // ── Stats Summary ─────────────────────────────────────────────────────────
+  // Stats Summary
   Widget _buildStatsSection(
       BuildContext context, GamificationProvider gp, bool isDark) {
     final items = [
@@ -1259,7 +1260,7 @@ class _GameCenterScreenState extends State<GameCenterScreen>
     );
   }
 
-  // ── Helpers ───────────────────────────────────────────────────────────────
+  // Helpers
 
   String _formatDuration(Duration d) {
     final h = d.inHours;
@@ -1307,7 +1308,7 @@ class _GameCenterScreenState extends State<GameCenterScreen>
   }
 }
 
-// ── Quest Card ──────────────────────────────────────────────────────────────
+// Quest Card
 
 class _QuestCard extends StatelessWidget {
   final Map<String, dynamic> quest;
@@ -1532,7 +1533,7 @@ class _QuestCard extends StatelessWidget {
   }
 }
 
-// ── Question Set Sheet ──────────────────────────────────────────────────────
+// Question Set Sheet
 
 class _QuestionSetSheet extends StatefulWidget {
   final Map<String, dynamic> quest;
@@ -1747,7 +1748,7 @@ class _QuestionSetSheetState extends State<_QuestionSetSheet> {
   }
 }
 
-// ── Conversation Mission Sheet ──────────────────────────────────────────────
+// Conversation Mission Sheet
 
 class _ConversationMissionSheet extends StatefulWidget {
   final Map<String, dynamic> quest;
@@ -2212,7 +2213,7 @@ class _BriefRow extends StatelessWidget {
   }
 }
 
-// ── Large ring painter ──────────────────────────────────────────────────────
+// Large ring painter
 
 class _LargeRingPainter extends CustomPainter {
   final double progress;
@@ -2262,7 +2263,7 @@ class _LargeRingPainter extends CustomPainter {
       old.progress != progress || old.ringColor != ringColor;
 }
 
-// ── Reward Card ─────────────────────────────────────────────────────────────
+// Reward Card
 
 class _RewardCard extends StatefulWidget {
   final Map<String, dynamic> reward;
@@ -2416,7 +2417,7 @@ class _RewardCardState extends State<_RewardCard> {
   }
 }
 
-// ── Leaderboard Row ─────────────────────────────────────────────────────────
+// Leaderboard Row
 
 class _LeaderboardRow extends StatelessWidget {
   final Map<String, dynamic> row;
@@ -2543,7 +2544,7 @@ class _LeaderboardRow extends StatelessWidget {
   }
 }
 
-// ── Self Rank Pill ──────────────────────────────────────────────────────────
+// Self Rank Pill
 
 class _SelfRankPill extends StatelessWidget {
   final Map<String, dynamic> self;
@@ -2601,7 +2602,7 @@ class _SelfRankPill extends StatelessWidget {
   }
 }
 
-// ── Milestone Unlock Dialog ─────────────────────────────────────────────────
+// Milestone Unlock Dialog
 
 class _MilestoneDialog extends StatelessWidget {
   final Map<String, dynamic> badge;

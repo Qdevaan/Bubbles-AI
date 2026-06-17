@@ -1,3 +1,4 @@
+// Purpose: Repository for graph export data — caches the full graph payload for the graph explorer screen.
 import '../cache/base_repository.dart';
 import '../cache/cache_constants.dart';
 import '../cache/cache_result.dart';

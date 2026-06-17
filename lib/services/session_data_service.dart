@@ -1,3 +1,4 @@
+// Purpose: Fetches session rows and related log data used by the session analytics and playback screens.
 import 'package:supabase_flutter/supabase_flutter.dart' hide Session;
 import '../models/session_models.dart';
 

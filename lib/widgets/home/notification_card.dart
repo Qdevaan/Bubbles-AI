@@ -1,3 +1,4 @@
+// Purpose: Notification card widget — renders a single notification row with read/unread styling.
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 

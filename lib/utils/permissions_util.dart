@@ -1,3 +1,4 @@
+// Purpose: Permission helper — wraps permission_handler to request microphone and notification permissions with status checks.
 import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
 
@@ -66,7 +67,6 @@ class PermissionsUtil {
     return status;
   }
 
-  /// Returns the current status for a single permission.
   static Future<PermissionStatus> checkPermission(Permission permission) async {
     if (permission == Permission.storage) {
       final status = await Permission.storage.status;

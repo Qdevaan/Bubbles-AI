@@ -1,3 +1,4 @@
+// Purpose: IoT domain models — entity types for IoT-related nodes in the knowledge graph.
 class IoTDevice {
   final String id;
   final String userId;

@@ -1,10 +1,10 @@
+// Purpose: Shimmer skeleton loader widget — shown while data is fetching instead of empty/plain spinners.
 import 'package:flutter/material.dart';
 
 import '../services/device_perf_tier.dart';
 import 'motion_scope.dart';
 
 /// Shimmer skeleton loader for content that's still loading.
-/// Provides a premium loading experience instead of plain spinners.
 class SkeletonLoader extends StatefulWidget {
   final double width;
   final double height;

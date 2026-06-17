@@ -1,3 +1,4 @@
+// Purpose: Section card widget for the session analytics screen — groups related metrics under a labelled card.
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 

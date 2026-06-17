@@ -1,3 +1,4 @@
+// Purpose: XP math utilities — calculates level from total XP, XP needed for the next level, and progress percentage.
 import 'dart:math';
 
 int xpForLevel(int level) => 50 * level * (level - 1);

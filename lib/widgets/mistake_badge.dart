@@ -1,3 +1,4 @@
+// Purpose: Badge widget that shows the count of tracked communication mistakes for a session.
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 

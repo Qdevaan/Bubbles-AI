@@ -1,6 +1,7 @@
+// Purpose: Animated list tile for an insight item — slides in on mount and fades out on dismiss.
 import 'package:flutter/material.dart';
 
-// ── Animated Insight Tile (stagger fade-in) ───────────────────────────────────
+// Animated Insight Tile (stagger fade-in)
 
 class AnimatedInsightTile extends StatefulWidget {
   final int index;

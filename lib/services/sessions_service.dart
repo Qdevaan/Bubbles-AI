@@ -1,18 +1,16 @@
+// Purpose: Supabase DB access for live and consultant sessions — stream, fetch, delete, and fetch logs.
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-/// Data-access layer for sessions and session-log tables.
-/// All direct Supabase DB calls from sessions_screen are routed through here.
 class SessionsService {
   SessionsService._internal();
   static final SessionsService instance = SessionsService._internal();
 
   final _client = Supabase.instance.client;
 
-  // ── Sessions table ──────────────────────────────────────────────────────────
+  // Sessions table
 
-  /// Returns a real-time stream of all sessions for [userId] filtered to
-  /// [mode] == 'live_wingman', ordered newest-first.
+  // Real-time stream of live_wingman sessions for a user, newest first
   Stream<List<Map<String, dynamic>>> streamLiveSessions(String userId) {
     return _client
         .from('sessions')
@@ -26,7 +24,6 @@ class SessionsService {
         );
   }
 
-  /// Fetches the list of live sessions once (Future-based).
   Future<List<Map<String, dynamic>>> fetchLiveSessions(String userId) async {
     final stopwatch = Stopwatch()..start();
     try {
@@ -45,8 +42,7 @@ class SessionsService {
     }
   }
 
-  /// Returns a one-time fetch of consultant sessions for [userId],
-  /// ordered newest-first (max 50 rows).
+  // One-time fetch of consultant sessions, newest first (max 50)
   Future<List<Map<String, dynamic>>> fetchConsultantSessions(
       String userId) async {
     final stopwatch = Stopwatch()..start();
@@ -66,13 +62,11 @@ class SessionsService {
     }
   }
 
-  /// Deletes the session row with the given [sessionId].
   Future<void> deleteSession(String sessionId) async {
     await _client.from('sessions').delete().eq('id', sessionId);
   }
 
-  /// Returns the user's most recent sessions across all modes, optionally
-  /// filtered to completed-only. Used by the conversation-mission session picker.
+  // Recent sessions across all modes, used by the conversation-mission picker
   Future<List<Map<String, dynamic>>> fetchRecentSessions(
     String userId, {
     int limit = 25,
@@ -91,10 +85,9 @@ class SessionsService {
     return List<Map<String, dynamic>>.from(data as List);
   }
 
-  // ── Log tables ──────────────────────────────────────────────────────────────
+  // Log tables
 
-  /// Fetches all log rows for [sessionId] from either 'consultant_logs' or
-  /// 'session_logs' depending on [isConsultant], ordered chronologically.
+  // Fetches all log rows for a session from either consultant_logs or session_logs
   Future<List<Map<String, dynamic>>> fetchSessionLogs({
     required String sessionId,
     required bool isConsultant,

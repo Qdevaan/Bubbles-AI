@@ -1,3 +1,4 @@
+// Purpose: App startup orchestrator — resolves the initial route from boot state and runs provider warmup post-paint.
 import 'dart:async';
 
 import 'package:connectivity_plus/connectivity_plus.dart';

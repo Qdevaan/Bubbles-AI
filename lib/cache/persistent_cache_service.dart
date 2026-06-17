@@ -1,3 +1,4 @@
+// Purpose: L2 persistent cache backed by SharedPreferences — stores serialised JSON keyed by user + scope.
 import 'dart:convert';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
