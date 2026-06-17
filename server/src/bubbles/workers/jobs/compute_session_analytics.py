@@ -1,3 +1,4 @@
+# Purpose: Background job that computes per-session stats (talk ratio, filler rate, sentiment) after a session ends.
 """Post-session analytics: title, summary, highlights, metrics row, coaching report."""
 
 from __future__ import annotations

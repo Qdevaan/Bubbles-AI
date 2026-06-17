@@ -1,3 +1,4 @@
+# Purpose: Exports fire_and_forget() and other utility helpers used across the legacy route handlers.
 """
 Shared utilities — fire_and_forget helper lives here to avoid circular imports
 with main.py (routes import it, main.py also imports routes).

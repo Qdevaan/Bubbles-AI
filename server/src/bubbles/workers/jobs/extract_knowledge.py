@@ -1,3 +1,4 @@
+# Purpose: Background job that pulls entities, relations, events, and tasks from a session transcript and persists them.
 """Pull entities + relations out of a session transcript and persist them."""
 
 from __future__ import annotations

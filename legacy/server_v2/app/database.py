@@ -1,3 +1,4 @@
+# Purpose: Module: database.
 """
 Supabase client singleton — used by all services.
 Uses the service-role key to bypass RLS (server enforces ownership checks).

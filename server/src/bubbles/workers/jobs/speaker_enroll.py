@@ -1,3 +1,4 @@
+# Purpose: Background job that submits audio samples to Deepgram for new speaker-profile enrollment.
 """Lazy speaker enrolment via SpeechBrain (worker-only).
 
 The model weights (~80 MB) load once per worker process on first call.

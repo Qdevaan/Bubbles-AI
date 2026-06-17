@@ -1,3 +1,4 @@
+# Purpose: Prometheus counter/histogram definitions shared across route handlers and background workers.
 """Prometheus collectors.
 
 One module-level registry. Every collector here is read by ``/metrics``.

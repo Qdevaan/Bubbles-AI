@@ -1,3 +1,4 @@
+# Purpose: Speaker enrollment and identification endpoints that proxy to the Deepgram diarisation service.
 """Speaker enrolment + verification routes.
 
 The heavy ECAPA model runs in the ARQ worker, never on the request path:

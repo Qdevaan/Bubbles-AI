@@ -1,3 +1,4 @@
+# Purpose: Module: settings.
 """Application settings.
 
 Frozen pydantic-settings model. One instance per process, cached.

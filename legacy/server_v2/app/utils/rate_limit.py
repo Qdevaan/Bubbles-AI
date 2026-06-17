@@ -1,3 +1,4 @@
+# Purpose: SlowAPI rate limiter configuration for the legacy server: per-user quotas on expensive endpoints.
 """
 SlowAPI rate limiter.
 Uses a compound key: user_id (from JWT state) + endpoint path for authenticated

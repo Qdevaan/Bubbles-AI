@@ -1,3 +1,4 @@
+# Purpose: Token-bucket rate limiter backed by Redis; enforces per-user request quotas on expensive endpoints.
 """Atomic Redis token-bucket rate limiter.
 
 One Lua script per call → one round-trip → atomic bucket update.

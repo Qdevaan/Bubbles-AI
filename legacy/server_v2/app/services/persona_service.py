@@ -1,3 +1,4 @@
+# Purpose: Fetches and caches user Performa persona profiles from Supabase for prompt construction.
 """Persona service -- typed performa CRUD + role-family classification."""
 
 import time

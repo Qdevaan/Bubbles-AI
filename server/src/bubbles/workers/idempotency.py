@@ -1,3 +1,4 @@
+# Purpose: Redis-backed idempotency guard that prevents duplicate execution of the same job payload.
 """Job-level idempotency via Redis SETNX.
 
 A job that's already been started (or finished) within the dedupe window

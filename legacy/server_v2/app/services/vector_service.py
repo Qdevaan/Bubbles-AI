@@ -1,3 +1,4 @@
+# Purpose: Manages the FAISS vector index for semantic memory search over past session transcripts.
 """
 VectorService — long-term memory via SentenceTransformer embeddings + pgvector.
 """

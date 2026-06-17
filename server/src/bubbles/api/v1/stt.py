@@ -1,3 +1,4 @@
+# Purpose: WebSocket proxy that streams audio from the Flutter client to Deepgram STT and returns transcripts.
 """Streaming STT WebSocket.
 
 Client wire format:

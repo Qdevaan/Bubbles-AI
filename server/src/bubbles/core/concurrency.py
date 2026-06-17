@@ -1,3 +1,4 @@
+# Purpose: Async concurrency helpers: bounded semaphores and task-group wrappers for background job fan-out.
 """Bounded concurrency helpers."""
 
 from __future__ import annotations

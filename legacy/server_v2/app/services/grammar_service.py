@@ -1,3 +1,4 @@
+# Purpose: Analyses session transcripts for grammar errors and stores per-session reports via LLM.
 """Grammar/style detector using LanguageTool.
 
 Env-toggle:

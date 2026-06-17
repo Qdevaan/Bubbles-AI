@@ -1,3 +1,4 @@
+# Purpose: Repository for XP ledger, quest assignments, streak records, and leaderboard aggregation.
 """Gamification repo: user_gamification + quests + rewards."""
 
 from __future__ import annotations

@@ -1,3 +1,4 @@
+# Purpose: Dashboard endpoint: returns the aggregated home-screen summary (XP, streak, recent sessions, quests).
 ﻿"""Progress dashboard route.
 
 Single omnibus endpoint ``GET /v1/dashboard?range={30d|90d|365d}``.

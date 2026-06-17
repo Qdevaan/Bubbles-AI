@@ -1,3 +1,4 @@
+# Purpose: Session lifecycle endpoints: start, save transcript chunks, end, and retrieve historical sessions.
 """Session lifecycle routes."""
 
 from __future__ import annotations

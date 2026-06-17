@@ -1,3 +1,4 @@
+# Purpose: Repository for achievement/badge records: insert new awards and query a user's unlocked badges.
 """achievements / user_achievements repo."""
 
 from __future__ import annotations

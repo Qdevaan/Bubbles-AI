@@ -1,3 +1,4 @@
+# Purpose: OpenRouter provider — fallback gateway that proxies requests to multiple model vendors.
 """OpenRouter adapter — OpenAI-compatible at openrouter.ai/api/v1."""
 
 from __future__ import annotations

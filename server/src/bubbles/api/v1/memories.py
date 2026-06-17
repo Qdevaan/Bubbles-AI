@@ -1,3 +1,4 @@
+# Purpose: Memory endpoints: list and search the user's rolling-summary memory store built from past sessions.
 """Memory admin routes."""
 
 from __future__ import annotations

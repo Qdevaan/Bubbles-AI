@@ -1,3 +1,4 @@
+# Purpose: Persona endpoints for the legacy server: create and fetch the user's Performa communication profile.
 """Persona routes -- typed performa CRUD."""
 
 import asyncio

@@ -1,3 +1,4 @@
+# Purpose: Module: deps.
 """FastAPI dependency providers.
 
 All long-lived resources (DB pool, Redis, AI router, embeddings) are stored

@@ -1,3 +1,4 @@
+# Purpose: Sends streak-reminder push notifications via Supabase Edge Functions on inactivity.
 """Daily reminder push: top-3 mistake categories per user via FCM."""
 from __future__ import annotations
 

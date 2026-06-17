@@ -1,3 +1,4 @@
+# Purpose: Marks the package directory as a Python package.
 """Bubbles Brain API v5."""
 
 from importlib.metadata import PackageNotFoundError, version

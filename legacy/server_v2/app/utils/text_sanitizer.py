@@ -1,3 +1,4 @@
+# Purpose: Strips HTML, trims whitespace, and normalises Unicode in user-supplied text before LLM processing.
 """
 Input sanitization — strips prompt-injection patterns and caps input length.
 """

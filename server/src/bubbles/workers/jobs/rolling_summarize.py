@@ -1,3 +1,4 @@
+# Purpose: Background job that maintains a rolling summary of the user's session history for the memory store.
 """Rolling-summary job — every N turns, summarise recent session_logs.
 
 Reads the last ``_TAIL_TURNS`` turns from ``session_logs``, asks the wingman

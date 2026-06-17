@@ -1,3 +1,4 @@
+# Purpose: Background job that evaluates a completed roleplay scenario and awards XP based on performance.
 """score_scenario worker — grades a finished roleplay against its scenario.
 
 Enqueued from end_session when the ended session was started from a

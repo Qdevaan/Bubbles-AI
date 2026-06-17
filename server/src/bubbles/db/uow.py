@@ -1,3 +1,4 @@
+# Purpose: Async Unit-of-Work context manager that wraps a DB session and commits/rolls back on exit.
 """Unit of Work — request-scoped async transaction wrapper.
 
 Usage::

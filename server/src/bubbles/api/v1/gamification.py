@@ -1,3 +1,4 @@
+# Purpose: Gamification endpoints: XP ledger, level progress, quest list, badge inventory, leaderboard.
 """Gamification HTTP routes — XP profile, daily quests, rewards, leaderboard.
 
 All ``{user_id}``-path routes verify the path id matches the authenticated

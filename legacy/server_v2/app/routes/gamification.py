@@ -1,3 +1,4 @@
+# Purpose: Gamification endpoints for the legacy server: XP, quests, badges, and leaderboard.
 """
 Gamification routes — XP profile and daily quests.
 
@@ -17,9 +18,7 @@ from app.utils.auth_guard import get_verified_user, VerifiedUser, verify_ownersh
 router = APIRouter()
 
 
-# ══════════════════════════════════════════════════════════════════════════════
 # GET /gamification/{user_id}
-# ══════════════════════════════════════════════════════════════════════════════
 
 @router.get("/gamification/{user_id}")
 @limiter.limit("20/minute")
@@ -44,9 +43,7 @@ async def get_gamification(
     return profile
 
 
-# ══════════════════════════════════════════════════════════════════════════════
 # GET /quests/{user_id}
-# ══════════════════════════════════════════════════════════════════════════════
 
 @router.get("/quests/{user_id}")
 @limiter.limit("20/minute")
@@ -82,9 +79,7 @@ async def get_quests(
     }
 
 
-# ══════════════════════════════════════════════════════════════════════════════
 # POST /quests/{user_id}/{user_quest_id}/answer  (question_set missions)
-# ══════════════════════════════════════════════════════════════════════════════
 
 @router.post("/quests/{user_id}/{user_quest_id}/answer")
 @limiter.limit("60/minute")
@@ -122,9 +117,7 @@ async def submit_quest_answer(
         raise HTTPException(status_code=500, detail="Failed to submit answer")
 
 
-# ══════════════════════════════════════════════════════════════════════════════
 # POST /quests/{user_id}/{user_quest_id}/attach_session  (conversation missions)
-# ══════════════════════════════════════════════════════════════════════════════
 
 @router.post("/quests/{user_id}/{user_quest_id}/attach_session")
 @limiter.limit("30/minute")
@@ -160,9 +153,7 @@ async def attach_quest_session(
         raise HTTPException(status_code=500, detail="Failed to attach session")
 
 
-# ══════════════════════════════════════════════════════════════════════════════
 # GET /rewards/{user_id}  (catalog with affordability + ownership)
-# ══════════════════════════════════════════════════════════════════════════════
 
 @router.get("/rewards/{user_id}")
 @limiter.limit("20/minute")
@@ -178,9 +169,7 @@ async def list_rewards(
     return await gamification_svc.list_rewards(user_id)
 
 
-# ══════════════════════════════════════════════════════════════════════════════
 # POST /rewards/{user_id}/redeem
-# ══════════════════════════════════════════════════════════════════════════════
 
 @router.post("/rewards/{user_id}/redeem")
 @limiter.limit("10/minute")
@@ -210,9 +199,7 @@ async def redeem_reward(
         raise HTTPException(status_code=500, detail="Failed to redeem reward")
 
 
-# ══════════════════════════════════════════════════════════════════════════════
 # GET /leaderboard?period=daily|weekly|monthly|all&limit=25
-# ══════════════════════════════════════════════════════════════════════════════
 
 @router.get("/leaderboard")
 @limiter.limit("30/minute")
@@ -232,9 +219,7 @@ async def get_leaderboard(
     )
 
 
-# ══════════════════════════════════════════════════════════════════════════════
 # POST /leaderboard/{user_id}/opt_in
-# ══════════════════════════════════════════════════════════════════════════════
 
 @router.post("/leaderboard/{user_id}/opt_in")
 @limiter.limit("10/minute")

@@ -1,3 +1,4 @@
+# Purpose: Generates signed LiveKit access tokens for Wingman real-time voice room sessions.
 """LiveKit access tokens.
 
 Wraps the official ``livekit-api`` ``AccessToken``. The room name is derived

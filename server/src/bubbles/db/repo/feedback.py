@@ -1,3 +1,4 @@
+# Purpose: Repository for user feedback submissions on AI responses (thumbs up/down, correction text).
 """Feedback repo — user thumbs/star/text feedback rows."""
 
 from __future__ import annotations

@@ -1,3 +1,4 @@
+# Purpose: Proxies TTS synthesis requests to Deepgram Aura and streams the audio back to the Flutter client.
 """Text-to-speech.
 
 Free Microsoft Edge TTS by default (no key). When ``ELEVENLABS_API_KEY`` is

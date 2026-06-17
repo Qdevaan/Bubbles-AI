@@ -1,3 +1,4 @@
+# Purpose: Background job that analyses session transcripts for grammar errors and writes a per-session report.
 """Background grammar scan via LanguageTool.
 
 Runs in the worker so the request path stays fast. The LT JVM is loaded

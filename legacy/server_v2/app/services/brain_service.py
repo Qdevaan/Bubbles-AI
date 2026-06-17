@@ -1,3 +1,4 @@
+# Purpose: Multi-provider LLM inference service for the legacy server: routes Wingman, Consultant, and extraction calls.
 ﻿"""
 BrainService — Multi-provider LLM inference layer.
 
@@ -231,7 +232,6 @@ class BrainService:
         is_roleplay = mode == "roleplay"
         mode_instruction = self._persona_instruction(mode, persona)
         graph_context = self._truncate_to_token_limit(graph_context, 300)
-        # NOTE: vector_context (cross-session memories) is intentionally NOT
         # passed to the non-roleplay prompt — every live session is fresh.
 
         # Determine whether graph facts are actually useful for this turn.

@@ -1,3 +1,4 @@
+# Purpose: Module: main.
 """
 Bubbles Brain API v4 — FastAPI entry point.
 

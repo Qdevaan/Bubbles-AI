@@ -1,3 +1,4 @@
+# Purpose: BetterStack Logtail sink integration that ships structured log events to the cloud logging platform.
 """Optional Logtail (Better Stack) HTTP log shipper.
 
 Wraps a stdlib ``Handler`` that posts batched JSON lines to Logtail's HTTP

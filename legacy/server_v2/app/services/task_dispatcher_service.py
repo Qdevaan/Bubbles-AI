@@ -1,3 +1,4 @@
+# Purpose: Schedules background analysis tasks (entity extraction, graph update, gamification) after a session ends.
 """
 TaskDispatcherService — personalizes conversation mission briefs after each session.
 

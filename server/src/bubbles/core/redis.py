@@ -1,3 +1,4 @@
+# Purpose: Async Redis client factory and connection-pool lifecycle management (aioredis).
 """Async Redis client wrapper."""
 
 from __future__ import annotations

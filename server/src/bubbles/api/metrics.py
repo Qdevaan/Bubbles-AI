@@ -1,3 +1,4 @@
+# Purpose: Exposes Prometheus-format metrics at GET /metrics for scraping by the observability stack.
 """``/metrics`` endpoint with basic-auth gate.
 
 Cardinality safety: we label by ``method`` and ``route.path`` (the path

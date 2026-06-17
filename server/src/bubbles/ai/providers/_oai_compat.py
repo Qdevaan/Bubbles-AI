@@ -1,3 +1,4 @@
+# Purpose: OpenAI-compatible HTTP client mixin shared by providers that use the /chat/completions API shape.
 """Shared OpenAI-compatible chat-completions client.
 
 Cerebras and Groq both expose an OpenAI-compatible /v1/chat/completions API.

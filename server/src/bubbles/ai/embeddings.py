@@ -1,3 +1,4 @@
+# Purpose: Generates and caches sentence-level text embeddings via the configured AI provider for semantic search.
 """Embedding service with Gemini primary + cache.
 
 Local ONNX fallback is wired behind the same interface but loaded lazily so

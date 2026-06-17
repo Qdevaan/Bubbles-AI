@@ -1,3 +1,4 @@
+# Purpose: Wingman live coaching endpoints: accepts real-time transcript turns and streams AI suggestions.
 """Real-time wingman advice loop (``process_transcript_wingman``).
 
 Per turn: persist the incoming turn, and — for a turn from the *other* party —

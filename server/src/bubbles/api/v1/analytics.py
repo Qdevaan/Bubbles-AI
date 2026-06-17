@@ -1,3 +1,4 @@
+# Purpose: Analytics endpoints: per-user session stats, skill trend series, and leaderboard queries.
 """Analytics read endpoints + feedback write.
 
 - POST /v1/save_feedback                       — record user feedback (idempotent)

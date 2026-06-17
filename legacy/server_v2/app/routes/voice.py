@@ -1,3 +1,4 @@
+# Purpose: Voice command parsing endpoint for the legacy server using LLM intent classification.
 """
 Voice routes — voice command parsing, LiveKit token generation, and speaker enrollment.
 Records audit logs for voice commands and enrollments.
@@ -21,9 +22,7 @@ from livekit import api
 router = APIRouter()
 
 
-# ══════════════════════════════════════════════════════════════════════════════
 # POST /process_audio  (audio chunk → transcript + wingman advice)
-# ══════════════════════════════════════════════════════════════════════════════
 
 @router.post("/process_audio")
 @limiter.limit("30/minute")
@@ -111,9 +110,7 @@ async def process_audio(
             os.unlink(tmp_path)
 
 
-# ══════════════════════════════════════════════════════════════════════════════
 # POST /getToken  (LiveKit JWT)
-# ══════════════════════════════════════════════════════════════════════════════
 
 @router.post("/getToken")
 @limiter.limit("15/minute")
@@ -132,9 +129,7 @@ async def get_token(request: Request, req: TokenRequest):
     return {"token": jwt_token, "url": settings.LIVEKIT_URL}
 
 
-# ══════════════════════════════════════════════════════════════════════════════
 # POST /voice_command
-# ══════════════════════════════════════════════════════════════════════════════
 
 @router.post("/voice_command")
 @limiter.limit("15/minute")
@@ -261,9 +256,7 @@ async def voice_command(request: Request, req: VoiceCommandRequest):
             return {"action": "speak", "target": None, "response": "Hey! I'm here to help. What can I do for you?"}
 
 
-# ══════════════════════════════════════════════════════════════════════════════
 # POST /enroll  (voice enrollment)
-# ══════════════════════════════════════════════════════════════════════════════
 
 _speaker_model = None
 
@@ -356,9 +349,7 @@ async def enroll_voice(
             os.unlink(tmp_path)
 
 
-# ══════════════════════════════════════════════════════════════════════════════
 # POST /identify_speaker  (compare audio against enrolled voiceprint)
-# ══════════════════════════════════════════════════════════════════════════════
 
 @router.post("/identify_speaker")
 @limiter.limit("120/minute")

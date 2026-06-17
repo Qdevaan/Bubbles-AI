@@ -1,3 +1,4 @@
+# Purpose: Project-wide exception hierarchy (BubblesError, UpstreamUnavailable, NotFound, ValidationError, etc.).
 """Typed errors + JSON envelope handlers.
 
 Public envelope::

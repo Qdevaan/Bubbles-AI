@@ -1,3 +1,4 @@
+# Purpose: Pure XP/level math (cumulative_xp, level_for_xp, level_progress) — no I/O, formula ported from server_v2.
 """Pure XP/level math — no I/O. Formula ported from server_v2.
 
 cumulative_xp(level) = 50 * level * (level - 1)

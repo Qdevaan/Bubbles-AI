@@ -1,3 +1,4 @@
+# Purpose: Consultant chat endpoints: starts a Q&A session and streams AI responses via SSE.
 """Consultant routes — streaming SSE by default, JSON when ``stream=false``."""
 
 from __future__ import annotations

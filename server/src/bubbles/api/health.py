@@ -1,3 +1,4 @@
+# Purpose: GET /health and GET /ready endpoints for load-balancer liveness and readiness probes.
 """Health endpoints.
 
 - ``/health/live`` — process is up. Always 200.

@@ -1,3 +1,4 @@
+# Purpose: Repository for speaker-enrollment records linking Deepgram speaker IDs to Bubbles user IDs.
 """Voice-enrolment repo (``voice_enrollments``).
 
 One row per user holds their speaker embedding (192-dim ECAPA). Re-enrolling

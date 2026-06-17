@@ -1,3 +1,4 @@
+# Purpose: Cerebras Cloud SDK provider — used for low-latency Wingman coaching inference (llama3.1-8b).
 """Cerebras adapter — OpenAI-compatible at api.cerebras.ai/v1."""
 
 from __future__ import annotations

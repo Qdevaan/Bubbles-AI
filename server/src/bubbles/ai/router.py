@@ -1,3 +1,4 @@
+# Purpose: Provider-agnostic LLM router that selects Cerebras, Groq, Gemini, or OpenRouter based on task type and availability.
 """LLM router with per-task chains, circuit breaker, and budget.
 
 Each task (e.g. ``consultant.stream``, ``wingman.json``) declares an ordered

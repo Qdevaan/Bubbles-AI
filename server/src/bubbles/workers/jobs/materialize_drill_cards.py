@@ -1,3 +1,4 @@
+# Purpose: Background job that converts grammar errors and session mistakes into spaced-repetition drill flashcards.
 """materialize_drill_cards worker — turns this session's mistakes into drill cards.
 
 Fired from the ``end_session`` fan-out alongside ``generate_scenarios``.

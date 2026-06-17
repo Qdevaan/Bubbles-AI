@@ -1,3 +1,4 @@
+# Purpose: Validates transcript chunk payloads and batch log submissions before they reach the service layer.
 """
 Input validation helpers — defense-in-depth beyond Pydantic field constraints.
 These are plain functions, not FastAPI dependencies. Call them at the top of

@@ -1,3 +1,4 @@
+# Purpose: Repository for session lifecycle records: start, save chunks, end, and fetch session history.
 """Sessions repo — straight asyncpg, no ORM."""
 
 from __future__ import annotations

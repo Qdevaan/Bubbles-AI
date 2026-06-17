@@ -1,3 +1,4 @@
+# Purpose: Voice command endpoints: parses spoken commands via LLM and routes them to the appropriate action.
 """Voice routes — process_audio, tts, getToken, voice_command."""
 
 from __future__ import annotations

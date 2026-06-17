@@ -1,3 +1,4 @@
+# Purpose: Mounts all versioned API routers (v1/*) and infrastructure endpoints onto the FastAPI app.
 """Mount all /v1 sub-routers under a single prefix."""
 
 from __future__ import annotations

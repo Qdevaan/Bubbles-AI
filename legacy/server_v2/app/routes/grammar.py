@@ -1,3 +1,4 @@
+# Purpose: Grammar scan endpoints for the legacy server: retrieve per-session error reports.
 """Grammar / mistake-tracker routes."""
 from __future__ import annotations
 

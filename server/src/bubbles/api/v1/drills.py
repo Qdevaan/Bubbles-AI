@@ -1,3 +1,4 @@
+# Purpose: Drill (spaced-repetition flashcard) endpoints: list due cards, submit review results, award XP.
 """Drill (spaced-repetition) routes.
 
 Three endpoints under ``/v1/drills``:

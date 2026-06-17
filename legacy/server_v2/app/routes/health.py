@@ -1,3 +1,4 @@
+# Purpose: Health-check endpoint for the legacy server used by ngrok and monitoring scripts.
 """
 Health & root endpoints — no auth, no rate-limiting.
 """

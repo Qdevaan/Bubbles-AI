@@ -1,3 +1,4 @@
+# Purpose: Pure Leitner-box math for spaced-repetition drill scheduling — no I/O, fully unit-testable.
 """Pure helpers for the drill (spaced-repetition) subsystem.
 
 Leitner-box transition math. No I/O, no DB, no LLM — unit-testable.

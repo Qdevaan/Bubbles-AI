@@ -1,3 +1,4 @@
+# Purpose: Loads and renders Jinja2 prompt templates from disk, injecting persona and session context variables.
 """Jinja2 template loader for prompts.
 
 Templates live under ``src/bubbles/ai/prompts/`` so they ship with the

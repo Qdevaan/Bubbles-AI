@@ -1,3 +1,4 @@
+# Purpose: Dependency-injection factory that wires provider clients and AI services into a single injectable AIContainer.
 """Build the AI router + embeddings stack from Settings.
 
 We register only providers whose API keys are set. Empty chains short-circuit

@@ -1,3 +1,4 @@
+# Purpose: Circuit-breaker implementation that trips after consecutive upstream failures and auto-resets after a cooldown.
 """Sliding-window circuit breaker.
 
 States: closed → open → half_open → closed.

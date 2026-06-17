@@ -1,3 +1,4 @@
+# Purpose: Scenario endpoints: list generated roleplay scenarios, start a scenario session, and submit scores.
 """Personalized roleplay scenario routes.
 
 Scenarios are generated from the user's knowledge graph (see

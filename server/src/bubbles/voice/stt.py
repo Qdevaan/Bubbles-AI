@@ -1,3 +1,4 @@
+# Purpose: Bidirectional WebSocket proxy between the Flutter client and Deepgram STT with speaker diarisation.
 """Speech-to-text via Groq Whisper.
 
 Groq exposes an OpenAI-compatible ``audio/transcriptions`` endpoint:

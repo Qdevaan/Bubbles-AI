@@ -1,3 +1,4 @@
+# Purpose: Repository for rolling-summary memory rows built from session transcripts via the summarise worker.
 """Memory repo with optional pgvector similarity search.
 
 The vector column is `vector(384)`. We accept embeddings as `list[float]`

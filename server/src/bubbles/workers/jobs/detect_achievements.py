@@ -1,3 +1,4 @@
+# Purpose: Background job that evaluates achievement unlock conditions and awards badges after significant events.
 """Award any achievements whose criteria the user now meets.
 
 Enqueued after activity that can change a user's stats (e.g. ``end_session``).

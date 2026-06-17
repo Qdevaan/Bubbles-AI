@@ -1,3 +1,4 @@
+# Purpose: Deterministic BLAKE2b hashing utilities for generating idempotency keys from structured inputs.
 """Stable content hashing for cache keys.
 
 blake3 is faster than sha256 and we never need cryptographic strength here —

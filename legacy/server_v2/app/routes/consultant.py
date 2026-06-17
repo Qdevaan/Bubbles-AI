@@ -1,3 +1,4 @@
+# Purpose: Consultant chat endpoints for the legacy server: Q&A session start and SSE streaming.
 """
 Consultant routes — blocking, streaming, and batch Q&A.
 
@@ -28,9 +29,7 @@ from app.utils.validation import validate_batch_questions
 router = APIRouter()
 
 
-# ══════════════════════════════════════════════════════════════════════════════
 # POST /ask_consultant  (blocking)
-# ══════════════════════════════════════════════════════════════════════════════
 
 @router.post("/ask_consultant")
 @limiter.limit("10/minute")
@@ -142,9 +141,7 @@ async def ask_consultant_endpoint(
     return {"answer": answer, "session_id": session_id}
 
 
-# ══════════════════════════════════════════════════════════════════════════════
 # POST /ask  (lightweight — graph quick-reference & query engine)
-# ══════════════════════════════════════════════════════════════════════════════
 
 class _AskRequest(ConsultantRequest):
     """Thin alias used by the graph query engine."""
@@ -227,9 +224,7 @@ async def ask_endpoint(
     }
 
 
-
 # POST /ask_consultant_stream  (SSE streaming)
-# ══════════════════════════════════════════════════════════════════════════════
 
 @router.post("/ask_consultant_stream")
 @limiter.limit("10/minute")
@@ -436,9 +431,7 @@ async def ask_consultant_stream_endpoint(
     )
 
 
-# ══════════════════════════════════════════════════════════════════════════════
 # POST /ask_consultant/batch
-# ══════════════════════════════════════════════════════════════════════════════
 
 @router.post("/ask_consultant/batch")
 @limiter.limit("5/minute")

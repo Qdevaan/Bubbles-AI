@@ -1,3 +1,4 @@
+# Purpose: Session lifecycle endpoints for the legacy server: start, save transcript chunks, end, and Wingman inference.
 ﻿"""
 Session routes — start, save, end, wingman transcript processing.
 
@@ -69,8 +70,6 @@ async def _warm_context_cache(user_id: str, session_id: str) -> None:
         await session_store.set_context_cache(session_id, {"graph": "", "vector": ""})
 
 
-
-
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 def _get_client_info(request: Request) -> dict:
@@ -104,9 +103,7 @@ async def _check_idempotency(key: str | None, table: str, field: str) -> str | N
     return None
 
 
-# ══════════════════════════════════════════════════════════════════════════════
 # POST /start_session
-# ══════════════════════════════════════════════════════════════════════════════
 
 @router.post("/start_session")
 @limiter.limit("10/minute")
@@ -168,9 +165,7 @@ async def start_session_endpoint(
     return {"session_id": session_id}
 
 
-# ══════════════════════════════════════════════════════════════════════════════
 # POST /process_transcript_wingman
-# ══════════════════════════════════════════════════════════════════════════════
 
 async def _wingman_post_process(
     *,
@@ -307,7 +302,6 @@ async def _wingman_post_process(
         print(f"❌ Wingman post-process error: {exc}")
 
 
-
 @router.post("/process_transcript_wingman")
 @limiter.limit("30/minute")
 async def process_transcript_wingman(
@@ -414,9 +408,7 @@ async def process_transcript_wingman(
     return {"advice": advice_text}
 
 
-# ══════════════════════════════════════════════════════════════════════════════
 # POST /save_session
-# ══════════════════════════════════════════════════════════════════════════════
 
 @router.post("/save_session")
 @limiter.limit("10/minute")
@@ -527,9 +519,7 @@ async def save_session_endpoint(
     return {"status": "success", "session_id": session_id}
 
 
-# ══════════════════════════════════════════════════════════════════════════════
 # POST /end_session
-# ══════════════════════════════════════════════════════════════════════════════
 
 @router.post("/end_session")
 @limiter.limit("10/minute")
@@ -645,9 +635,7 @@ async def end_session_endpoint(
     return {"status": "completed", "session_id": req.session_id}
 
 
-# ══════════════════════════════════════════════════════════════════════════════
 # POST /suggest_reply  (live 3-candidate suggestion engine)
-# ══════════════════════════════════════════════════════════════════════════════
 
 async def _load_session_context(
     user_id: str, session_id: str | None, transcript: str,

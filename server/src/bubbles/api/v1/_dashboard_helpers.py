@@ -1,3 +1,4 @@
+# Purpose: Private helper functions that assemble dashboard summary rows from multiple repo queries.
 """Pure helpers for the progress-dashboard route.
 
 No I/O, no DB, no HTTP. ``resolve_range`` turns the ``range`` query

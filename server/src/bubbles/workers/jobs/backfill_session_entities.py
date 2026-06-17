@@ -1,3 +1,4 @@
+# Purpose: Background job that re-runs entity extraction on old sessions missing knowledge-graph entries.
 """One-off backfill: populate ``session_entities`` for sessions that predate it.
 
 Alembic ``0002`` added ``session_entities``; it's filled going forward by the

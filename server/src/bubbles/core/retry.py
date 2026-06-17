@@ -1,3 +1,4 @@
+# Purpose: Async exponential-backoff retry decorator with jitter; used on all upstream LLM and Supabase calls.
 """Retry policies built on tenacity."""
 
 from __future__ import annotations

@@ -1,3 +1,4 @@
+# Purpose: Background job that runs sentiment analysis on session turns and flags emotional tone shifts.
 """Score per-turn sentiment for a session's stored turns, then re-run analytics.
 
 Reads ``session_logs`` rows that don't have a ``sentiment_score`` yet (user /

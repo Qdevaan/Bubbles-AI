@@ -1,3 +1,4 @@
+# Purpose: Strips AI self-disclosure phrases ("as an AI...") and normalises LLM output before returning it to the client.
 """Post-LLM text sanitisers used by the wingman advice loop.
 
 Roleplay output sometimes leaks the model's AI self-disclosure ("as an

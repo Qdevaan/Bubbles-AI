@@ -1,3 +1,4 @@
+# Purpose: UUID v7 generation helper for time-ordered, sortable primary keys across all Bubbles entities.
 """ID helpers.
 
 ULIDs everywhere. Lex-sortable, time-ordered, 128 bit, base32.

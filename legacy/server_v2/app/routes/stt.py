@@ -1,3 +1,4 @@
+# Purpose: WebSocket STT proxy for the legacy server that forwards audio to Deepgram and returns transcripts.
 """
 STT/TTS proxy routes.
 

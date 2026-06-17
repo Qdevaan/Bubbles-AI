@@ -1,3 +1,4 @@
+# Purpose: Background job that matches diarised speaker segments against enrolled profiles and labels them by name.
 """Speaker verification: is the audio the enrolled user, or someone else?
 
 Computes the ECAPA embedding of the query clip (heavy — worker only) and

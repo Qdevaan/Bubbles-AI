@@ -1,3 +1,4 @@
+# Purpose: ARQ worker configuration: Redis DSN, job timeout, max retry, and the full job function list.
 """ARQ worker configuration.
 
 Defines the ``WorkerSettings`` ARQ loads on ``arq bubbles.workers.arq_settings.WorkerSettings``.

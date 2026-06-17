@@ -1,3 +1,4 @@
+# Purpose: Repository for named entity records: upsert entities, link them to sessions, and search by user.
 """Entities + relations repo."""
 
 from __future__ import annotations

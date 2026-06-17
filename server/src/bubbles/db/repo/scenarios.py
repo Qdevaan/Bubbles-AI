@@ -1,3 +1,4 @@
+# Purpose: Repository for AI-generated roleplay scenarios: insert, list by user, and update completion state.
 """Scenarios repo — graph-generated roleplay practice."""
 
 from __future__ import annotations

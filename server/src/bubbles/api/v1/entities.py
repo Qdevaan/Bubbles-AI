@@ -1,3 +1,4 @@
+# Purpose: Entity graph endpoints: list, search, and retrieve named entities linked to a user's sessions.
 """Entity-aware ask + graph admin routes.
 
 ``ask_entity`` first runs entity extraction on the question, looks up the

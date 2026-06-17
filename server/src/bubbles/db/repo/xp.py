@@ -1,3 +1,4 @@
+# Purpose: Repository for atomic XP award inserts with idempotency-key deduplication to prevent double-awarding.
 """xp_transactions repo: append-only XP ledger with source dedup."""
 
 from __future__ import annotations

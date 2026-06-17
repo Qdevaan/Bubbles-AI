@@ -1,3 +1,4 @@
+# Purpose: Async ARQ Redis client factory used by route handlers to enqueue background jobs.
 """ARQ client for the API process.
 
 The API enqueues background jobs but never runs them, so it only needs an

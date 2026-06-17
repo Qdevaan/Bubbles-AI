@@ -1,3 +1,4 @@
+# Purpose: OpenTelemetry trace span context propagation helpers for distributed request tracing.
 """OpenTelemetry setup.
 
 OTLP/HTTP exporter to Grafana Tempo (or any OTLP collector). Auto-

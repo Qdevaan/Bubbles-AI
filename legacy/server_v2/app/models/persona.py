@@ -1,3 +1,4 @@
+# Purpose: Pydantic models for the Performa persona profile and session context used in Wingman prompts.
 """Persona models -- typed performa schema and per-meeting context."""
 
 from datetime import datetime

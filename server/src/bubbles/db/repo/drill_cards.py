@@ -1,3 +1,4 @@
+# Purpose: Repository for drill (flashcard) records: materialize cards from session mistakes, update review state.
 """drill_cards repo — Leitner-box spaced-repetition cards for past mistakes.
 
 One row per ``(user_id, rule_id, category)``. ``upsert_from_mistakes`` is

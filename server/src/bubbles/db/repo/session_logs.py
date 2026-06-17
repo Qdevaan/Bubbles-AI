@@ -1,3 +1,4 @@
+# Purpose: Repository for per-turn session log rows used by analytics and rolling-summarize workers.
 """Per-turn conversation log repo (``session_logs``)."""
 
 from __future__ import annotations

@@ -1,3 +1,4 @@
+# Purpose: Groq Cloud provider — used for JSON-mode entity extraction and SSE streaming fallback.
 """Groq adapter — OpenAI-compatible at api.groq.com/openai/v1."""
 
 from __future__ import annotations

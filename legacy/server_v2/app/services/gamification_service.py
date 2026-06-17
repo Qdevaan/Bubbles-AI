@@ -1,3 +1,4 @@
+# Purpose: XP awards, streak tracking, daily quest issuance, and achievement detection for the legacy server.
 """
 GamificationService — XP awards, streak tracking, daily quest management, and
 achievement detection.
@@ -65,9 +66,7 @@ class GamificationService:
     def __init__(self):
         print("🎮 Gamification Service: Initialized")
 
-    # ══════════════════════════════════════════════════════════════════════════
     # XP Awarding
-    # ══════════════════════════════════════════════════════════════════════════
 
     async def award_xp(
         self,
@@ -165,9 +164,7 @@ class GamificationService:
         except Exception as e:
             print(f"⚠️ GamificationService.award_xp error: {e}")
 
-    # ══════════════════════════════════════════════════════════════════════════
     # Streak Management
-    # ══════════════════════════════════════════════════════════════════════════
 
     async def update_streak(self, user_id: str) -> None:
         """
@@ -268,9 +265,7 @@ class GamificationService:
         except Exception as e:
             print(f"⚠️ GamificationService.update_streak error: {e}")
 
-    # ══════════════════════════════════════════════════════════════════════════
     # Quest Management
-    # ══════════════════════════════════════════════════════════════════════════
 
     async def get_or_assign_daily_quests(self, user_id: str) -> List[Dict]:
         """
@@ -567,9 +562,7 @@ class GamificationService:
         except Exception as e:
             print(f"⚠️ GamificationService.increment_quest_progress error: {e}")
 
-    # ══════════════════════════════════════════════════════════════════════════
     # Mission-Type Handlers (Phase 2)
-    # ══════════════════════════════════════════════════════════════════════════
 
     async def submit_question_answer(
         self,
@@ -830,9 +823,7 @@ class GamificationService:
             "criteria_met": state["criteria_met"],
         }
 
-    # ══════════════════════════════════════════════════════════════════════════
     # Rewards (Phase 3)
-    # ══════════════════════════════════════════════════════════════════════════
 
     async def list_rewards(self, user_id: str) -> Dict[str, Any]:
         """
@@ -999,9 +990,7 @@ class GamificationService:
             "total_xp": total_xp,
         }
 
-    # ══════════════════════════════════════════════════════════════════════════
     # Leaderboards (Phase 4)
-    # ══════════════════════════════════════════════════════════════════════════
 
     async def get_leaderboard(
         self,
@@ -1201,9 +1190,7 @@ class GamificationService:
         except Exception:
             return 0
 
-    # ══════════════════════════════════════════════════════════════════════════
     # Achievement Detection
-    # ══════════════════════════════════════════════════════════════════════════
 
     async def check_achievements(self, user_id: str) -> List[Dict[str, Any]]:
         """
@@ -1353,9 +1340,7 @@ class GamificationService:
             print(f"⚠️ GamificationService._get_user_stats error: {e}")
         return stats
 
-    # ══════════════════════════════════════════════════════════════════════════
     # Profile & Quests Response
-    # ══════════════════════════════════════════════════════════════════════════
 
     async def get_gamification_profile(self, user_id: str) -> Dict:
         """
@@ -1460,9 +1445,7 @@ class GamificationService:
             print(f"⚠️ GamificationService.get_gamification_profile error: {e}")
             return {}
 
-    # ══════════════════════════════════════════════════════════════════════════
     # Quest Definitions Seeder (idempotent startup)
-    # ══════════════════════════════════════════════════════════════════════════
 
     async def seed_quest_definitions(self) -> None:
         """

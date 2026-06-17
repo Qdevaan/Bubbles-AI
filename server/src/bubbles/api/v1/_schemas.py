@@ -1,3 +1,4 @@
+# Purpose: Shared Pydantic request/response schemas used across multiple v1 route modules.
 """Wire-format Pydantic models for /v1 routes.
 
 All schemas use ``extra="forbid"`` so unknown fields surface as 422 instead

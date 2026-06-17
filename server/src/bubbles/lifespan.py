@@ -1,3 +1,4 @@
+# Purpose: Module: lifespan.
 """Application lifespan.
 
 Startup order:

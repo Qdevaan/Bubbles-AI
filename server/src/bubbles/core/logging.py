@@ -1,3 +1,4 @@
+# Purpose: Configures structlog with JSON output and injects request-ID into every log record.
 """Structured logging.
 
 structlog → JSON → stdout. Request-id and user-id are bound into context

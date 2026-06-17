@@ -1,3 +1,4 @@
+# Purpose: UTC-aware datetime helpers: utcnow(), parse_iso(), and period boundary calculations.
 """Timezone-aware time helpers.
 
 Never use naive datetimes. Always UTC at the boundary; convert at display.

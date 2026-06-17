@@ -1,3 +1,4 @@
+# Purpose: Extracts named entities from transcripts via LLM and persists them to the Supabase entity table.
 """
 EntityService — entity CRUD, fuzzy matching, event/conflict/task/highlight persistence.
 Uses db_final schema: entities, entity_attributes, entity_relations, highlights, events, tasks.

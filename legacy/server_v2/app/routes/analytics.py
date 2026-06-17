@@ -1,3 +1,4 @@
+# Purpose: Analytics endpoints for the legacy server: per-user session stats and skill trend queries.
 """
 Analytics routes — feedback, session analytics, coaching reports.
 
@@ -24,9 +25,7 @@ from app.utils.auth_guard import get_verified_user, VerifiedUser, verify_ownersh
 router = APIRouter()
 
 
-# ══════════════════════════════════════════════════════════════════════════════
 # POST /save_feedback
-# ══════════════════════════════════════════════════════════════════════════════
 
 @router.post("/save_feedback")
 @limiter.limit("30/minute")
@@ -75,9 +74,7 @@ async def save_feedback(request: Request, req: FeedbackRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# ══════════════════════════════════════════════════════════════════════════════
 # GET /session_analytics/{session_id}
-# ══════════════════════════════════════════════════════════════════════════════
 
 @router.get("/session_analytics/{session_id}")
 @limiter.limit("20/minute")
@@ -185,9 +182,7 @@ async def get_session_analytics(request: Request, session_id: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# ══════════════════════════════════════════════════════════════════════════════
 # GET /coaching_report/{session_id}
-# ══════════════════════════════════════════════════════════════════════════════
 
 @router.get("/coaching_report/{session_id}")
 @limiter.limit("10/minute")
@@ -299,9 +294,7 @@ async def get_coaching_report(request: Request, session_id: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# ══════════════════════════════════════════════════════════════════════════════
 # GET /session_replay/{session_id}  [NEW]
-# ══════════════════════════════════════════════════════════════════════════════
 
 @router.get("/session_replay/{session_id}")
 @limiter.limit("20/minute")
@@ -344,9 +337,7 @@ async def get_session_replay(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# ══════════════════════════════════════════════════════════════════════════════
 # GET /digest/{user_id}  [NEW]
-# ══════════════════════════════════════════════════════════════════════════════
 
 @router.get("/digest/{user_id}")
 @limiter.limit("20/minute")
@@ -417,9 +408,7 @@ async def get_digest(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# ══════════════════════════════════════════════════════════════════════════════
 # GET /communication_trends/{user_id}  [NEW]
-# ══════════════════════════════════════════════════════════════════════════════
 
 @router.get("/communication_trends/{user_id}")
 @limiter.limit("10/minute")
@@ -499,9 +488,7 @@ async def get_communication_trends(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# ══════════════════════════════════════════════════════════════════════════════
 # Background analytics computation
-# ══════════════════════════════════════════════════════════════════════════════
 
 async def _compute_session_analytics(session_id: str, user_id: str):
     """Background task: compute aggregated per-session metrics."""

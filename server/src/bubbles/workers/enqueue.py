@@ -1,3 +1,4 @@
+# Purpose: Typed enqueue helpers for every background job — single place to add/change job payloads.
 """Job-enqueue helpers callable from API routes.
 
 Each helper is a thin wrapper over ``ArqRedis.enqueue_job`` so callers don't

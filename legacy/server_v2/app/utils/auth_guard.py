@@ -1,3 +1,4 @@
+# Purpose: FastAPI dependency that verifies the Supabase JWT Bearer token and returns the authenticated user.
 """
 JWT Auth Guard — FastAPI Depends() dependency for Supabase JWT verification.
 

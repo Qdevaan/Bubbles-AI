@@ -1,3 +1,4 @@
+# Purpose: NetworkX-based in-memory knowledge graph: loads/saves user entity graphs and runs context queries.
 """
 GraphService — manages per-user knowledge graphs backed by NetworkX.
 Persists graph data to the `knowledge_graphs` table in Supabase.

@@ -1,3 +1,4 @@
+# Purpose: Async context manager that records wall-clock latency and emits it as a Prometheus histogram observation.
 """Pure performance-summary math — no I/O.
 
 Re-derives ``server_v2``'s adaptive-difficulty composite from the metrics v5

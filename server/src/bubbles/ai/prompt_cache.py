@@ -1,3 +1,4 @@
+# Purpose: In-process LRU cache for rendered prompt strings to avoid redundant template evaluation on every request.
 """Prompt-response cache.
 
 Keys are blake3 hashes of (model, template_id, rendered_context). Streamed

@@ -1,3 +1,4 @@
+# Purpose: Background job that dispatches push notifications for streak reminders and upcoming quest deadlines.
 """Daily reminder dispatch.
 
 Selects users whose reminder hour matches the current UTC hour and whose

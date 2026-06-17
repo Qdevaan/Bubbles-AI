@@ -1,3 +1,4 @@
+# Purpose: Async SQLAlchemy engine and session-pool factory; configured via Settings for prod vs. test.
 """Async Postgres pool to Supabase via PgBouncer.
 
 PgBouncer transaction mode requires:

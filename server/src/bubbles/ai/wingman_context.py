@@ -1,3 +1,4 @@
+# Purpose: Assembles the live Wingman coaching context from graph entities, vector memories, and the current transcript.
 """Shared context builders for the wingman advice + suggestion endpoints.
 
 Both ``process_transcript_wingman`` and ``suggest_reply`` need the same

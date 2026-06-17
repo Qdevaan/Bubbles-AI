@@ -1,3 +1,4 @@
+# Purpose: FastAPI dependency that extracts and validates the authenticated user from the Bearer JWT.
 """``CurrentUser`` FastAPI dependency.
 
 The dependency is the single auth path. Routes never parse Authorization

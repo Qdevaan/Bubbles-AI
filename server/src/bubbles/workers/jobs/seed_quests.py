@@ -1,3 +1,4 @@
+# Purpose: Background job that issues today's daily quests to a user if none have been assigned yet.
 """Seed default quest definitions if none exist."""
 
 from __future__ import annotations

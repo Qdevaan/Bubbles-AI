@@ -1,3 +1,4 @@
+# Purpose: Abstract base class defining the provider interface (complete, stream, embed) that all providers implement.
 """LLM provider protocol + shared types.
 
 We talk to providers over HTTP directly (httpx), not via vendor SDKs:

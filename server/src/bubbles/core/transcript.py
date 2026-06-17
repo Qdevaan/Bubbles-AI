@@ -1,3 +1,4 @@
+# Purpose: Transcript normalisation: strips filler words, merges diarised speaker turns, and caps chunk length.
 """Pure transcript parsing — turn/word counts from a plain-text transcript.
 
 v5 does not persist per-turn ``session_logs``; the post-session worker only

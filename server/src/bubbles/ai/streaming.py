@@ -1,3 +1,4 @@
+# Purpose: Async SSE streaming helper that wraps provider responses into a consistent token-by-token generator.
 """Server-Sent Events helpers for streaming endpoints.
 
 Wire format: ``event: <name>\ndata: <json>\n\n``. Heartbeats are sent as

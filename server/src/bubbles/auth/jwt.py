@@ -1,3 +1,4 @@
+# Purpose: JWT decode and verification logic using the Supabase JWT secret; raises 401 on invalid tokens.
 """Supabase JWT verification with cached JWKS.
 
 JWKS is fetched once and cached in-process. On a ``kid`` miss we refresh

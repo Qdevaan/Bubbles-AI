@@ -1,3 +1,4 @@
+# Purpose: Pydantic request body schemas for session, consultant, wingman, and voice endpoints.
 """
 Pydantic request schemas — one place for all POST body models.
 """

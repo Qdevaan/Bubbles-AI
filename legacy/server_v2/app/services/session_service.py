@@ -1,3 +1,4 @@
+# Purpose: Manages session records in Supabase: create, update transcript, and finalise sessions.
 """
 SessionService — session lifecycle, turn logging, consultant history.
 Uses the unified db_final schema (sessions, session_logs, consultant_logs, sentiment_logs).

@@ -1,3 +1,4 @@
+# Purpose: Async in-process TTL cache backed by asyncio; used for persona lookups and prompt renders.
 """Two-tier cache: per-process TTLCache (L1) + Redis (L2).
 
 Values are JSON-encoded. Keys must be opaque strings produced by ``hashing``.

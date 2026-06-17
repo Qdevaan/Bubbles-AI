@@ -1,3 +1,4 @@
+# Purpose: Repository for Performa persona records: create, fetch by user_id, and update communication profile.
 """User personas repo (subsystem A)."""
 
 from __future__ import annotations

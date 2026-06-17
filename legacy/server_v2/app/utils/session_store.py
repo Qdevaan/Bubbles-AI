@@ -1,3 +1,4 @@
+# Purpose: In-process dictionary that tracks active session metadata between start and end calls.
 """
 Session Store — Redis-backed abstraction with in-memory fallback.
 
@@ -33,9 +34,7 @@ _SESSION_TTL_SECONDS = 6 * 60 * 60  # 6 hours
 _REDIS_KEY_PREFIX = "bubbles:session:"
 
 
-# ══════════════════════════════════════════════════════════════════════════════
 # In-Memory Fallback Store
-# ══════════════════════════════════════════════════════════════════════════════
 
 class _InMemoryStore:
     """Thread-safe in-memory fallback. Single-worker only."""
@@ -108,9 +107,7 @@ class _InMemoryStore:
         return to_remove
 
 
-# ══════════════════════════════════════════════════════════════════════════════
 # Redis Store
-# ══════════════════════════════════════════════════════════════════════════════
 
 class _RedisStore:
     """Redis-backed session store. Supports multiple Uvicorn workers."""
@@ -221,9 +218,7 @@ class _RedisStore:
         return 0
 
 
-# ══════════════════════════════════════════════════════════════════════════════
 # Smart Session Store — auto-selects backend
-# ══════════════════════════════════════════════════════════════════════════════
 
 class SessionStore:
     """

@@ -1,3 +1,4 @@
+# Purpose: Module: config.
 """
 Centralized configuration — pydantic-settings BaseSettings.
 Missing required fields (SUPABASE_URL, SUPABASE_SERVICE_KEY, GROQ_API_KEY)

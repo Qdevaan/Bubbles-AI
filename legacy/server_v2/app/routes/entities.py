@@ -1,3 +1,4 @@
+# Purpose: Entity graph endpoints for the legacy server: list and search knowledge-graph nodes by user.
 """
 Entity routes — entity query, graph export, deletion endpoints, entity timeline.
 
@@ -21,9 +22,7 @@ from app.utils.auth_guard import get_verified_user, VerifiedUser, verify_ownersh
 router = APIRouter()
 
 
-# ══════════════════════════════════════════════════════════════════════════════
 # POST /ask_entity
-# ══════════════════════════════════════════════════════════════════════════════
 
 @router.post("/ask_entity")
 @limiter.limit("15/minute")
@@ -108,9 +107,7 @@ async def ask_entity_endpoint(request: Request, req: EntityQueryRequest):
         return {"answer": f"Error: {e}", "entity": None}
 
 
-# ══════════════════════════════════════════════════════════════════════════════
 # GET /graph_export/{user_id}
-# ══════════════════════════════════════════════════════════════════════════════
 
 @router.get("/graph_export/{user_id}")
 async def get_graph_export(user_id: str):
@@ -167,9 +164,7 @@ async def get_graph_export(user_id: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# ══════════════════════════════════════════════════════════════════════════════
 # GET /entity_timeline/{entity_id}  [NEW]
-# ══════════════════════════════════════════════════════════════════════════════
 
 @router.get("/entity_timeline/{entity_id}")
 @limiter.limit("20/minute")
@@ -246,9 +241,7 @@ async def get_entity_timeline(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# ══════════════════════════════════════════════════════════════════════════════
 # DELETE /entities/{entity_id}  — requires auth + ownership
-# ══════════════════════════════════════════════════════════════════════════════
 
 @router.delete("/entities/{entity_id}")
 @limiter.limit("10/minute")
@@ -293,9 +286,7 @@ async def delete_entity(
     return {"status": "deleted", "entity_id": entity_id}
 
 
-# ══════════════════════════════════════════════════════════════════════════════
 # DELETE /sessions/{session_id}  — requires auth + ownership
-# ══════════════════════════════════════════════════════════════════════════════
 
 @router.delete("/sessions/{session_id}")
 @limiter.limit("10/minute")
@@ -330,9 +321,7 @@ async def delete_session(
     return {"status": "deleted", "session_id": session_id}
 
 
-# ══════════════════════════════════════════════════════════════════════════════
 # DELETE /memories/{memory_id}  — requires auth + ownership
-# ══════════════════════════════════════════════════════════════════════════════
 
 @router.delete("/memories/{memory_id}")
 @limiter.limit("10/minute")

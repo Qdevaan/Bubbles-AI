@@ -1,3 +1,4 @@
+# Purpose: Performance analytics endpoints that surface session talk-ratio and filler-word metrics.
 """
 Performance summary route — AI-driven adaptive difficulty engine.
 

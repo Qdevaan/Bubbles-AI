@@ -1,3 +1,4 @@
+# Purpose: Background job that generates sentence embeddings for session transcripts and stores them for vector search.
 """Embed memories that have content but no vector yet."""
 
 from __future__ import annotations

@@ -1,3 +1,4 @@
+# Purpose: SQLAlchemy ORM models mirroring the Supabase PostgreSQL schema for all Bubbles tables.
 """Domain row models.
 
 Frozen dataclasses — fast to construct, immutable, no business logic. Maps

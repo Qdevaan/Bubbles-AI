@@ -1,3 +1,4 @@
+# Purpose: Repository for session analytics rows: upsert per-session stats and query trend series.
 """Analytics repo — session_analytics, coaching_reports, trends, digest reads.
 
 ``coaching_reports`` has no unique constraint on ``session_id`` in the live

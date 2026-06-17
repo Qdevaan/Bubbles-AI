@@ -1,3 +1,4 @@
+# Purpose: Generates AI roleplay scenario prompts tailored to the user's persona and past session history.
 """Personalized roleplay scenario generator.
 
 Builds practice scenarios from the user's knowledge graph (people, open

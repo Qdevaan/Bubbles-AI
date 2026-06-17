@@ -1,3 +1,4 @@
+# Purpose: Registers request-ID injection, correlation-ID propagation, and response-time logging middleware.
 """Request middleware: id, timing, body-size cap, security headers."""
 
 from __future__ import annotations

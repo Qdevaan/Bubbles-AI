@@ -1,3 +1,4 @@
+# Purpose: Persona endpoints: create, read, and update the user's Performa communication profile.
 """User persona routes."""
 
 from __future__ import annotations

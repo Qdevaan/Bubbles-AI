@@ -1,3 +1,4 @@
+# Purpose: Google Gemini provider — used for Consultant Q&A and long-context session analysis.
 """Gemini adapter — Google Generative Language API v1beta.
 
 Reference shapes:

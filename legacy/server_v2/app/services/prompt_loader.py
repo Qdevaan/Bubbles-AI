@@ -1,3 +1,4 @@
+# Purpose: Loads Jinja2 prompt templates from disk and renders persona and scenario context blocks.
 """Jinja env + render helpers for persona prompt fragments."""
 
 from pathlib import Path

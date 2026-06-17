@@ -1,3 +1,4 @@
+# Purpose: Background job that uses the user's persona and entity graph to generate personalised roleplay scenarios.
 """generate_scenarios worker — tops up a user's roleplay scenario feed.
 
 Enqueued from the end_session fan-out. Self-throttling: a no-op when the

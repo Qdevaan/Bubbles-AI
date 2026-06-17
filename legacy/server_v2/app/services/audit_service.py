@@ -1,3 +1,4 @@
+# Purpose: Writes immutable audit-log rows to Supabase for session start/end and consultant interactions.
 """
 AuditService — lightweight fire-and-forget audit logging to the audit_log table.
 Records every significant server action for compliance and debugging.

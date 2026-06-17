@@ -1,3 +1,4 @@
+# Purpose: Repository queries that power the dashboard endpoint (recent sessions, today XP, active quests).
 """Dashboard repo — on-the-fly time-bucketed aggregates for the progress view.
 
 No writes. Every series query uses ``generate_series(start, end, step)``

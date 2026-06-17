@@ -1,3 +1,4 @@
+# Purpose: Sentry SDK initialisation and scope-enrichment helpers (user context, release tag).
 """Sentry initialisation.
 
 No-op when DSN is unset. Production deploys must set DSN — Settings

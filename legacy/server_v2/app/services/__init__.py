@@ -1,3 +1,4 @@
+# Purpose: Instantiates and exports all service singletons used by the legacy route handlers.
 """
 Service singletons — initialized once and shared across all routes.
 Import from here: `from app.services import graph_svc, vector_svc, brain_svc,
@@ -13,7 +14,6 @@ from app.services.audit_service import AuditService
 from app.services.gamification_service import GamificationService
 from app.services.task_dispatcher_service import TaskDispatcherService
 
-# Initialize all services
 graph_svc = GraphService()
 vector_svc = VectorService()
 brain_svc = BrainService()

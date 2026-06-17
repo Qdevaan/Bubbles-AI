@@ -1,3 +1,4 @@
+# Purpose: Extracts named entities, relations, events, and tasks from session transcripts using structured LLM output.
 """Structured-output extraction tasks."""
 
 from __future__ import annotations
