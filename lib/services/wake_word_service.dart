@@ -1,19 +1,18 @@
-// Purpose: Wraps the Porcupine SDK to listen for the 'Hey Bubbles' wake word and fire a callback when detected.
-import 'dart:io';
+// Purpose: Wraps the DaVoice SDK (flutter_wake_word) to listen for the 'Hey Bubbles' wake word and fire a callback when detected.
+import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:porcupine_flutter/porcupine_manager.dart';
-import 'package:porcupine_flutter/porcupine_error.dart';
+import 'package:flutter_wake_word/flutter_wake_word.dart';
+import 'package:permission_handler/permission_handler.dart';
 
-/// Service that wraps Picovoice Porcupine for on-device wake word detection.
+/// Service that wraps DaVoice for on-device wake word detection.
 ///
-/// Uses the custom "Hey Bubbles" .ppn model for efficient, always-on,
-/// offline wake word detection — far more reliable and battery-friendly
-/// than the previous speech_to_text approach.
+/// Uses the custom "Hey Bubbles" .onnx model for efficient, always-on,
+/// offline wake word detection.
 class WakeWordService extends ChangeNotifier with WidgetsBindingObserver {
-  PorcupineManager? _porcupineManager;
+  KeyWordFlutterPC? _wakewordDetector;
+  StreamSubscription<Map<String, dynamic>>? _subscription;
+
   bool _isListening = false;
   bool _isInitialized = false;
   bool _isInitializing = false; // guard against concurrent init calls
@@ -43,156 +42,114 @@ class WakeWordService extends ChangeNotifier with WidgetsBindingObserver {
       if (_isListening) {
         _wasListeningBeforePause = true;
         stopListening();
-        debugPrint('🎙️ Porcupine: Paused listening due to app backgrounding');
+        debugPrint('🎙️ DaVoice: Paused listening due to app backgrounding');
       }
     } else if (state == AppLifecycleState.resumed) {
       if (_wasListeningBeforePause && !_isListening && _isInitialized) {
         startListening();
         _wasListeningBeforePause = false;
-        debugPrint('🎙️ Porcupine: Resumed listening after app foregrounding');
+        debugPrint('🎙️ DaVoice: Resumed listening after app foregrounding');
       }
     }
   }
 
-  /// Creates the PorcupineManager from the custom .ppn asset.
+  /// Creates the DaVoice wake word instance and sets the license key.
   /// Must be called once before [startListening].
   Future<void> init() async {
     if (_isInitialized || _isInitializing) return;
     _isInitializing = true;
 
-    final accessKey = dotenv.env['PICOVOICE_ACCESS_KEY'] ?? '';
-    if (accessKey.isEmpty || accessKey == 'YOUR_PICOVOICE_ACCESS_KEY_HERE') {
-      debugPrint('⚠️ Porcupine: No valid PICOVOICE_ACCESS_KEY found in .env');
+    final licenseKey = dotenv.env['DAVOICE_LICENSE_KEY'] ?? '';
+    if (licenseKey.isEmpty) {
+      debugPrint('⚠️ DaVoice: No valid DAVOICE_LICENSE_KEY found in .env');
       _isInitializing = false;
       return;
     }
 
     try {
-      // Flutter assets live inside the APK at flutter_assets/, which the
-      // Porcupine native SDK cannot resolve directly from a path string.
-      // Extract the .ppn asset to the app's temp directory and pass that path.
-      final keywordPath = await _extractAssetToFile(
-        'assets/wake_word/hey-bubbles_en_android_v4_0_0.ppn',
-        'hey-bubbles.ppn',
-      );
+      // Ensure microphone permission is granted
+      final micStatus = await Permission.microphone.status;
+      if (!micStatus.isGranted) {
+        final requested = await Permission.microphone.request();
+        if (!requested.isGranted) {
+          debugPrint('❌ DaVoice: Microphone permission was not granted.');
+          onError?.call('Microphone permission required for wake word detection.');
+          _isInitializing = false;
+          return;
+        }
+      }
 
-      if (keywordPath == null) {
-        debugPrint('❌ Porcupine: Failed to extract .ppn asset to temp file');
+      final String instanceId = 'bubbles_wakeword';
+      // Path/filename of the ONNX model bundle on device
+      final String modelName = 'hey_bubbles.onnx';
+
+      _wakewordDetector = createKeyWordFlutterPCInstance(instanceId);
+
+      // Set license key
+      final licenseSuccess = await _wakewordDetector!.setKeywordDetectionLicense(licenseKey);
+      if (!licenseSuccess) {
+        debugPrint('❌ DaVoice: License activation failed');
+        onError?.call('DaVoice wake word license activation failed.');
         _isInitializing = false;
         return;
       }
 
-      _porcupineManager = await PorcupineManager.fromKeywordPaths(
-        accessKey,
-        [keywordPath],
-        _onWakeWordDetected,
-        sensitivities: [0.7], // 0.0 (least sensitive) to 1.0 (most sensitive)
-        errorCallback: _onPorcupineError,
+      // Create wake word instance on native side
+      // threshold: 0.999 (default for DaVoice)
+      // bufferCount: 3
+      // msBetweenCallbacks: 1000
+      await _wakewordDetector!.createInstanceMulti(
+        instanceId,
+        [modelName],
+        const [0.999],
+        const [3],
+        const [1000],
       );
+
+      // Subscribe to detection events
+      _subscription = _wakewordDetector!.onKeywordDetectionEvent().listen((event) {
+        _onWakeWordEvent(event);
+      });
+
       _isInitialized = true;
-      debugPrint('🎙️ Porcupine: Initialized successfully');
-    } on PorcupineException catch (e) {
-      debugPrint('❌ Porcupine init error: ${e.message}');
-      onError?.call('Wake word init failed: ${e.message}');
-      // Retry once after a short delay
-      _isInitializing = false;
-      await Future.delayed(const Duration(seconds: 2));
-      await _retryInit();
-      return;
+      debugPrint('🎙️ DaVoice: Initialized successfully');
     } catch (e) {
-      debugPrint('❌ Porcupine unexpected error: $e');
-      onError?.call('Wake word init failed unexpectedly');
+      debugPrint('❌ DaVoice init error: $e');
+      onError?.call('Wake word init failed: $e');
     } finally {
       _isInitializing = false;
-    }
-  }
-
-  Future<void> _retryInit() async {
-    if (_isInitialized || _isInitializing) return;
-    debugPrint('🔄 Porcupine: Retrying initialization...');
-    _isInitializing = true;
-
-    final accessKey = dotenv.env['PICOVOICE_ACCESS_KEY'] ?? '';
-    if (accessKey.isEmpty) {
-      _isInitializing = false;
-      return;
-    }
-
-    try {
-      final keywordPath = await _extractAssetToFile(
-        'assets/wake_word/hey-bubbles_en_android_v4_0_0.ppn',
-        'hey-bubbles.ppn',
-      );
-      if (keywordPath == null) {
-        _isInitializing = false;
-        return;
-      }
-      _porcupineManager = await PorcupineManager.fromKeywordPaths(
-        accessKey,
-        [keywordPath],
-        _onWakeWordDetected,
-        sensitivities: [0.7],
-        errorCallback: _onPorcupineError,
-      );
-      _isInitialized = true;
-      debugPrint('🎙️ Porcupine: Initialized on retry');
-    } catch (e) {
-      debugPrint('❌ Porcupine: Retry init also failed: $e');
-      onError?.call('Wake word initialization failed after retry');
-    } finally {
-      _isInitializing = false;
-    }
-  }
-
-  /// Copies a Flutter asset to the app's temp directory so the Porcupine
-  /// native SDK can access it via a real filesystem path.
-  Future<String?> _extractAssetToFile(String assetPath, String fileName) async {
-    try {
-      final byteData = await rootBundle.load(assetPath);
-      final tempDir = await getApplicationSupportDirectory();
-      final file = File('${tempDir.path}/$fileName');
-      await file.writeAsBytes(
-        byteData.buffer.asUint8List(
-          byteData.offsetInBytes,
-          byteData.lengthInBytes,
-        ),
-        flush: true,
-      );
-      debugPrint('🎙️ Porcupine: Extracted .ppn to ${file.path}');
-      return file.path;
-    } catch (e) {
-      debugPrint('❌ Porcupine: Asset extraction error: $e');
-      return null;
     }
   }
 
   // Detection Callback
 
-  void _onWakeWordDetected(int keywordIndex) {
-    debugPrint('🎙️ Porcupine: Wake word detected! (index: $keywordIndex)');
+  void _onWakeWordEvent(Map<String, dynamic> event) {
+    final phrase = event['phrase']?.toString() ?? event['model']?.toString() ?? 'Hey Bubbles';
+    debugPrint('🎙️ DaVoice: Wake word detected! ($phrase)');
     // Notify the VoiceAssistantService
     onWakeWordDetected?.call();
-  }
-
-  void _onPorcupineError(PorcupineException error) {
-    debugPrint('❌ Porcupine runtime error: ${error.message}');
-    onError?.call('Wake word error: ${error.message}');
   }
 
   // Listening Control
 
   /// Start listening for the wake word.
-  /// Porcupine handles its own audio capture via flutter_voice_processor.
   Future<void> startListening() async {
     if (!_isInitialized || _isListening) return;
 
     try {
-      await _porcupineManager?.start();
-      _isListening = true;
-      debugPrint('🎙️ Porcupine: Listening for "Hey Bubbles"...');
-      notifyListeners();
-    } on PorcupineException catch (e) {
-      debugPrint('❌ Porcupine start error: ${e.message}');
+      final success = await _wakewordDetector!.startKeywordDetection(
+        'bubbles_wakeword',
+        0.999,
+      );
+      if (success) {
+        _isListening = true;
+        debugPrint('🎙️ DaVoice: Listening for "Hey Bubbles"...');
+        notifyListeners();
+      } else {
+        debugPrint('❌ DaVoice: startKeywordDetection returned false');
+      }
+    } catch (e) {
+      debugPrint('❌ DaVoice start error: $e');
     }
   }
 
@@ -201,12 +158,12 @@ class WakeWordService extends ChangeNotifier with WidgetsBindingObserver {
     if (!_isListening) return;
 
     try {
-      await _porcupineManager?.stop();
+      await _wakewordDetector!.stopKeywordDetection('bubbles_wakeword');
       _isListening = false;
-      debugPrint('🎙️ Porcupine: Stopped listening');
+      debugPrint('🎙️ DaVoice: Stopped listening');
       notifyListeners();
-    } on PorcupineException catch (e) {
-      debugPrint('❌ Porcupine stop error: ${e.message}');
+    } catch (e) {
+      debugPrint('❌ DaVoice stop error: $e');
     }
   }
 
@@ -215,8 +172,9 @@ class WakeWordService extends ChangeNotifier with WidgetsBindingObserver {
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    _porcupineManager?.delete();
-    _porcupineManager = null;
+    _subscription?.cancel();
+    _wakewordDetector?.destroyInstance();
+    _wakewordDetector = null;
     _isInitialized = false;
     _isListening = false;
     super.dispose();

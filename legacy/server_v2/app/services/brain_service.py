@@ -1,5 +1,5 @@
 # Purpose: Multi-provider LLM inference service for the legacy server: routes Wingman, Consultant, and extraction calls.
-﻿"""
+"""
 BrainService — Multi-provider LLM inference layer.
 
 Provider routing:

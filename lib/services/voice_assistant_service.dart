@@ -1,4 +1,4 @@
-// Purpose: End-to-end voice assistant pipeline — wake word (Porcupine) → STT → Wingman API → Deepgram Aura TTS playback.
+// Purpose: End-to-end voice assistant pipeline — wake word (DaVoice) → STT → Wingman API → Deepgram Aura TTS playback.
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -244,7 +244,7 @@ class VoiceAssistantService extends ChangeNotifier {
     await prefs.setBool(_wakeWordKey, enabled);
 
     if (enabled && _isActive) {
-      // Ensure Porcupine is initialised before trying to start
+      // Ensure DaVoice is initialised before trying to start
       await _wakeWordService.init();
       await _wakeWordService.startListening();
     } else {
@@ -252,12 +252,12 @@ class VoiceAssistantService extends ChangeNotifier {
     }
   }
 
-  // Wake Word Detected (Porcupine Callback)
+  // Wake Word Detected (DaVoice Callback)
 
   void _onWakeWordDetected() async {
-    debugPrint('🎙️ ✅ Wake word "Hey Bubbles" detected via Porcupine!');
+    debugPrint('🎙️ ✅ Wake word "Hey Bubbles" detected via DaVoice!');
 
-    // Stop Porcupine while we capture the user's command
+    // Stop DaVoice while we capture the user's command
     // (avoids microphone conflict with speech_to_text)
     await _wakeWordService.stopListening();
 
@@ -510,7 +510,7 @@ class VoiceAssistantService extends ChangeNotifier {
       _stt.stop();
     }
     notifyListeners();
-    // Restart Porcupine wake word listening
+    // Restart DaVoice wake word listening
     if (_isActive && _isWakeWordEnabled) {
       Future.delayed(const Duration(milliseconds: 500), () {
         _wakeWordService.startListening();

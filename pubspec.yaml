@@ -30,10 +30,9 @@ dependencies:
   flutter_dotenv: ^6.0.1
   flutter_tts: ^4.2.0
   speech_to_text: ^7.0.0
-  porcupine_flutter: ^4.0.0
+  flutter_wake_word: ^0.0.44
   audioplayers: ^6.5.1
   path_provider: ^2.1.5
-  flutter_voice_processor: ^1.1.2
   flutter_sound: ^9.2.13
   connectivity_plus: ^7.0.0
   flutter_image_compress: ^2.4.0
