@@ -101,6 +101,8 @@ docs/*
 !docs/screenshots/**
 !docs/logos/
 !docs/logos/**
+!docs/downloads/
+!docs/downloads/**
 todos.md
 .vscode/.worktrees/
 
